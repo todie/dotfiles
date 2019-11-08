@@ -1,0 +1,53 @@
+[merge]
+  tool = nvimdiff
+
+[mergetool "nvimdiff"]
+  cmd = nvim -f -c "Gdiff" "$MERGED" 
+
+[difftool]
+  prompt = false
+
+[diff]
+  tool = nvimdiff
+
+[credential]
+  helper = "cache --timeout 30000"
+
+[alias]
+  # status
+  ls           = "!git status -suno"
+  ls-modified  = "!git status --porcelain -uno | awk 'match($1, /M/) {print $2}'"
+  ls-added     = "!git status --porcelain -uno | awk 'match($1, /A/) {print $2}'"
+  ls-deleted   = "!git status --porcelain -uno | awk 'match($1, /D/) {print $2}'"
+  ls-renamed   = "!git status --porcelain -uno | awk 'match($1, /R/) {print $2}'"
+  ls-copied    = "!git status --porcelain -uno | awk 'match($1, /C/) {print $2}'"
+  ls-updated   = "!git status --porcelain -uno | awk 'match($1, /U/) {print $2}'"
+  ls-staged    = "!git status --porcelain -uno | grep -P '^[MA]' | awk '{ print $2 }'"
+  ls-untracked = "!git status --porcelain -uall | awk '$1 == \"??\" {print $2}'"
+
+  # display
+  hist  = log --pretty=format:\"%h %ad | %s%d [%an]\" --graph --date=short
+  graph = log --pretty=format:\"%h %ad | %s%d [%an]\" --graph --date=short
+
+  # log
+  log-short = log --pretty=format:"%C(yellow)%h%Cred%d\\ %Creset%s%Cblue\\ [%cn]" --decorate
+  log-long  = log --pretty=format:"%C(yellow)%h%Cred%d\\ %Creset%s%Cblue\\ [%cn]" --decorate --numstat
+  log-nocolor = log --pretty=format:"%h\\ %s\\ [%cn]"
+
+  log-files = log -u
+
+  diff-cached = diff --cached HEAD^
+  diff-color  = diff --color
+
+[user]
+  name = Christian Todie
+  email = christian.todie@gmail.com
+
+[core]
+  editor = nvim
+  page   = less -r 
+
+[color]
+  pager = yes
+
+# vim: ft=gitconfig
