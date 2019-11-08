@@ -1,0 +1,6 @@
+let g:netrw_dirhistmax  =10
+let g:netrw_dirhist_cnt =4
+let g:netrw_dirhist_1='/home/ctodie/.local/src/binutils-gdb'
+let g:netrw_dirhist_2='/lib64'
+let g:netrw_dirhist_3='/home/steam/ark/ShooterGame/Binaries/Linux'
+let g:netrw_dirhist_4='/home/steam/ark/ShooterGame/Config'
