@@ -15,9 +15,9 @@ $
 
 # Command Line History (newest to oldest):
 :q
-|2,0,1573187037,,"q"
+|2,0,1573190627,,"q"
 :w
-|2,0,1573187035,,"w"
+|2,0,1573190627,,"w"
 :qall
 |2,0,1573179870,,"qall"
 :q!
@@ -83,36 +83,166 @@ $
 |3,0,36,0,1,0,1564194173,"s"
 
 # File marks:
-'0  52  0  ~/.gitconfig
-|4,48,52,0,1573187037,"~/.gitconfig"
-'1  52  0  ~/.gitconfig
-|4,49,52,0,1573186945,"~/.gitconfig"
-'2  3  29  ~/.gitconfig.local##dopplgangr
-|4,50,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
-'3  3  34  ~/.gitconfig.local##
-|4,51,3,34,1573186719,"~/.gitconfig.local##"
-'4  52  0  ~/.gitconfig
-|4,52,52,0,1573186596,"~/.gitconfig"
-'5  52  0  ~/.gitconfig
-|4,53,52,0,1573186596,"~/.gitconfig"
-'6  49  0  ~/.gitconfig
-|4,54,49,0,1573186562,"~/.gitconfig"
-'7  49  0  ~/.gitconfig
-|4,55,49,0,1573186562,"~/.gitconfig"
+'0  1  0  ~/[Plugins]
+|4,48,1,0,1573190634,"~/[Plugins]"
+'1  10  53  ~/.yadm/bootstrap
+|4,49,10,53,1573190627,"~/.yadm/bootstrap"
+'2  52  0  ~/.gitconfig
+|4,50,52,0,1573187037,"~/.gitconfig"
+'3  52  0  ~/.gitconfig
+|4,51,52,0,1573186945,"~/.gitconfig"
+'4  3  29  ~/.gitconfig.local##dopplgangr
+|4,52,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+'5  3  34  ~/.gitconfig.local##
+|4,53,3,34,1573186719,"~/.gitconfig.local##"
+'6  52  0  ~/.gitconfig
+|4,54,52,0,1573186596,"~/.gitconfig"
+'7  52  0  ~/.gitconfig
+|4,55,52,0,1573186596,"~/.gitconfig"
 '8  49  0  ~/.gitconfig
 |4,56,49,0,1573186562,"~/.gitconfig"
 '9  49  0  ~/.gitconfig
 |4,57,49,0,1573186562,"~/.gitconfig"
 
 # Jumplist (newest first):
+-'  1  0  ~/[Plugins]
+|4,39,1,0,1573190634,"~/[Plugins]"
+-'  6  0  ~/[Plugins]
+|4,39,6,0,1573190634,"~/[Plugins]"
+-'  5  0  ~/[Plugins]
+|4,39,5,0,1573190634,"~/[Plugins]"
+-'  8  0  ~/[Plugins]
+|4,39,8,0,1573190634,"~/[Plugins]"
+-'  11  0  ~/[Plugins]
+|4,39,11,0,1573190634,"~/[Plugins]"
+-'  12  0  ~/[Plugins]
+|4,39,12,0,1573190634,"~/[Plugins]"
+-'  26  0  ~/[Plugins]
+|4,39,26,0,1573190634,"~/[Plugins]"
+-'  16  0  ~/[Plugins]
+|4,39,16,0,1573190634,"~/[Plugins]"
+-'  17  0  ~/[Plugins]
+|4,39,17,0,1573190634,"~/[Plugins]"
+-'  18  0  ~/[Plugins]
+|4,39,18,0,1573190634,"~/[Plugins]"
+-'  19  0  ~/[Plugins]
+|4,39,19,0,1573190634,"~/[Plugins]"
+-'  20  0  ~/[Plugins]
+|4,39,20,0,1573190634,"~/[Plugins]"
+-'  21  0  ~/[Plugins]
+|4,39,21,0,1573190634,"~/[Plugins]"
+-'  22  0  ~/[Plugins]
+|4,39,22,0,1573190634,"~/[Plugins]"
+-'  23  0  ~/[Plugins]
+|4,39,23,0,1573190634,"~/[Plugins]"
+-'  24  0  ~/[Plugins]
+|4,39,24,0,1573190634,"~/[Plugins]"
+-'  25  0  ~/[Plugins]
+|4,39,25,0,1573190634,"~/[Plugins]"
+-'  2  0  ~/[Plugins]
+|4,39,2,0,1573190634,"~/[Plugins]"
+-'  3  0  ~/[Plugins]
+|4,39,3,0,1573190633,"~/[Plugins]"
+-'  10  53  ~/.yadm/bootstrap
+|4,39,10,53,1573190627,"~/.yadm/bootstrap"
+-'  10  53  ~/.yadm/bootstrap
+|4,39,10,53,1573190627,"~/.yadm/bootstrap"
+-'  1  0  ~/.yadm/bootstrap
+|4,39,1,0,1573190577,"~/.yadm/bootstrap"
+-'  1  0  ~/.yadm/bootstrap
+|4,39,1,0,1573190577,"~/.yadm/bootstrap"
 -'  52  0  ~/.gitconfig
 |4,39,52,0,1573187037,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573187037,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573187037,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573187037,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573187037,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573187037,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573187037,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573187037,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573186945,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573186945,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573186945,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573186945,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573186945,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573186945,"~/.gitconfig"
+-'  52  0  ~/.gitconfig
+|4,39,52,0,1573186945,"~/.gitconfig"
 -'  52  0  ~/.gitconfig
 |4,39,52,0,1573186945,"~/.gitconfig"
 -'  50  27  ~/.gitconfig
 |4,39,50,27,1573186943,"~/.gitconfig"
 -'  50  27  ~/.gitconfig
 |4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  50  27  ~/.gitconfig
+|4,39,50,27,1573186943,"~/.gitconfig"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
+-'  3  29  ~/.gitconfig.local##dopplgangr
+|4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
 -'  3  29  ~/.gitconfig.local##dopplgangr
 |4,39,3,29,1573186747,"~/.gitconfig.local##dopplgangr"
 -'  3  29  ~/.gitconfig.local##dopplgangr
@@ -129,184 +259,29 @@ $
 |4,39,1,0,1573186729,"~/.gitconfig.local##dopplgangr"
 -'  1  0  ~/.gitconfig.local##dopplgangr
 |4,39,1,0,1573186729,"~/.gitconfig.local##dopplgangr"
--'  3  34  ~/.gitconfig.local##
-|4,39,3,34,1573186719,"~/.gitconfig.local##"
--'  3  34  ~/.gitconfig.local##
-|4,39,3,34,1573186719,"~/.gitconfig.local##"
--'  3  34  ~/.gitconfig.local##
-|4,39,3,34,1573186719,"~/.gitconfig.local##"
--'  3  34  ~/.gitconfig.local##
-|4,39,3,34,1573186719,"~/.gitconfig.local##"
--'  3  34  ~/.gitconfig.local##
-|4,39,3,34,1573186719,"~/.gitconfig.local##"
--'  3  34  ~/.gitconfig.local##
-|4,39,3,34,1573186719,"~/.gitconfig.local##"
--'  3  34  ~/.gitconfig.local##
-|4,39,3,34,1573186719,"~/.gitconfig.local##"
--'  3  34  ~/.gitconfig.local##
-|4,39,3,34,1573186719,"~/.gitconfig.local##"
--'  1  0  ~/.gitconfig.local##
-|4,39,1,0,1573186695,"~/.gitconfig.local##"
--'  1  0  ~/.gitconfig.local##
-|4,39,1,0,1573186695,"~/.gitconfig.local##"
--'  1  0  ~/.gitconfig.local##
-|4,39,1,0,1573186695,"~/.gitconfig.local##"
--'  1  0  ~/.gitconfig.local##
-|4,39,1,0,1573186695,"~/.gitconfig.local##"
--'  1  0  ~/.gitconfig.local##
-|4,39,1,0,1573186695,"~/.gitconfig.local##"
--'  1  0  ~/.gitconfig.local##
-|4,39,1,0,1573186695,"~/.gitconfig.local##"
--'  1  0  ~/.gitconfig.local##
-|4,39,1,0,1573186695,"~/.gitconfig.local##"
--'  1  0  ~/.gitconfig.local##
-|4,39,1,0,1573186695,"~/.gitconfig.local##"
--'  52  0  ~/.gitconfig
-|4,39,52,0,1573186596,"~/.gitconfig"
--'  52  0  ~/.gitconfig
-|4,39,52,0,1573186596,"~/.gitconfig"
--'  52  0  ~/.gitconfig
-|4,39,52,0,1573186596,"~/.gitconfig"
--'  52  0  ~/.gitconfig
-|4,39,52,0,1573186596,"~/.gitconfig"
--'  50  24  ~/.gitconfig
-|4,39,50,24,1573186595,"~/.gitconfig"
--'  50  24  ~/.gitconfig
-|4,39,50,24,1573186595,"~/.gitconfig"
--'  50  24  ~/.gitconfig
-|4,39,50,24,1573186595,"~/.gitconfig"
--'  50  24  ~/.gitconfig
-|4,39,50,24,1573186595,"~/.gitconfig"
--'  49  0  ~/.gitconfig
-|4,39,49,0,1573186562,"~/.gitconfig"
--'  49  0  ~/.gitconfig
-|4,39,49,0,1573186562,"~/.gitconfig"
--'  49  0  ~/.gitconfig
-|4,39,49,0,1573186562,"~/.gitconfig"
--'  49  0  ~/.gitconfig
-|4,39,49,0,1573186562,"~/.gitconfig"
--'  49  0  ~/.gitconfig
-|4,39,49,0,1573186562,"~/.gitconfig"
--'  49  0  ~/.gitconfig
-|4,39,49,0,1573186562,"~/.gitconfig"
--'  1  0  ~/.gitconfig
-|4,39,1,0,1573186561,"~/.gitconfig"
--'  1  0  ~/.gitconfig
-|4,39,1,0,1573186561,"~/.gitconfig"
--'  1  0  ~/.gitconfig
-|4,39,1,0,1573186561,"~/.gitconfig"
--'  1  0  ~/.gitconfig
-|4,39,1,0,1573186561,"~/.gitconfig"
--'  1  0  ~/.gitconfig
-|4,39,1,0,1573186561,"~/.gitconfig"
--'  1  0  ~/.gitconfig
-|4,39,1,0,1573186561,"~/.gitconfig"
--'  1  0  ~/.gitconfig
-|4,39,1,0,1573186561,"~/.gitconfig"
--'  1  0  ~/.gitconfig
-|4,39,1,0,1573186561,"~/.gitconfig"
--'  1  0  ~/.gitconfig
-|4,39,1,0,1573186561,"~/.gitconfig"
--'  1  0  ~/.gitconfig
-|4,39,1,0,1573186561,"~/.gitconfig"
--'  40  0  ~/.gitconfig
-|4,39,40,0,1573186560,"~/.gitconfig"
--'  40  0  ~/.gitconfig
-|4,39,40,0,1573186560,"~/.gitconfig"
--'  40  0  ~/.gitconfig
-|4,39,40,0,1573186560,"~/.gitconfig"
--'  40  0  ~/.gitconfig
-|4,39,40,0,1573186560,"~/.gitconfig"
--'  40  0  ~/.gitconfig
-|4,39,40,0,1573186560,"~/.gitconfig"
--'  40  0  ~/.gitconfig
-|4,39,40,0,1573186560,"~/.gitconfig"
--'  40  0  ~/.gitconfig
-|4,39,40,0,1573186560,"~/.gitconfig"
--'  40  0  ~/.gitconfig
-|4,39,40,0,1573186560,"~/.gitconfig"
--'  40  0  ~/.gitconfig
-|4,39,40,0,1573186560,"~/.gitconfig"
--'  40  0  ~/.gitconfig
-|4,39,40,0,1573186560,"~/.gitconfig"
--'  3  0  ~/.gitconfig
-|4,39,3,0,1573186545,"~/.gitconfig"
--'  3  0  ~/.gitconfig
-|4,39,3,0,1573186545,"~/.gitconfig"
--'  3  0  ~/.gitconfig
-|4,39,3,0,1573186545,"~/.gitconfig"
--'  3  0  ~/.gitconfig
-|4,39,3,0,1573186545,"~/.gitconfig"
--'  3  0  ~/.gitconfig
-|4,39,3,0,1573186545,"~/.gitconfig"
--'  3  0  ~/.gitconfig
-|4,39,3,0,1573186545,"~/.gitconfig"
--'  3  0  ~/.gitconfig
-|4,39,3,0,1573186545,"~/.gitconfig"
--'  3  0  ~/.gitconfig
-|4,39,3,0,1573186545,"~/.gitconfig"
--'  3  0  ~/.gitconfig
-|4,39,3,0,1573186545,"~/.gitconfig"
--'  3  0  ~/.gitconfig
-|4,39,3,0,1573186545,"~/.gitconfig"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
--'  6  39  ~/.yadm/bootstrap
-|4,39,6,39,1573186504,"~/.yadm/bootstrap"
+-'  1  0  ~/.gitconfig.local##dopplgangr
+|4,39,1,0,1573186729,"~/.gitconfig.local##dopplgangr"
+-'  1  0  ~/.gitconfig.local##dopplgangr
+|4,39,1,0,1573186729,"~/.gitconfig.local##dopplgangr"
+-'  1  0  ~/.gitconfig.local##dopplgangr
+|4,39,1,0,1573186729,"~/.gitconfig.local##dopplgangr"
+-'  1  0  ~/.gitconfig.local##dopplgangr
+|4,39,1,0,1573186729,"~/.gitconfig.local##dopplgangr"
 
 # History of marks within files (newest to oldest):
+
+> ~/.yadm/bootstrap
+	*	1573190627	0
+	"	10	53
+	^	10	54
+	.	10	53
+	+	3	11
+	+	4	31
+	+	5	0
+	+	6	39
+	+	7	0
+	+	11	0
+	+	10	53
 
 > ~/.gitconfig
 	*	1573187036	0
@@ -330,16 +305,6 @@ $
 	^	3	35
 	.	3	34
 	+	3	34
-
-> ~/.yadm/bootstrap
-	*	1573186503	0
-	"	6	39
-	^	6	40
-	.	6	39
-	+	3	11
-	+	4	31
-	+	5	0
-	+	6	39
 
 > ~/dotfiles/tmux.conf
 	*	1573186056	0

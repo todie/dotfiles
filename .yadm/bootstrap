@@ -4,3 +4,8 @@ cd "${HOME}"
 echo "Bootstrapping dotfiles..."
 
 yadm submodule update --recursive --init
+
+if command -v vim >/dev/null 2>&1; then
+	echo "Bootstrapping Vim"
+	vim '+PlugUpdate' '+PlugClean!' '+PlugUpdate' '+qall'
+fi

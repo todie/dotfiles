@@ -1,0 +1,6 @@
+[submodule "/home/ctodie/.zplug"]
+	path = /home/ctodie/.zplug
+	url = https://github.com/zplug/zplug
+[submodule ".zplug"]
+	path = .zplug
+	url = https://github.com/zplug/zplug
