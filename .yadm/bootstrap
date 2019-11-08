@@ -2,3 +2,5 @@
 
 cd "${HOME}"
 echo "Bootstrapping dotfiles..."
+
+yadm submodule update --recursive --init

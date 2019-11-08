@@ -39,15 +39,14 @@
   diff-cached = diff --cached HEAD^
   diff-color  = diff --color
 
-[user]
-  name = Christian Todie
-  email = christian.todie@gmail.com
-
 [core]
   editor = nvim
   page   = less -r 
 
 [color]
   pager = yes
+ 
+[include]
+  path = .gitconfig.local
 
 # vim: ft=gitconfig
