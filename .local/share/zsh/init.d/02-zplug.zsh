@@ -2,8 +2,8 @@ umask 022
 #[[ -f ~/.config/zsh/zplug/init.zsh ]] || return
 
 # Skip zplug initialization if it's not available
-[[ -f ~/.local/share/zsh/zplug/init.zsh ]] || return
-source ~/.local/share/zsh/zplug/init.zsh
+[[ -f ~/.zplug/init.zsh ]] || return
+source ~/.zplug/init.zsh
 # ---
 zplug "zsh-users/zsh-autosuggestions"
 zplug "zsh-users/zsh-completions"
