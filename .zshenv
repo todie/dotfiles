@@ -11,6 +11,8 @@ export EDITOR="$VISUAL"
 
 export PATH="$HOME/.local/bin:/usr/local/bin/:/usr/local/sbin/:$PATH"
 
+(( $+commands[npm] )) && npm config set prefix "${HOME}/.local"
+
 # Pull in common functionality
 source ~/.local/share/sh/functions.sh
 

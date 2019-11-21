@@ -15,9 +15,8 @@ fi
 autoload zkbd
 bindkey -v
 
-ZSH_KBD_SOURCE=~/.local/share/zsh/zkbd.d/$TERM
-if [[ -f $ZSH_KBD_SOURCE ]]; then
-  source $ZSH_KBD_SOURCE
+if [[ -f ~/.zkbd/$TERM-${DISPLAY:-$VENDOR-$OSTYPE} ]]; then
+	source ~/.zkbd/$TERM-${DISPLAY:-$VENDOR-$OSTYPE}
 else
   echo "WARNING: Keybindings may not be set correctly!"
   echo "Execute \`zkbd\` to create bindings."
