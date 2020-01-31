@@ -47,6 +47,6 @@
   pager = yes
  
 [include]
-  path = ~/.local/share/git/.gitconfig.local
+  path = .config/gitconfig.local
 
 # vim: ft=gitconfig
