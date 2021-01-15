@@ -1,8 +1,8 @@
 " -- Plugins ===================
 if empty(glob('~/.vim/autoload/plug.vim'))
-  silent !curl -fLo ~/.vim/autoload/plug.vim --create-dirs
-        \ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
-  autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
+	silent !curl -fLo ~/.vim/autoload/plug.vim --create-dirs
+				\ https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+	autocmd VimEnter * PlugInstall --sync | source $MYVIMRC
 endif
 " ==============================
 call plug#begin('~/.vim/plugged')
@@ -53,9 +53,9 @@ set splitbelow splitright
 
 " UI
 if exists('+termguicolors')
-  " enable truecolor in tmux
-  set termguicolors
-  set background=dark
+	" enable truecolor in tmux
+	set termguicolors
+	set background=dark
 endif
 
 set sidescroll=6
@@ -120,18 +120,44 @@ nnoremap <F4> gg=G''
 nnoremap <F5> :make!<cr>
 nnoremap <F6> :<C-U>setlocal lcs=tab:>-,trail:-,eol:$ list! list? <CR>
 nnoremap <F8> :TagbarToggle<CR>
+" Move lines and blocks up and down
+fun SwitchLine(src_line_idx, direction)
+	if a:direction ==# 'up'
+		if a:src_line_idx == 1
+			return
+		endif
+		move-2
+	elseif a:direction ==# 'down'
+		if a:src_line_idx == line('$')
+			return
+		endif
+		move+1
+	endif
+endf
+nnoremap <silent> <A-k> :call SwitchLine(line('.'), 'up')<CR>
+nnoremap <silent> <A-j> :call SwitchLine(line('.'), 'down')<CR>
 
 " == Nerd Tree ==
-" -- start up
-autocmd StdinReadPre * let s:std_in=1
-autocmd VimEnter * if argc() == 1 && isdirectory(argv()[0]) && !exists("s:std_in") | exe 'NERDTree' argv()[0] | wincmd p | ene | exe 'cd '.argv()[0] | endif
-" -- shut down
-autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif
-" == fugitive ==
+augroup nerd-tree
+	autocmd StdinReadPre * let s:std_in=1
+	autocmd VimEnter * if argc() == 1 && isdirectory(argv()[0]) && !exists("s:std_in") | exe 'NERDTree' argv()[0] | wincmd p | ene | exe 'cd '.argv()[0] | endif
+	autocmd bufenter * if (winnr("$") == 1 && exists("b:NERDTree") && b:NERDTree.isTabTree()) | q | endif
+augroup END
+" == fugitive =
 nnoremap <leader>gs :Gstatus<CR>
+augroup fugitive-interactive-rebase
+	autocmd!
+	autocmd FileType gitrebase nnoremap <buffer> C :Cycle<cr>
+	autocmd FileType gitrebase nnoremap <buffer> P :Pick<cr>
+	autocmd FileType gitrebase nnoremap <buffer> D :Drop<cr>
+	autocmd FileType gitrebase nnoremap <buffer> S :Squash<cr>
+	autocmd FileType gitrebase nnoremap <buffer> E :Edit<cr>
+	autocmd FileType gitrebase nnoremap <buffer> R :Reword<cr>
+	autocmd FileType gitrebase nnoremap <buffer> F :Fixup<cr>
+augroup END
 " == Ack ==
 if executable('ag')
-  let g:ackprg = 'ag --vimgrep' " use ag instead of default
+	let g:ackprg = 'ag --vimgrep' " use ag instead of default
 endif
 " == Ctrl-P ==
 let g:ctrlp_map = '<F3>'
@@ -140,8 +166,8 @@ let g:ctrlp_working_path_mode = 'ra'
 set wildignore+=*/tmp/*,*.so,*.swp,*.zip     " MacOSX/Linux
 "set wildignore+=*\\tmp\\*,*.swp,*.zip,*.exe  " Windows
 let g:ctrlp_custom_ignore = {
-      \ 'dir':  '\v[\/]\.(git|hg|svn)$',
-      \ 'file': '\v\.(exe|so|dll)$',
-      \ 'link': 'some_bad_symbolic_links',
-      \ }
+			\ 'dir':  '\v[\/]\.(git|hg|svn)$',
+			\ 'file': '\v\.(exe|so|dll)$',
+			\ 'link': 'some_bad_symbolic_links',
+			\ }
 
