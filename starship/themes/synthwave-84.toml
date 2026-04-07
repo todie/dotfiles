@@ -1,0 +1,27 @@
+# Theme: SYNTHWAVE '84
+# Robb Owen's iconic VS Code theme, ported to starship.
+#
+# https://github.com/robb0wen/synthwave-vscode
+#
+# The OG synthwave dev theme. Hot pink #ff7edb on deep purple #262335,
+# with electric cyan #36f9f6 secondary and a sunset gold accent. The
+# palette every "aesthetic" dev screenshot on Twitter is using.
+
+palette = "neon_dreams"
+
+[palettes.neon_dreams]
+neon_pink   = "#ff7edb"  # primary hot pink (the famous one)
+neon_cyan   = "#36f9f6"  # electric cyan
+neon_purple = "#b893ce"  # muted lavender
+neon_yellow = "#fede5d"  # sunset gold
+neon_green  = "#72f1b8"  # mint
+neon_red    = "#fe4450"  # error red
+neon_void   = "#262335"  # deep purple base
+neon_panel  = "#34294f"  # lighter panel
+neon_dim    = "#495495"  # comment steel
+neon_text   = "#ffffff"  # foreground white
+fg_on_pink  = "#262335"
+fg_on_cyan  = "#262335"
+fg_on_yellow = "#262335"
+fg_on_purple = "#262335"
+fg_on_dim   = "#ffffff"
