@@ -2,7 +2,6 @@
 # Sunset chrome — orange + magenta + electric blue + amber.
 # Maximum synthwave. 1985 album cover energy.
 
-palette = "neon_dreams"
 
 [palettes.neon_dreams]
 neon_pink   = "#ff6b35"  # sunset orange

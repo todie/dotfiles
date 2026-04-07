@@ -7,7 +7,6 @@
 # with electric cyan #36f9f6 secondary and a sunset gold accent. The
 # palette every "aesthetic" dev screenshot on Twitter is using.
 
-palette = "neon_dreams"
 
 [palettes.neon_dreams]
 neon_pink   = "#ff7edb"  # primary hot pink (the famous one)

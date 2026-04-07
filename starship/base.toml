@@ -18,6 +18,14 @@
 # ── Format — multi-line with cyberpunk power-line separators ──────────────
 "$schema" = 'https://starship.rs/config-schema.json'
 
+# Root-level config — these MUST come before any [section] header. The theme
+# files are concatenated AFTER this file, so the [palettes.neon_dreams] block
+# they append is isolated from these root keys.
+add_newline = true
+command_timeout = 500
+scan_timeout = 30
+palette = "neon_dreams"
+
 format = """
 [](fg:neon_pink)\
 $os\
@@ -34,12 +42,33 @@ $python\
 $golang\
 $lua\
 $nix_shell\
+$docker_context\
+$kubernetes\
+$aws\
 [](fg:neon_yellow bg:neon_dim)\
 $cmd_duration\
 [](fg:neon_dim)\
+$fill\
+$time\
 $line_break\
 $jobs\
+$status\
 $character"""
+
+# ── Transient prompt — collapse old prompts to a minimal glyph ────────────
+# After you run a command, the prompt that ran it shrinks to just the arrow.
+# Keeps scrollback readable. Enable with `enable_transience` on first run.
+
+[fill]
+symbol = " "
+style = "fg:neon_dim"
+
+[time]
+disabled = false
+use_12hr = false
+time_format = "%H:%M:%S"
+style = "fg:neon_cyan"
+format = '[ 󰥔 $time ]($style)'
 
 
 # ── Palette: neon dreams ──────────────────────────────────────────────────
@@ -135,6 +164,31 @@ symbol = " "
 style = "bg:neon_yellow fg:fg_on_yellow bold"
 format = '[ $symbol$state(\($name\)) ]($style)'
 
+# ── Cloud / container context — only show when relevant ─────────────────
+[docker_context]
+symbol = " "
+only_with_files = true
+detect_files = ["docker-compose.yml", "docker-compose.yaml", "Dockerfile", "compose.yaml", "compose.yml"]
+style = "bg:neon_yellow fg:fg_on_yellow bold"
+format = '[ $symbol$context ]($style)'
+
+[kubernetes]
+disabled = false
+detect_files = ["k8s", "Chart.yaml", "helmfile.yaml", "skaffold.yaml"]
+detect_folders = ["k8s", "kubernetes"]
+style = "bg:neon_yellow fg:fg_on_yellow bold"
+format = '[ 󱃾 $context( \($namespace\))]($style)'
+contexts = [
+  { context_pattern = "prod.*", style = "bg:neon_red fg:fg_on_pink bold" },
+  { context_pattern = "stag.*", style = "bg:neon_yellow fg:fg_on_yellow bold" },
+]
+
+[aws]
+disabled = false
+symbol = "󰸏 "
+format = '[ $symbol($profile )(\($region\))]($style)'
+style = "bg:neon_yellow fg:fg_on_yellow bold"
+
 # ── Cmd duration — only if > 2s ───────────────────────────────────────────
 [cmd_duration]
 min_time = 2_000
@@ -148,17 +202,31 @@ style = "fg:neon_yellow bold"
 format = "[$symbol$number]($style) "
 number_threshold = 1
 
+# ── Exit status — shown before the prompt character on non-zero ─────────
+[status]
+disabled = false
+symbol = " "
+success_symbol = ""
+not_executable_symbol = "󰂭 "
+not_found_symbol = "󰼶 "
+sigint_symbol = "󰻹 "
+signal_symbol = "󱐋 "
+style = "fg:neon_red bold"
+format = '[$symbol$status]($style) '
+map_symbol = true
+recognize_signal_code = true
+
 # ── Character — second line, prompt symbol ────────────────────────────────
 [character]
 success_symbol = "[](fg:neon_pink)[](fg:neon_cyan) "
 error_symbol = "[](fg:neon_red)[](fg:neon_red) "
-vimcmd_symbol = "[](fg:neon_yellow)[](fg:neon_yellow) "
+vimcmd_symbol = "[󰕷](fg:neon_yellow)[](fg:neon_yellow) "
+vimcmd_replace_one_symbol = "[󰕷](fg:neon_purple)[](fg:neon_purple) "
+vimcmd_replace_symbol = "[󰕷](fg:neon_purple)[](fg:neon_purple) "
+vimcmd_visual_symbol = "[󰕷](fg:neon_cyan)[](fg:neon_cyan) "
 
 # ── Disabled / unused ─────────────────────────────────────────────────────
 [battery]
-disabled = true
-
-[time]
 disabled = true
 
 [hostname]
