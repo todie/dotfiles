@@ -55,6 +55,7 @@ link "$DOTFILES_DIR/tmux/scripts/tmux-copy"         "$HOME/.local/bin/tmux-copy"
 link "$DOTFILES_DIR/tmux/scripts/tmux-claude-state" "$HOME/.local/bin/tmux-claude-state"
 link "$DOTFILES_DIR/tmux/scripts/tmux-git-branch"   "$HOME/.local/bin/tmux-git-branch"
 link "$DOTFILES_DIR/tmux/scripts/tmux-sessionizer"  "$HOME/.local/bin/tmux-sessionizer"
+link "$DOTFILES_DIR/tmux/scripts/claude-tmux-layout" "$HOME/.local/bin/claude-tmux-layout"
 
 # ── done ─────────────────────────────────────────────────────────────────────
 info ""
