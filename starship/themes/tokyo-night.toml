@@ -3,7 +3,6 @@
 # More refined than neon dreams. For when you want to look like every
 # other dev on the internet.
 
-palette = "neon_dreams"
 
 [palettes.neon_dreams]
 neon_pink   = "#bb9af7"  # violet (used as primary accent)

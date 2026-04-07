@@ -2,7 +2,6 @@
 # Synthwave cathedral. Hot pink + electric cyan + ultraviolet + sunset gold.
 # Pairs with the dotfiles tmux .tmux.conf.
 
-palette = "neon_dreams"
 
 [palettes.neon_dreams]
 neon_pink   = "#ff2975"

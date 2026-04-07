@@ -54,5 +54,42 @@ export PAGER="less -RF"
 autoload -U +X bashcompinit && bashcompinit
 [[ -x "${BIN_DIR}/vault" ]] && complete -o nospace -C "${BIN_DIR}/vault" vault
 
-# starship prompt — keep near end of env setup
+# ── modern tool init ─────────────────────────────────────────────────────────
+
+# zoxide — smart cd (`z foo` jumps to the most-frecent dir matching `foo`)
+# Adds `z`, `zi` (fzf-interactive), and hooks chpwd to track dir frecency.
+has zoxide && eval "$(zoxide init zsh)"
+
+# fzf — fuzzy finder key bindings + completion
+# Ctrl-R → history fzf, Ctrl-T → file fzf, Alt-C → cd fzf
+if has fzf; then
+  # Key bindings + completion live with the fzf install
+  [[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
+  # FZF default look matches the synthwave/neon-dreams palette
+  export FZF_DEFAULT_OPTS="
+    --height 60% --layout=reverse --border --ansi
+    --color=fg:#a89bd6,bg:-1,hl:#ff2975,fg+:#ffffff,bg+:#160b3b,hl+:#ff2975
+    --color=info:#00f0ff,prompt:#ff2975,pointer:#ff2975,marker:#5af78e
+    --color=spinner:#b026ff,header:#4a3f6b,border:#2d1f4f,label:#a89bd6
+    --prompt='▸ ' --pointer='▲' --marker='◉'
+  "
+  # Use fd for file+dir listings if available (respects .gitignore, fast)
+  if has fd; then
+    export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+    export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+    export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
+  fi
+fi
+
+# bat — cat replacement with syntax highlighting
+if has bat; then
+  export BAT_THEME="OneHalfDark"
+  export MANPAGER="sh -c 'col -bx | bat -l man -p'"
+fi
+
+# delta — git diff viewer (configured in ~/.gitconfig, this just ensures
+# the binary is discoverable)
+# (delta is used via git's [core] pager — no env var needed here)
+
+# starship prompt — keep near end of env setup so it's the final PROMPT owner
 has starship && eval "$(starship init zsh)"

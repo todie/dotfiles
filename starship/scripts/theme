@@ -64,9 +64,11 @@ set_theme() {
         echo "# DO NOT EDIT — regenerated whenever you switch themes."
         echo "# Edit base.toml or themes/<name>.toml in ~/projects/dotfiles/starship/."
         echo
-        cat "$target"
-        echo
+        # Base first (owns layout + root-level keys). Theme second (appends
+        # only the [palettes.neon_dreams] block — isolated from root keys).
         cat "$BASE"
+        echo
+        cat "$target"
     } > "$ACTIVE_FILE.tmp"
     mv "$ACTIVE_FILE.tmp" "$ACTIVE_FILE"
     echo "$name" > "$THEME_STATE"

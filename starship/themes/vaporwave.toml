@@ -2,7 +2,6 @@
 # Pastel synthwave — cotton candy pink + mint cyan + lavender + cream.
 # Soft Miami 1986. The "aesthetic" subreddit, in your shell.
 
-palette = "neon_dreams"
 
 [palettes.neon_dreams]
 neon_pink   = "#ff77aa"  # cotton candy

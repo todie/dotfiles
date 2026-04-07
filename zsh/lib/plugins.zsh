@@ -94,15 +94,43 @@ compdef _plugin plugin
 # ── plugin list ──────────────────────────────────────────────────────────────
 # Keep this minimal. Add only what you actually use every day.
 plugins=(
-  romkatv/zsh-defer                        # async deferred sourcing (load first)
-  zsh-users/zsh-autosuggestions            # fish-style inline suggestions
-  zdharma-continuum/fast-syntax-highlighting  # syntax highlighting
+  romkatv/zsh-defer                           # async deferred sourcing (load first)
+  Aloxaf/fzf-tab                              # fzf-powered tab completion (LOAD BEFORE fast-syntax-highlighting)
+  zsh-users/zsh-autosuggestions               # fish-style inline suggestions
+  zsh-users/zsh-history-substring-search      # fish-style ↑/↓ substring history search
+  zdharma-continuum/fast-syntax-highlighting  # syntax highlighting (LOAD LAST)
 
   # Optional: uncomment if you use these tools
-  # Aloxaf/fzf-tab                         # fzf-powered tab completion
   # todie/asdf.plugin.zsh                  # asdf version manager integration
   # coreweave/dev-shell                    # coreweave-specific tooling
 )
 
 plugin load "${plugins[@]}"
 unset plugins
+
+# ── fzf-tab tuning ───────────────────────────────────────────────────────────
+if (( $+functions[fzf-tab] )); then
+  # Disable default completion menu in favor of fzf
+  zstyle ':completion:*' menu no
+  # Preview directories with eza, files with bat
+  zstyle ':fzf-tab:complete:cd:*' fzf-preview 'eza -1 --color=always --icons $realpath 2>/dev/null || ls -1 $realpath'
+  zstyle ':fzf-tab:complete:z:*' fzf-preview 'eza -1 --color=always --icons $realpath 2>/dev/null || ls -1 $realpath'
+  zstyle ':fzf-tab:complete:(cat|bat|less|vim|nvim|code):*' fzf-preview 'bat --color=always --line-range=:200 $realpath 2>/dev/null'
+  # Dim the descriptions, pop the matches
+  zstyle ':completion:*:descriptions' format '[%d]'
+  zstyle ':fzf-tab:*' fzf-flags --height=60% --border --color=fg:#a89bd6,bg:-1,hl:#ff2975,fg+:#ffffff,bg+:#160b3b,hl+:#ff2975,border:#2d1f4f,pointer:#ff2975,marker:#5af78e,spinner:#b026ff,header:#4a3f6b
+  # Continuously trigger fzf for subcommand completions (e.g. git checkout <tab>)
+  zstyle ':fzf-tab:*' continuous-trigger '/'
+fi
+
+# ── zsh-history-substring-search bindings ───────────────────────────────────
+# Use ↑/↓ ONLY when the line is empty; otherwise our partial-line search wins.
+# This gives us: empty line + ↑ → full fuzzy history, partial line + ↑ → prefix.
+if (( $+functions[history-substring-search-up] )); then
+  bindkey '^[[A' history-substring-search-up
+  bindkey '^[[B' history-substring-search-down
+  bindkey '^P'   history-substring-search-up
+  bindkey '^N'   history-substring-search-down
+  HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_FOUND='bg=#ff2975,fg=#0d0221,bold'
+  HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_NOT_FOUND='bg=#ff5577,fg=#ffffff'
+fi

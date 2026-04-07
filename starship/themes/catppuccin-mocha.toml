@@ -3,7 +3,6 @@
 # Pairs with the Catppuccin tmux variant if you want to switch the whole
 # desktop in one go.
 
-palette = "neon_dreams"
 
 [palettes.neon_dreams]
 neon_pink   = "#f5c2e7"  # pink
