@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# claude-tmux-layout — open a Claude Code window with claude-esp side pane
+#
+# Suggested binding (already set in ~/.tmux.conf.d/claude.conf):
+#   bind C run-shell "claude-tmux-layout"
+#
+# Usage: claude-tmux-layout [PROJECT_DIR] [SESSION_NAME]
+set -euo pipefail
+
+PROJECT="${1:-$PWD}"
+SESSION="${2:-$(basename "$PROJECT")}"
+
+# Reject if not in a tmux session
+[ -n "${TMUX:-}" ] || { echo "not inside tmux"; exit 1; }
+
+# Reject if claude-esp isn't installed
+command -v claude-esp >/dev/null 2>&1 || {
+    echo "claude-esp not installed. run: go install github.com/phiat/claude-esp@latest"
+    exit 1
+}
+
+# Open new window in this session
+tmux new-window -n "$SESSION" -c "$PROJECT"
+tmux send-keys "claude" Enter
+
+# Split right pane (30% width) running claude-esp tailing this project
+tmux split-window -h -p 30 -c "$PROJECT"
+tmux send-keys "claude-esp" Enter
+
+# Focus the left (claude) pane
+tmux select-pane -L

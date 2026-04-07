@@ -2,20 +2,25 @@
 # tmux-copy — pipe stdin to the system clipboard, choosing the right backend.
 #
 # Order of preference:
-#   1. clip.exe         WSL2 → Windows clipboard (works in any WSL distro)
+#   1. win32yank.exe    WSL2 → Windows clipboard, preserves unicode + box-drawing
+#                       (clip.exe mangles non-ASCII; install via:
+#                        scoop install win32yank, or:
+#                        curl -L -o ~/.local/bin/win32yank.exe \
+#                          https://github.com/equalsraf/win32yank/releases/latest/download/win32yank-x64.zip
+#                        and unzip to ~/.local/bin/win32yank.exe)
 #   2. wl-copy          Wayland
 #   3. xclip -sel clip  X11
 #   4. xsel -b -i       X11 fallback
 #   5. pbcopy           macOS
+#   6. clip.exe         WSL2 last-resort fallback (lossy on unicode)
 #
 # Reads stdin and forwards. Used by tmux copy-mode and any "yank to clipboard"
-# binding.
+# binding. Strips trailing newline so paste doesn't get an extra blank.
 
 set -euo pipefail
 
-if command -v clip.exe >/dev/null 2>&1; then
-    # Strip trailing newline so Windows paste doesn't get an extra blank
-    awk 'BEGIN{RS="\0"} {sub(/\n$/, ""); printf "%s", $0}' | clip.exe
+if command -v win32yank.exe >/dev/null 2>&1; then
+    win32yank.exe -i --crlf
 elif command -v wl-copy >/dev/null 2>&1; then
     wl-copy
 elif command -v xclip >/dev/null 2>&1; then
@@ -24,6 +29,9 @@ elif command -v xsel >/dev/null 2>&1; then
     xsel --clipboard --input
 elif command -v pbcopy >/dev/null 2>&1; then
     pbcopy
+elif command -v clip.exe >/dev/null 2>&1; then
+    # Last-resort fallback. clip.exe is lossy on unicode + box-drawing chars.
+    awk 'BEGIN{RS="\0"} {sub(/\n$/, ""); printf "%s", $0}' | clip.exe
 else
     cat >/dev/null
 fi
