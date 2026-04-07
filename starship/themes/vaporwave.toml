@@ -1,0 +1,22 @@
+# Theme: VAPORWAVE
+# Pastel synthwave — cotton candy pink + mint cyan + lavender + cream.
+# Soft Miami 1986. The "aesthetic" subreddit, in your shell.
+
+palette = "neon_dreams"
+
+[palettes.neon_dreams]
+neon_pink   = "#ff77aa"  # cotton candy
+neon_cyan   = "#7df9ff"  # mint cyan
+neon_purple = "#c8a2c8"  # lilac
+neon_yellow = "#fff3b0"  # cream
+neon_green  = "#b8f2e6"  # seafoam
+neon_red    = "#ff7e7e"  # coral
+neon_void   = "#1a1033"  # deep purple
+neon_panel  = "#2a1f5c"
+neon_dim    = "#6c5b9e"
+neon_text   = "#e0c3fc"
+fg_on_pink  = "#1a1033"
+fg_on_cyan  = "#1a1033"
+fg_on_yellow = "#1a1033"
+fg_on_purple = "#1a1033"
+fg_on_dim   = "#e0c3fc"

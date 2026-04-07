@@ -1,0 +1,23 @@
+# Theme: TOKYO NIGHT
+# The 2025 default-cool theme. Muted blue + violet + soft cyan + amber.
+# More refined than neon dreams. For when you want to look like every
+# other dev on the internet.
+
+palette = "neon_dreams"
+
+[palettes.neon_dreams]
+neon_pink   = "#bb9af7"  # violet (used as primary accent)
+neon_cyan   = "#7dcfff"  # soft cyan
+neon_purple = "#9d7cd8"  # muted purple
+neon_yellow = "#e0af68"  # warm amber
+neon_green  = "#9ece6a"  # spring green
+neon_red    = "#f7768e"  # coral red
+neon_void   = "#1a1b26"  # tokyo night base
+neon_panel  = "#24283b"  # storm
+neon_dim    = "#414868"
+neon_text   = "#a9b1d6"
+fg_on_pink  = "#1a1b26"
+fg_on_cyan  = "#1a1b26"
+fg_on_yellow = "#1a1b26"
+fg_on_purple = "#ffffff"
+fg_on_dim   = "#a9b1d6"

@@ -1,0 +1,172 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  ~/.config/starship.toml — N E O N   D R E A M S
+#
+#  Cyberpunk synthwave prompt that pairs with the dotfiles tmux config.
+#  Theme is composable — see ~/projects/dotfiles/starship/themes/ for variants
+#  and `theme list` / `theme set <name>` to switch.
+#
+#  Author: Christian M. Todie <chris@todie.io>
+# ═══════════════════════════════════════════════════════════════════════════
+#
+#  Active theme is loaded by symlinking ~/.config/starship.toml.local →
+#  themes/<name>.toml at the bottom of this file. The base file (this one)
+#  defines the LAYOUT — what prompt segments appear, in what order, with
+#  what icons. The theme files override colors only.
+#
+# ═══════════════════════════════════════════════════════════════════════════
+
+# ── Format — multi-line with cyberpunk power-line separators ──────────────
+"$schema" = 'https://starship.rs/config-schema.json'
+
+format = """
+[](fg:neon_pink)\
+$os\
+$username\
+[](bg:neon_purple fg:neon_pink)\
+$directory\
+[](fg:neon_purple bg:neon_cyan)\
+$git_branch\
+$git_status\
+[](fg:neon_cyan bg:neon_yellow)\
+$rust\
+$nodejs\
+$python\
+$golang\
+$lua\
+$nix_shell\
+[](fg:neon_yellow bg:neon_dim)\
+$cmd_duration\
+[](fg:neon_dim)\
+$line_break\
+$jobs\
+$character"""
+
+
+# ── Palette: neon dreams ──────────────────────────────────────────────────
+# ── OS ────────────────────────────────────────────────────────────────────
+[os]
+disabled = false
+format = '[ $symbol ]($style)'
+style = "bg:neon_pink fg:fg_on_pink"
+
+[os.symbols]
+Linux = ""
+Macos = ""
+Windows = ""
+Ubuntu = ""
+Debian = ""
+Arch = ""
+NixOS = ""
+
+# ── Username ──────────────────────────────────────────────────────────────
+[username]
+show_always = true
+style_user = "bg:neon_pink fg:fg_on_pink bold"
+style_root = "bg:neon_red fg:fg_on_pink bold"
+format = '[$user ]($style)'
+
+# ── Directory ─────────────────────────────────────────────────────────────
+[directory]
+style = "bg:neon_purple fg:fg_on_purple bold"
+format = "[ $path ]($style)"
+truncation_length = 4
+truncation_symbol = "…/"
+truncate_to_repo = true
+read_only = " "
+read_only_style = "bg:neon_purple fg:neon_yellow"
+
+[directory.substitutions]
+"projects" = " "
+".config" = " "
+"Documents" = "󰈙 "
+"Downloads" = " "
+"Music" = " "
+"Pictures" = " "
+
+# ── Git ───────────────────────────────────────────────────────────────────
+[git_branch]
+symbol = " "
+style = "bg:neon_cyan fg:fg_on_cyan bold"
+format = '[ $symbol $branch ]($style)'
+
+[git_status]
+style = "bg:neon_cyan fg:fg_on_cyan"
+format = '[$all_status$ahead_behind ]($style)'
+conflicted = "  "
+ahead = "⇡${count}"
+behind = "⇣${count}"
+diverged = "⇕⇡${ahead_count}⇣${behind_count}"
+up_to_date = ""
+untracked = " "
+stashed = " "
+modified = " "
+staged = '[++\($count\)](bg:neon_cyan fg:neon_void)'
+renamed = "󰟕 "
+deleted = " "
+
+# ── Languages — show on the yellow segment ────────────────────────────────
+[rust]
+symbol = " "
+style = "bg:neon_yellow fg:fg_on_yellow bold"
+format = '[ $symbol($version) ]($style)'
+
+[nodejs]
+symbol = " "
+style = "bg:neon_yellow fg:fg_on_yellow bold"
+format = '[ $symbol($version) ]($style)'
+
+[python]
+symbol = " "
+style = "bg:neon_yellow fg:fg_on_yellow bold"
+format = '[ $symbol($version)(\($virtualenv\)) ]($style)'
+
+[golang]
+symbol = " "
+style = "bg:neon_yellow fg:fg_on_yellow bold"
+format = '[ $symbol($version) ]($style)'
+
+[lua]
+symbol = " "
+style = "bg:neon_yellow fg:fg_on_yellow bold"
+format = '[ $symbol($version) ]($style)'
+
+[nix_shell]
+symbol = " "
+style = "bg:neon_yellow fg:fg_on_yellow bold"
+format = '[ $symbol$state(\($name\)) ]($style)'
+
+# ── Cmd duration — only if > 2s ───────────────────────────────────────────
+[cmd_duration]
+min_time = 2_000
+style = "bg:neon_dim fg:fg_on_dim"
+format = '[ 󰔚 $duration ]($style)'
+
+# ── Background jobs ───────────────────────────────────────────────────────
+[jobs]
+symbol = ""
+style = "fg:neon_yellow bold"
+format = "[$symbol$number]($style) "
+number_threshold = 1
+
+# ── Character — second line, prompt symbol ────────────────────────────────
+[character]
+success_symbol = "[](fg:neon_pink)[](fg:neon_cyan) "
+error_symbol = "[](fg:neon_red)[](fg:neon_red) "
+vimcmd_symbol = "[](fg:neon_yellow)[](fg:neon_yellow) "
+
+# ── Disabled / unused ─────────────────────────────────────────────────────
+[battery]
+disabled = true
+
+[time]
+disabled = true
+
+[hostname]
+disabled = true
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  THEME OVERRIDE — auto-loaded from a sibling file if it exists
+#  ~/.config/starship.local.toml is symlinked by `theme set <name>` to
+#  ~/projects/dotfiles/starship/themes/<name>.toml. The file is OPTIONAL —
+#  the base palette above is the default neon dreams.
+# ═══════════════════════════════════════════════════════════════════════════

@@ -1,0 +1,23 @@
+# Theme: CATPPUCCIN MOCHA
+# The other gold-standard 2025 theme. Pastel pink + sky + mauve + peach.
+# Pairs with the Catppuccin tmux variant if you want to switch the whole
+# desktop in one go.
+
+palette = "neon_dreams"
+
+[palettes.neon_dreams]
+neon_pink   = "#f5c2e7"  # pink
+neon_cyan   = "#89dceb"  # sky
+neon_purple = "#cba6f7"  # mauve
+neon_yellow = "#fab387"  # peach
+neon_green  = "#a6e3a1"  # green
+neon_red    = "#f38ba8"  # red
+neon_void   = "#1e1e2e"  # base
+neon_panel  = "#181825"  # mantle
+neon_dim    = "#45475a"  # surface1
+neon_text   = "#cdd6f4"  # text
+fg_on_pink  = "#1e1e2e"
+fg_on_cyan  = "#1e1e2e"
+fg_on_yellow = "#1e1e2e"
+fg_on_purple = "#1e1e2e"
+fg_on_dim   = "#cdd6f4"
