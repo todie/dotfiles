@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# tmux-copy — pipe stdin to the system clipboard, choosing the right backend.
+#
+# Order of preference:
+#   1. clip.exe         WSL2 → Windows clipboard (works in any WSL distro)
+#   2. wl-copy          Wayland
+#   3. xclip -sel clip  X11
+#   4. xsel -b -i       X11 fallback
+#   5. pbcopy           macOS
+#
+# Reads stdin and forwards. Used by tmux copy-mode and any "yank to clipboard"
+# binding.
+
+set -euo pipefail
+
+if command -v clip.exe >/dev/null 2>&1; then
+    # Strip trailing newline so Windows paste doesn't get an extra blank
+    awk 'BEGIN{RS="\0"} {sub(/\n$/, ""); printf "%s", $0}' | clip.exe
+elif command -v wl-copy >/dev/null 2>&1; then
+    wl-copy
+elif command -v xclip >/dev/null 2>&1; then
+    xclip -selection clipboard -in
+elif command -v xsel >/dev/null 2>&1; then
+    xsel --clipboard --input
+elif command -v pbcopy >/dev/null 2>&1; then
+    pbcopy
+else
+    cat >/dev/null
+fi

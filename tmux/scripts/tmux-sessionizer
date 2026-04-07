@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# tmux-sessionizer — fzf project picker that creates or attaches a tmux
+# session per project. Inspired by ThePrimeagen's sessionizer pattern but
+# tuned for the user's ~/projects/ layout.
+#
+# Bound to C-f in tmux (no prefix). Run from inside tmux.
+
+set -euo pipefail
+
+if [ $# -eq 1 ]; then
+    selected=$1
+else
+    # Build the list: top-level dirs in ~/projects + a few favourites
+    selected=$(
+        {
+            find ~/projects -mindepth 1 -maxdepth 2 -type d \
+                ! -path '*/.*' \
+                ! -path '*/node_modules*' \
+                ! -path '*/target*' \
+                2>/dev/null
+            echo "$HOME"
+            echo "$HOME/.claude"
+            echo "$HOME/projects/dotfiles"
+        } | awk '!seen[$0]++' | fzf --reverse --border --height 100% \
+            --prompt='󰍉 project › ' \
+            --header='C-f session switcher' \
+            --color='fg:#a89bd6,bg:#0d0221,hl:#ff2975,fg+:#ffffff,bg+:#160b3b,hl+:#ff2975,info:#00f0ff,prompt:#ff2975,pointer:#ff2975,marker:#5af78e,spinner:#b026ff,header:#4a3f6b'
+    )
+fi
+
+[ -z "$selected" ] && exit 0
+
+# Use the directory's basename, sanitized, as the session name
+selected_name=$(basename "$selected" | tr . _ | tr ' ' _)
+
+if ! tmux has-session -t="$selected_name" 2>/dev/null; then
+    tmux new-session -d -s "$selected_name" -c "$selected"
+fi
+
+if [ -z "${TMUX:-}" ]; then
+    tmux attach-session -t "$selected_name"
+else
+    tmux switch-client -t "$selected_name"
+fi
