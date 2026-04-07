@@ -1,0 +1,22 @@
+# Theme: NEON DREAMS (default)
+# Synthwave cathedral. Hot pink + electric cyan + ultraviolet + sunset gold.
+# Pairs with the dotfiles tmux .tmux.conf.
+
+palette = "neon_dreams"
+
+[palettes.neon_dreams]
+neon_pink   = "#ff2975"
+neon_cyan   = "#00f0ff"
+neon_purple = "#b026ff"
+neon_yellow = "#ffdf00"
+neon_green  = "#5af78e"
+neon_red    = "#ff5577"
+neon_void   = "#0d0221"
+neon_panel  = "#160b3b"
+neon_dim    = "#4a3f6b"
+neon_text   = "#a89bd6"
+fg_on_pink  = "#0d0221"
+fg_on_cyan  = "#0d0221"
+fg_on_yellow = "#0d0221"
+fg_on_purple = "#ffffff"
+fg_on_dim   = "#a89bd6"

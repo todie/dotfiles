@@ -71,3 +71,9 @@ if [[ -n "${TMUX:-}" ]]; then
   alias bcast='tmux setw synchronize-panes'   # broadcast to all panes (toggle)
   alias zoom='tmux resize-pane -Z'             # zoom toggle
 fi
+
+# ── theme switcher (starship) ──────────────────────────────────────────────
+# `theme list` / `theme set neon-dreams` / `theme next` / `theme random`
+if has theme; then
+  alias themes='theme list'
+fi

@@ -1,0 +1,22 @@
+# Theme: OUTRUN
+# Sunset chrome — orange + magenta + electric blue + amber.
+# Maximum synthwave. 1985 album cover energy.
+
+palette = "neon_dreams"
+
+[palettes.neon_dreams]
+neon_pink   = "#ff6b35"  # sunset orange
+neon_cyan   = "#3d9eff"  # electric blue
+neon_purple = "#d6249f"  # magenta
+neon_yellow = "#ffb703"  # amber
+neon_green  = "#06ffa5"  # spring mint
+neon_red    = "#ff006e"  # neon rose
+neon_void   = "#0a0e27"  # midnight blue
+neon_panel  = "#16213e"
+neon_dim    = "#4a4e69"
+neon_text   = "#c9ada7"
+fg_on_pink  = "#0a0e27"
+fg_on_cyan  = "#0a0e27"
+fg_on_yellow = "#0a0e27"
+fg_on_purple = "#ffffff"
+fg_on_dim   = "#c9ada7"
