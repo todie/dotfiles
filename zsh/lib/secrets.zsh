@@ -14,7 +14,7 @@ _SECRETS_TTL_HOURS=12
 ## Note: parentheses and other special chars are invalid in op:// references,
 ## so items with such names are looked up by UUID.
 typeset -gA _SECRETS_MAP=(
-  [GITHUB_PERSONAL_ACCESS_TOKEN]="op://cloud/if4isjyeictbjj5rqijf3bcgdm/credential"
+  [GITHUB_PERSONAL_ACCESS_TOKEN]="op://cloud/xeyhu6cuy4m7aiizwypkxvl5bq/token"
   [GITHUB_CEREBRAL_TOKEN]="op://cloud/w2qcdty2ei5oc2sudwfe74yiwe/credential"
   [LINEAR_API_KEY]="op://cloud/Linear API/credential"
   [ANTHROPIC_API_KEY]="op://cloud/Anthropic API/credential"
