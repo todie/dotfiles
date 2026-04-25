@@ -107,5 +107,13 @@ fi
 # rust — cargo + rustup binaries live in ~/.cargo/bin
 [[ -d "$HOME/.cargo/bin" ]] && path+=("$HOME/.cargo/bin")
 
+# uv — Astral's Python toolchain (pip/pipx/venv/pyenv replacement)
+# Completion only — binary lives in /opt/homebrew/bin
+has uv && eval "$(uv generate-shell-completion zsh 2>/dev/null)"
+
+# direnv — per-directory env vars via .envrc
+# Hook into chpwd to auto-load/unload on cd. `direnv allow` to whitelist a dir.
+has direnv && eval "$(direnv hook zsh)"
+
 # starship prompt — keep near end of env setup so it's the final PROMPT owner
 has starship && eval "$(starship init zsh)"
