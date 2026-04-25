@@ -63,5 +63,15 @@ secrets-list() {
   done
 }
 
+## render-zed-settings — resolve op:// refs in settings.json.tpl into the
+## live settings.json. Run after editing the template, or wire to a hook.
+render-zed-settings() {
+  local tpl="$HOME/.config/zed/settings.json.tpl"
+  local out="$HOME/.config/zed/settings.json"
+  [[ -r "$tpl" ]] || { print -P "%F{yellow}⚠%f no template at $tpl"; return 1; }
+  op inject -i "$tpl" -o "$out" -f && \
+    print -P "%F{green}✓%f rendered $out from template"
+}
+
 # Auto-load if requested. Set in ~/.zshrc-${USER} for opt-in behavior.
 [[ "${DOTFILES_AUTO_SECRETS:-0}" == "1" ]] && secrets-load
