@@ -39,6 +39,13 @@ link() {
 # ── zsh ──────────────────────────────────────────────────────────────────────
 link "$DOTFILES_DIR/zsh/.zshrc" "$HOME/.zshrc"
 
+# Custom completions — fpath dir is added by env.zsh.
+mkdir -p "$HOME/.local/share/zsh/completions"
+for _comp in "$DOTFILES_DIR"/zsh/completions/_*; do
+  [[ -e $_comp ]] && link "$_comp" "$HOME/.local/share/zsh/completions/$(basename "$_comp")"
+done
+unset _comp
+
 # ── claude code harness ─────────────────────────────────────────────────────
 # PreToolUse Bash hooks and helper scripts. Each file is symlinked individually
 # (not the whole directory) so unmanaged hooks in ~/.claude/hooks/ are
