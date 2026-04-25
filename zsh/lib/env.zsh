@@ -24,14 +24,21 @@ export HISTSIZE=10000
 export SAVEHIST=10000
 export HISTFILE="${XDG_CACHE_HOME}/zsh-history"
 
-# ── editor — prefer VS Code, fall back gracefully ────────────────────────────
-if has code; then
+# ── editor — prefer Zed, fall back gracefully ────────────────────────────────
+if has zed; then
+  ZED_BIN="$(which zed)"
+  export EDITOR="$ZED_BIN --wait"
+  export KUBE_EDITOR="$ZED_BIN --wait"
+  export GIT_EDITOR="$ZED_BIN --wait"
+
+  # sudoedit with Zed
+  suzed() { EDITOR="$ZED_BIN --wait" command -- sudo -e "$@"; }
+elif has code; then
   VSCODE_BIN="$(which code)"
   export EDITOR="$VSCODE_BIN"
   export KUBE_EDITOR="$VSCODE_BIN -w"
   export GIT_EDITOR="$VSCODE_BIN -w"
 
-  # sudoedit with VS Code
   sucode() { EDITOR="$VSCODE_BIN -w" command -- sudo -e "$@"; }
 elif has nvim; then
   export EDITOR=nvim
