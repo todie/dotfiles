@@ -98,5 +98,14 @@ fi
 # the binary is discoverable)
 # (delta is used via git's [core] pager — no env var needed here)
 
+# fnm — fast Node version manager (replaces nvm)
+# Adds `fnm`, plus auto-switches Node version on cd into dirs with .nvmrc/.node-version
+if has fnm; then
+  eval "$(fnm env --use-on-cd --shell zsh)"
+fi
+
+# rust — cargo + rustup binaries live in ~/.cargo/bin
+[[ -d "$HOME/.cargo/bin" ]] && path+=("$HOME/.cargo/bin")
+
 # starship prompt — keep near end of env setup so it's the final PROMPT owner
 has starship && eval "$(starship init zsh)"
