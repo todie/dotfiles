@@ -69,9 +69,14 @@ has zoxide && eval "$(zoxide init zsh)"
 
 # fzf — fuzzy finder key bindings + completion
 # Ctrl-R → history fzf, Ctrl-T → file fzf, Alt-C → cd fzf
+# (atuin overrides Ctrl-R if also enabled below.)
 if has fzf; then
-  # Key bindings + completion live with the fzf install
-  [[ -f ~/.fzf.zsh ]] && source ~/.fzf.zsh
+  # Key bindings + completion — XDG path on brew, fallback to legacy
+  if [[ -f "${XDG_CONFIG_HOME:-$HOME/.config}/fzf/fzf.zsh" ]]; then
+    source "${XDG_CONFIG_HOME:-$HOME/.config}/fzf/fzf.zsh"
+  elif [[ -f ~/.fzf.zsh ]]; then
+    source ~/.fzf.zsh
+  fi
   # FZF default look matches the synthwave/neon-dreams palette
   export FZF_DEFAULT_OPTS="
     --height 60% --layout=reverse --border --ansi
@@ -114,6 +119,16 @@ has uv && eval "$(uv generate-shell-completion zsh 2>/dev/null)"
 # direnv — per-directory env vars via .envrc
 # Hook into chpwd to auto-load/unload on cd. `direnv allow` to whitelist a dir.
 has direnv && eval "$(direnv hook zsh)"
+
+# atuin — sqlite-backed shell history with fuzzy/contextual search
+# Replaces Ctrl-R. Run `atuin register` or `atuin login` once to enable sync.
+# Use `atuin import auto` to seed from existing zsh history.
+if has atuin; then
+  eval "$(atuin init zsh --disable-up-arrow)"
+fi
+
+# bun — completions (binary on PATH via brew)
+[[ -s "$HOME/.bun/_bun" ]] && source "$HOME/.bun/_bun"
 
 # starship prompt — keep near end of env setup so it's the final PROMPT owner
 has starship && eval "$(starship init zsh)"
