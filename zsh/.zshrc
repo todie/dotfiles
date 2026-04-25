@@ -21,7 +21,8 @@ for _module in \
   $DOTFILES_ZSH_DIR/lib/plugins.zsh \
   $DOTFILES_ZSH_DIR/lib/completions.zsh \
   $DOTFILES_ZSH_DIR/lib/aliases.zsh \
-  $DOTFILES_ZSH_DIR/lib/tmux.zsh; do
+  $DOTFILES_ZSH_DIR/lib/tmux.zsh \
+  $DOTFILES_ZSH_DIR/lib/secrets.zsh; do
   [[ -r $_module ]] && source "$_module"
 done
 unset _module
