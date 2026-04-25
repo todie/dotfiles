@@ -83,6 +83,39 @@ if has docker; then
   alias dimg='docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}"'
 fi
 
+# ── lazygit / lazydocker — TUI replacements ─────────────────────────────────
+has lazygit && alias lg='lazygit'
+has lazydocker && alias lzd='lazydocker'
+
+# ── btop / htop — system monitors ───────────────────────────────────────────
+has btop && alias top='btop'
+
+# ── opentofu / terraform ────────────────────────────────────────────────────
+if has tofu; then
+  alias tf='tofu'
+elif has terraform; then
+  alias tf='terraform'
+fi
+
+# ── k9s — kubernetes TUI ────────────────────────────────────────────────────
+has k9s && alias k9='k9s'
+
+# ── helm ────────────────────────────────────────────────────────────────────
+if has helm; then
+  alias h='helm'
+  alias hi='helm install'
+  alias hu='helm upgrade'
+  alias hl='helm list'
+  alias hd='helm uninstall'
+fi
+
+# ── uv — Python toolchain shims ─────────────────────────────────────────────
+if has uv; then
+  alias pip='uv pip'
+  alias pipi='uv pip install'
+  alias venv='uv venv'
+fi
+
 # ── kubectl ──────────────────────────────────────────────────────────────────
 if has kubectl; then
   alias k='kubectl'
