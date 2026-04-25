@@ -11,3 +11,10 @@ has tctl     && . <(tctl --completion-script-zsh)     && compdef _tctl tctl
 has teleport && . <(teleport --completion-script-zsh) && compdef _teleport teleport
 has tbot     && . <(tbot --completion-script-zsh)     && compdef _tbot tbot
 has s3cmd    && compdef s3="s3cmd"
+
+# ── reverie mesh CLIs ───────────────────────────────────────────────────────
+has reveried          && . <(reveried completions zsh)
+has meshctl           && . <(meshctl completions zsh)
+has reverie-bench     && . <(reverie-bench completions zsh)
+has reverie-introspect && . <(reverie-introspect completions zsh)
+has reverie-tracee    && . <(reverie-tracee completions zsh)
