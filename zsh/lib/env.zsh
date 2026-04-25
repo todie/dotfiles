@@ -16,8 +16,15 @@ done
 unset _dir
 
 path+=("$BIN_DIR")
+[[ -d "$HOME/.cargo/bin" ]] && path+=("$HOME/.cargo/bin")
+[[ -d "$HOME/gopath/bin" ]] && path+=("$HOME/gopath/bin")
+[[ -d "$HOME/.claude/bin" ]] && path+=("$HOME/.claude/bin")
 fpath+=("$COMP_DIR")
 manpath+=("$MAN_DIR")
+
+# ── language toolchains ──────────────────────────────────────────────────────
+[[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
+export GOPATH="${HOME}/gopath"
 
 # ── history ──────────────────────────────────────────────────────────────────
 export HISTSIZE=10000
@@ -91,6 +98,29 @@ if has fzf; then
     export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
     export FZF_ALT_C_COMMAND='fd --type d --hidden --follow --exclude .git'
   fi
+
+  # Ctrl-R history search — multi-line preview, dedup on press, no sort toggle
+  # (prefer most recent → most frequent via HISTORY_IGNORE is already set)
+  export FZF_CTRL_R_OPTS="
+    --preview 'echo {}' --preview-window down:3:hidden:wrap
+    --bind 'ctrl-/:toggle-preview'
+    --bind 'ctrl-y:execute-silent(echo -n {2..} | xclip -sel clip)+abort'
+    --color header:italic
+    --header 'ctrl-/ preview · ctrl-y copy · enter run'
+  "
+
+  # Ctrl-T file picker — preview with bat if available, else cat
+  if has bat; then
+    export FZF_CTRL_T_OPTS="--preview 'bat -n --color=always --line-range=:200 {}'"
+  else
+    export FZF_CTRL_T_OPTS="--preview 'head -200 {}'"
+  fi
+
+  # Alt-C directory picker — tree preview
+  export FZF_ALT_C_OPTS="--preview 'ls -la --color=always {} | head -40'"
+
+  # Inside tmux, use a popup instead of the full-screen takeover
+  [[ -n $TMUX ]] && export FZF_TMUX_OPTS='-p 85%,70%'
 fi
 
 # bat — cat replacement with syntax highlighting

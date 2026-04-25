@@ -153,3 +153,4 @@ alias reload='exec zsh'
 export dotfiles="${HOME}/projects/dotfiles"
 export pact="${HOME}/projects/pact"
 export reach="${HOME}/projects/reach"
+export reverie="${HOME}/projects/reverie"

@@ -32,3 +32,19 @@ unset _module
 
 # User-local overrides — not tracked in dotfiles.
 [[ -f "${HOME}/.zshrc-${USER}" ]] && source "${HOME}/.zshrc-${USER}"
+
+# Added by Pilot installer
+export PATH="$HOME/.local/bin:$PATH"
+
+# --- ssh-agent ---
+# Removed: SSH now routed through 1Password via ~/.zshrc-ctodie (aliases
+# ssh/ssh-add to ssh.exe/ssh-add.exe per WSL integration docs).
+
+# Prefer stored gh OAuth token over inherited GITHUB_TOKEN PAT (which lacks SSO access to cerebral-work/*)
+gh() { GITHUB_TOKEN= command gh "$@"; }
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/home/ctodie/google-cloud-sdk/path.zsh.inc' ]; then . '/home/ctodie/google-cloud-sdk/path.zsh.inc'; fi
+
+# The next line enables shell command completion for gcloud.
+if [ -f '/home/ctodie/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/ctodie/google-cloud-sdk/completion.zsh.inc'; fi
