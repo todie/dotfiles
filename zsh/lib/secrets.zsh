@@ -7,6 +7,11 @@
 
 has op || return 0
 
+# Load OP_SERVICE_ACCOUNT_TOKEN (and any other env-resident secrets) so
+# `op read` below works headlessly without an interactive `op signin`.
+# This file is sourced by the op-mcp wrapper too — single source of truth.
+[[ -r "$HOME/.secrets" ]] && { set -a; source "$HOME/.secrets"; set +a; }
+
 _SECRETS_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/zsh-secrets.env"
 _SECRETS_TTL_HOURS=12
 
@@ -27,7 +32,7 @@ secrets-load() {
 
   # Use cache if fresh and not forcing.
   if [[ -r "$_SECRETS_CACHE" && "$force" != "--force" ]]; then
-    cache_age_hours=$(( ($(date +%s) - $(stat -f %m "$_SECRETS_CACHE")) / 3600 ))
+    cache_age_hours=$(( ($(date +%s) - $(stat -c %Y "$_SECRETS_CACHE" 2>/dev/null || stat -f %m "$_SECRETS_CACHE")) / 3600 ))
     if (( cache_age_hours < _SECRETS_TTL_HOURS )); then
       source "$_SECRETS_CACHE"
       return 0
