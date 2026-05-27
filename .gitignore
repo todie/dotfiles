@@ -1,16 +1,16 @@
-# OS
-.DS_Store
-Thumbs.db
 
+!.zshrc-local.example
 # Editor
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
+# OS
 # Secrets / local overrides
 *.local
+*.swo
+*.swp
+*~
+.DS_Store
 .env
+.idea/
+.vscode/
 .zshrc-*
-!.zshrc-local.example
+/.skill-lock.json
+Thumbs.db
