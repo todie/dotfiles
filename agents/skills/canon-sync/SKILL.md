@@ -1,6 +1,6 @@
 ---
 name: canon-sync
-description: Align a project's three sources of truth — spec docs, GitHub PRs, and Linear tickets — by detecting drift between them. Read-only by default; `--apply` performs only the cheap/safe fixes (close ticket when its linked PR is merged, post PR-link comment on ticket). `--ci` exits non-zero on drift so the skill can run as a GitHub Action gate. Reads source config from `.canon-sync.yml` at the project root. Use when the user says "canon sync", "align sources of truth", "find drift between specs/PRs/tickets", "what tickets are out of sync with their PRs". Args — optional `--apply`, `--ci`, `--check <csv>` (default: all), `--specs <glob>`, `--repo <owner/name>`, `--linear-project <name>` to override config.
+description: Align a project's three sources of truth — spec docs, GitHub PRs, and Linear tickets — by detecting drift between them. Read-only by default; `--apply` performs only the cheap/safe fixes (close ticket when its linked PR is merged, post PR-link comment on ticket). `--ci` exits non-zero on drift so the skill can run as a GitHub Action gate. Reads source config from `.canon-sync.yml` at the project root. Use when the user says "canon sync", "align sources of truth", "find drift between specs/PRs/tickets", "what tickets are out of sync with their PRs". Args — optional `--apply`, `--ci`, `--check <csv>` (default: all; supports per-check severity override `<name>=info|warn|gate`, e.g. `--check spec_section_no_ticket=warn`), `--specs <glob>`, `--repo <owner/name>`, `--linear-project <name>` to override config.
 ---
 
 # canon-sync — three-way drift detector for project sources of truth
@@ -95,9 +95,11 @@ Each check is independent; tag every drift instance with `{kind, evidence, auto_
 
 - **spec_ticket_missing**: Spec file references a ticket ID that doesn't exist in Linear (typo'd or wrong project). → report only.
 
-- **spec_section_no_ticket**: A `## ` heading in a spec file with no `ticket_re` match within the section (next heading or EOF). → report only with severity *info* — most spec sections legitimately don't need tickets; this is a low-signal warning.
+- **spec_section_no_ticket**: A `## ` heading in a spec file with no `ticket_re` match within the section (next heading or EOF). Default severity *info* — most spec sections legitimately don't need tickets. Severity is configurable per-check (see below).
 
 Use `--check <csv>` to filter the set. Names: `pr_merged_ticket_open,pr_closed_ticket_open,ticket_closed_pr_open,pr_no_ticket,ticket_no_pr,spec_ticket_missing,spec_section_no_ticket`.
+
+**Per-check severity override** (`--check <name>=<severity>`): bumps a check between buckets. Severities: `info` (shown in Info table, never gates CI), `warn` (shown in Manual review table, never gates CI), `gate` (shown in Manual review table, gates `--ci` exit code). Example: `--check spec_section_no_ticket=warn` promotes untracked spec sections to manual-review on a planning-heavy project that wants every section ticketed. Default severities: `pr_merged_ticket_open`/`pr_closed_ticket_open`/`ticket_closed_pr_open`/`spec_ticket_missing` are `gate`; `pr_no_ticket`/`ticket_no_pr` are `warn`; `spec_section_no_ticket` is `info`. Override syntax composes with filter syntax: `--check spec_section_no_ticket=warn,pr_no_ticket=gate` filters to those two checks AND sets their severities.
 
 ### 5. Dry-run output (default)
 
@@ -141,9 +143,9 @@ Manual review still needed: 8 items
 
 When the skill runs as a GitHub Action (or any CI step), `--ci` changes the exit semantics:
 
-- Exit `0` only when there are zero drift signals across the *gating* categories: `pr_merged_ticket_open`, `pr_closed_ticket_open`, `ticket_closed_pr_open`, `spec_ticket_missing`.
-- Exit `1` when any gating category has at least one row. Print the gating-category tables only (skip info / `spec_section_no_ticket`).
-- `pr_no_ticket` and `ticket_no_pr` are **warnings** in CI mode — printed but never gate the exit code. Most teams have legitimate ticketless PRs (docs/chore) and ticketless in-flight tickets.
+- Exit `0` only when there are zero drift signals across checks whose severity is `gate`. Default gating set: `pr_merged_ticket_open`, `pr_closed_ticket_open`, `ticket_closed_pr_open`, `spec_ticket_missing`. The set is recomputed if the user overrode severity via `--check <name>=gate` (e.g. `--check spec_section_no_ticket=gate` adds untracked spec sections to the gate).
+- Exit `1` when any gating-severity check has at least one row. Print the gating tables only (skip info/warn rows).
+- Checks at severity `warn` (default: `pr_no_ticket`, `ticket_no_pr`) are printed but never gate exit. Most teams have legitimate ticketless PRs (docs/chore) and ticketless in-flight tickets.
 - `--ci` implies `--no-color` and a flat ASCII table (no Unicode box-drawing). CI log readers and PR-comment markdown both render plain ASCII more reliably.
 - `--ci` is **incompatible with** `--apply`: a CI run that auto-mutates Linear from a PR is too easy to misuse (a contributor's PR could close someone else's ticket). Refuse with `--ci is read-only; remove --apply`.
 
@@ -236,7 +238,7 @@ The exit-code semantics are the contract; the deployment path is yours to wire u
 - `--export <path>`: dump the manual-review table to markdown for offline triage
 - Smarter PR/ticket linking: parse `Closes TOD-NNN` / `Fixes #N` clauses, not just regex matches anywhere
 - Reverse direction: when a PR mentions a ticket but the ticket has no PR link, propose adding the PR URL to the ticket as an attachment
-- `--strict-untracked`: promote `spec_section_no_ticket` from info to manual-review (off by default; some projects want this)
+- ~~`--strict-untracked`: promote `spec_section_no_ticket` from info to manual-review~~ — superseded by per-check severity override (`--check spec_section_no_ticket=warn`); see Args section
 - Multi-project config: array of `linear.project` entries to align several Linear projects against one repo
 - Jira / GitLab adapters (config shape already leaves room — see "Provider abstraction" in the Config section)
 - Semantic spec-to-ticket matching: AI pass that detects "this spec section is *about* TOD-512 even without a literal ID" (deep, horizon feature)

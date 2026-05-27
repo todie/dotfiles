@@ -1,6 +1,6 @@
 ---
 name: linear-groom
-description: Audit a Linear scope (team / project / milestone) for ticket drift — stale, missing labels, missing estimate/assignee/project, orphan (no milestone), duplicate (exact + fuzzy) titles — and propose a fix plan. Read-only by default; `--apply` writes the mechanical fixes in rate-limited batches. Always runs an OAuth preflight before any list/save call. Use when the user says "groom Linear", "audit the backlog", "clean up tickets in <project>", "find stale tickets". Args — optional `--team <key>` (default TOD), `--project <name>`, `--milestone <name>`, `--check <csv>` (default: all), `--stale-days <N>` (default 14), `--apply`, `--batch <N>` (default 10), `--slack <channel>` to post the report, `--ai-suggest` to add a dry-run-only AI proposal pass for non-mechanical fields.
+description: Audit a Linear scope (team / project / milestone) for ticket drift — stale, missing labels, missing estimate/assignee/project, orphan (no milestone), duplicate (exact + fuzzy) titles, broken relation mirrors — and propose a fix plan. Read-only by default; `--apply` writes the mechanical fixes in rate-limited batches with automatic `# bulk-file-spec: skip` injection when batch > 5. Always runs an OAuth preflight before any list/save call. Use when the user says "groom Linear", "audit the backlog", "clean up tickets in <project>", "find stale tickets". Args — optional `--team <key>` (default TOD), `--project <name>`, `--milestone <name>`, `--check <csv>` (default: all; includes relation-mirror), `--stale-days <N>` (default 14), `--apply`, `--auto-bulk-marker` (default on), `--batch <N>` (default 10), `--slack <channel>` to post the report, `--ai-suggest` to add a dry-run-only AI proposal pass for non-mechanical fields.
 ---
 
 # linear-groom — bulk Linear audit + safe fix loop
@@ -26,13 +26,14 @@ Walk a Linear scope, surface every drift signal as a structured row, then either
 - `--team <key>`: Linear team key (default `TOD`)
 - `--project <name>`: scope to one project (exact name match)
 - `--milestone <name>`: scope to one milestone
-- `--check <csv>`: subset of `stale,labels,estimate,assignee,project,orphan,duplicate` (default: all)
+- `--check <csv>`: subset of `stale,labels,estimate,assignee,project,orphan,duplicate,relation-mirror` (default: all)
 - `--stale-days <N>`: stale threshold in days (default `14`)
 - `--apply`: execute the fix plan; default is dry-run
 - `--batch <N>`: max writes per second (default `10`)
 - `--no-preflight`: skip the OAuth check (faster reruns; only use when you just ran it)
 - `--slack <channel>`: after the report, post a summary (counts + manual-review table) to a Slack channel via `mcp__claude_ai_Slack__slack_send_message`. Channel name without `#`.
 - `--ai-suggest`: add a third output section with AI-proposed values for non-mechanical fields (labels, estimate, project, milestone). Dry-run only — `--apply` never writes AI suggestions, even when both flags are passed.
+- `--auto-bulk-marker` / `--no-auto-bulk-marker`: when the `--apply` loop writes more than 5 `save_issue` calls, auto-inject `# bulk-file-spec: skip` into each call's description field to stay under the Linear rate limit. Default: on. Disable only when you know the batch will stay under 5 or you are intentionally testing the rate-limit path.
 
 If no scope flag is given and the user didn't supply one in the prompt, refuse with: `linear-groom requires --team, --project, or --milestone — refusing to audit all of Linear`.
 
@@ -69,6 +70,7 @@ For each enabled check, walk the ticket list once and tag each ticket with the d
 - **project**: `project` is null AND `--team` scope (not `--project` — that's tautological)
 - **orphan**: `milestone` is null AND ticket is in a project that has milestones
 - **duplicate**: two or more tickets whose titles match either (a) exact normalized form (lowercase, trimmed, whitespace-collapsed) or (b) Levenshtein-similarity ≥ 0.85 on the normalized form AND in the same project. Surface as a *pair* (or cluster) row, not per-ticket. Tag each pair with `exact` or `fuzzy:<score>` so the manual reviewer can prioritize the cheap merges. Fuzzy matching is O(n²); the 200-ticket scope cap keeps this at ≤ 40k comparisons (fast). No downgrade in normal operation. Future-extension territory: switch to embeddings if anyone ever raises the scope cap.
+- **relation-mirror**: for each ticket whose `blocks` or `blockedBy` relation array is non-empty, call `get_issue(id, includeRelations: true)` on the *downstream* ticket and assert the mirror edge exists. A missing mirror means Linear's relation graph is asymmetric — surfaced as `relation-mirror-broken` in the manual-review table. This check is read-only and never auto-fixed; the user must correct the relation in the UI or via a manual `save_issue`. Implements the validation pass from `feedback_linear_deps_bidirectional.md`. Note: this check adds one `get_issue` call per ticket with relations — it is rate-limited to 20 such calls per groom run to avoid burst. If the scope has more than 20 tickets with relations, the check runs on the first 20 and appends a warning: `relation-mirror check capped at 20 — re-run with --milestone to narrow scope`.
 
 ### 5. Build the fix plan
 
@@ -136,6 +138,7 @@ Exit. Do not call `save_issue`.
 
 Only acts on the auto-fixable rows. For each row:
 
+- If the planned batch size exceeds 5 and `--auto-bulk-marker` is on (default), inject `# bulk-file-spec: skip` as a trailing line in the `description` field of every `save_issue` call in this run. Log once: `auto-bulk-marker: injecting # bulk-file-spec: skip (N writes > 5-call threshold)`.
 - Call `mcp__claude_ai_Linear__save_issue` with `id` + the single field being changed (e.g. `project: <id>`).
 - Sequential, not parallel. Sleep `1000 / batch` ms between calls (default 100ms → 10/sec).
 - On rate-limit error (HTTP 429 or MCP-level rate-limit shape): exponential backoff starting at 2s, doubling each retry, max 5 retries. After 5 → abort the apply loop and report what landed.
@@ -202,3 +205,4 @@ Manual review still needed: 3 tickets
 - `--cron <interval>`: register a recurring `CronCreate` rather than punt to `/loop`
 - A `--seed` flag to make the duplicate-pair surfacing deterministic across runs (matters when fuzzy matching ties)
 - Semantic duplicate detection via embeddings (current fuzzy match is Levenshtein-only; embeddings catch reword/paraphrase duplicates)
+- Raise the `relation-mirror` cap above 20 if the Linear MCP adds a batch-get endpoint (currently one `get_issue` per ticket is the only option)
