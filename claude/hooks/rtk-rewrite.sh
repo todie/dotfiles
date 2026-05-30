@@ -43,18 +43,6 @@ if [ -z "$CMD" ]; then
   exit 0
 fi
 
-# Pass through (do NOT rtk-rewrite) compound / scripted commands. `rtk rewrite`
-# inserts `rtk ` in front of ONE sub-command of a larger script; the resulting
-# compound has failed under the harness's zsh sub-eval with command-not-found
-# cascades (rtk/sed/head/git). `rtk rewrite` itself ignores config exclusions,
-# so the gate lives here. Simple commands and plain pipelines still rewrite.
-case "$CMD" in
-  *'$('* | *'`'* | *'<<'* | *$'\n'* ) exit 0 ;;   # cmd-substitution / heredoc / multi-line
-esac
-if printf '%s' "$CMD" | grep -qE '(^|[[:space:];&|(])(for|while|until|if|case|select|do|done|then|fi|esac|function)([[:space:];&|)]|$)'; then
-  exit 0                                                      # shell control flow
-fi
-
 # Delegate all rewrite + permission logic to the Rust binary.
 REWRITTEN=$(rtk rewrite "$CMD" 2>/dev/null)
 EXIT_CODE=$?
