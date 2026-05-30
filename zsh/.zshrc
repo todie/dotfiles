@@ -5,6 +5,8 @@ export GPG_TTY=$TTY
 export DOTFILES_ZSH_DEBUG="${DOTFILES_ZSH_DEBUG:-0}"
 export DOTFILES_ZSH_CACHE=${XDG_CACHE_HOME:-~/.cache}/zsh
 
+# Completion fpath must be set BEFORE compinit so cached _tool files autoload.
+fpath=("$HOME/.zsh/completions" $fpath)
 autoload -U +X compinit && compinit -u
 
 # ~w => Windows home on WSL
@@ -48,3 +50,10 @@ if [ -f '/home/ctodie/google-cloud-sdk/path.zsh.inc' ]; then . '/home/ctodie/goo
 
 # The next line enables shell command completion for gcloud.
 if [ -f '/home/ctodie/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/ctodie/google-cloud-sdk/completion.zsh.inc'; fi
+
+
+# claude yolo (sandboxed/throwaway dirs only)
+alias cy="claude --dangerously-skip-permissions"
+
+autoload -U +X bashcompinit && bashcompinit
+complete -o nospace -C /home/ctodie/.local/bin/terraform terraform
