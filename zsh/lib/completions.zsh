@@ -14,7 +14,16 @@ has s3cmd    && compdef s3="s3cmd"
 
 # ── reverie mesh CLIs ───────────────────────────────────────────────────────
 has reveried          && . <(reveried completions zsh)
-has meshctl           && . <(meshctl completions zsh)
+# cortex completion script still emits _meshctl internally (stale name) — shim compdef until fixed upstream
+has cortex            && . <(cortex completions zsh) && compdef _meshctl cortex
+has engram            && . <(engram completions zsh)
 has reverie-bench     && . <(reverie-bench completions zsh)
 has reverie-introspect && . <(reverie-introspect completions zsh)
 has reverie-tracee    && . <(reverie-tracee completions zsh)
+
+# ── additional tool completions ──────────────────────────────────────────────
+has rclone  && . <(rclone completion zsh -)
+has sops    && . <(sops completion zsh)
+has flyctl  && . <(flyctl completion zsh)
+has rustup  && . <(rustup completions zsh)
+has rustup  && . <(rustup completions zsh cargo)
