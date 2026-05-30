@@ -61,32 +61,63 @@ case "$TOOL" in
         CMD=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
         [ -z "$CMD" ] && approve
 
-        cd_target=$(echo "$CMD" | grep -oE 'cd[[:space:]]+["'"'"']?(/[^[:space:]"'"'"';|&]+)' | head -1 | sed -E 's/^cd[[:space:]]+["'"'"']?//')
+        # `|| true`: a no-match grep exits 1, which under `set -e` previously
+        # aborted the hook with empty stdout BEFORE any check ran — failing the
+        # jail open for every command without a literal `cd /abspath`.
+        cd_target=$(echo "$CMD" | grep -oE 'cd[[:space:]]+["'"'"']?(/[^[:space:]"'"'"';|&]+)' | head -1 | sed -E 's/^cd[[:space:]]+["'"'"']?//' || true)
         if [ -n "$cd_target" ] && escapes_jail "$cd_target"; then
             block "worktree-jail: subagent cannot 'cd' outside its worktree.
   jail:   $JAIL_ROOT
   target: $cd_target"
         fi
 
-        if echo "$CMD" | grep -qE '(^|[^a-zA-Z])git[[:space:]]+(commit|reset|rebase|checkout|push|merge|cherry-pick|am|stash[[:space:]]+(pop|apply|drop)|worktree[[:space:]]+(remove|prune|move))'; then
-            if escapes_jail "$CWD"; then
+        # git mutations. Detect LOOSELY (git + a mutating subcommand anywhere,
+        # so `git -C dir reset` and `git --git-dir=x commit` are caught) but
+        # block PRECISELY — only when the cwd escapes the jail OR the command
+        # redirects git at another tree via -C/--git-dir/--work-tree. A mutation
+        # confined to the jail (cwd=jail, no redirect) stays allowed.
+        if echo "$CMD" | grep -qE '(^|[^a-zA-Z])git([[:space:]]|$)' \
+           && echo "$CMD" | grep -qE '(^|[^-[:alnum:]])(commit|reset|rebase|checkout|merge|cherry-pick|am|stash|worktree[[:space:]]+(remove|prune|move))([^-[:alnum:]]|$)'; then
+            git_redirect=$(echo "$CMD" | grep -oE '(-C|--git-dir[=[:space:]]|--work-tree[=[:space:]])[[:space:]]*["'"'"']?/[^[:space:]"'"'"';|&]+' | grep -oE '/[^[:space:]"'"'"';|&]+' | head -1 || true)
+            if escapes_jail "$CWD" || { [ -n "$git_redirect" ] && escapes_jail "$git_redirect"; }; then
                 block "worktree-jail: subagent cannot run git mutation commands outside its worktree.
-  jail: $JAIL_ROOT
-  cwd:  $CWD"
-            fi
-            if echo "$CMD" | grep -qE 'git[[:space:]]+push.*(--force|--force-with-lease|-f([[:space:]]|$))'; then
-                block "worktree-jail: subagents may not force-push."
+  jail:     $JAIL_ROOT
+  cwd:      $CWD
+  redirect: ${git_redirect:-none}"
             fi
         fi
+        # Force-push is never allowed from a subagent, target irrespective.
+        if echo "$CMD" | grep -qE '(^|[^a-zA-Z])git([[:space:]]|$)' \
+           && echo "$CMD" | grep -qE '(^|[^-[:alnum:]])push([^-[:alnum:]]|$)' \
+           && echo "$CMD" | grep -qE '(--force([^-[:alnum:]]|=|$)|--force-with-lease|(^|[[:space:]])-[a-zA-Z]*f([[:space:]]|$)|[[:space:]]\+[^[:space:]:]+(:|[[:space:]]|$))'; then
+            block "worktree-jail: subagents may not force-push."
+        fi
 
-        if echo "$CMD" | grep -qE '(>>?|tee[[:space:]]+(-a[[:space:]]+)?|sed[[:space:]]+-i)[[:space:]]+["'"'"']?/(home|tmp|etc|var|usr)/'; then
-            for cand in $(echo "$CMD" | grep -oE '/(home|tmp|etc|var|usr)/[^[:space:]"'"'"';|&)]+'); do
-                if escapes_jail "$cand"; then
-                    block "worktree-jail: subagent cannot write outside jail.
+        # Filesystem writes into another tree. Redirect / tee / sed -i name the
+        # destination directly; cp/mv/install/rsync put it LAST (so reading or
+        # copying INTO the jail — last path stays inside — is not blocked).
+        write_dst=""
+        case "$CMD" in
+            *">"*|*tee*)
+                # redirect / tee name the destination right after the operator
+                write_dst=$(echo "$CMD" | grep -oE '(>>?|tee[[:space:]]+(-a[[:space:]]+)?)[[:space:]]*["'"'"']?/[^[:space:]"'"'"';|&]+' | grep -oE '/[^[:space:]"'"'"';|&]+' | head -1 || true)
+                ;;
+            *"cp "*|*"mv "*|*"install "*|*"rsync "*|*"sed -i"*|*"sed --in-place"*)
+                # destination = last token of the first command segment (cut at
+                # ; | &). A relative dest resolves inside the jail (escapes_jail
+                # returns false), so copies/edits INTO the jail are not blocked.
+                # (sed -i's target file is its LAST arg, after the script.)
+                first_seg=$(printf '%s' "$CMD" | sed -E 's/[[:space:]]*[;|&].*$//')
+                write_dst=$(printf '%s' "$first_seg" | awk '{print $NF}' | sed -E "s/^[\"']//; s/[\"']\$//")
+                ;;
+            *"dd "*)
+                write_dst=$(echo "$CMD" | grep -oE 'of=["'"'"']?/[^[:space:]"'"'"';|&]+' | sed -E 's/^of=["'"'"']?//' | head -1 || true)
+                ;;
+        esac
+        if [ -n "$write_dst" ] && escapes_jail "$write_dst"; then
+            block "worktree-jail: subagent cannot write outside jail.
   jail:   $JAIL_ROOT
-  target: $cand"
-                fi
-            done
+  target: $write_dst"
         fi
 
         approve

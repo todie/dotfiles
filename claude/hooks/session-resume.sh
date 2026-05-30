@@ -15,20 +15,30 @@ fi
 
 # 1. Check for a recent context snapshot breadcrumb (from compact/clear)
 # Search for recent snapshot via title match on observations endpoint
-BREADCRUMB=$(python3 -c "
-import urllib.request, json
-from datetime import datetime
+# NB: pass ENGRAM_URL/PROJECT via the environment, never interpolated into the
+# python source — a project dir named with an apostrophe would otherwise close
+# the string literal and execute arbitrary code on resume. urlencode guards the
+# query too. tz: coerce naive timestamps to UTC before the now()-created math.
+BREADCRUMB=$(ENGRAM_URL="$ENGRAM_URL" PROJECT="$PROJECT" python3 -c '
+import os, json, urllib.request, urllib.parse
+from datetime import datetime, timezone
 try:
-  url = '${ENGRAM_URL}/search?q=context+snapshot+compact+clear&project=${PROJECT}&limit=1'
-  data = json.loads(urllib.request.urlopen(url, timeout=2).read())
-  if data:
-    o = data[0]
-    created = datetime.fromisoformat(o['created_at'])
-    age = (datetime.utcnow() - created).total_seconds()
-    if age < 3600:
-      print(f\"Resumed from snapshot (obs #{o['id']}, {int(age/60)}m ago): {o['title']}\")
-except: pass
-" 2>/dev/null || true)
+    qs = urllib.parse.urlencode({"q": "context snapshot compact clear",
+                                 "project": os.environ["PROJECT"], "limit": 1})
+    url = os.environ["ENGRAM_URL"] + "/search?" + qs
+    data = json.loads(urllib.request.urlopen(url, timeout=2).read())
+    if data:
+        o = data[0]
+        created = datetime.fromisoformat(o["created_at"])
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=timezone.utc)
+        age = (datetime.now(timezone.utc) - created).total_seconds()
+        if age < 3600:
+            oid, otitle = o["id"], o["title"]
+            print(f"Resumed from snapshot (obs #{oid}, {int(age/60)}m ago): {otitle}")
+except Exception:
+    pass
+' 2>/dev/null || true)
 
 if [ -n "$BREADCRUMB" ]; then
   hook_status "$BREADCRUMB"

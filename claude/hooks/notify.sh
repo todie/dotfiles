@@ -3,11 +3,19 @@
 # Uses Windows toast via PowerShell (WSL2), falls back to notify-send (native Linux)
 set -euo pipefail
 
-MSG=$(cat)
+RAW=$(cat)
+# The Notification event is a JSON envelope — surface its .message, not the
+# raw {...} blob. Fall back to raw text (non-JSON callers) then a default.
+MSG=$(printf '%s' "$RAW" | jq -r '.message // empty' 2>/dev/null)
+[ -z "$MSG" ] && MSG="$RAW"
 [ -z "$MSG" ] && MSG="Claude Code needs your attention"
 
-# Escape single quotes for PowerShell
-ESCAPED=$(echo "$MSG" | sed "s/'/\\\\'/g" | head -c 200)
+# PowerShell single-quoted literals escape an embedded quote by DOUBLING it
+# ('') — backslash is literal and does NOT escape. The old s/'/\'/g left every
+# apostrophe able to terminate CreateTextNode('…') and run the remainder as
+# PowerShell on the Windows host (RCE). Cap first, then double quotes, so the
+# message is inert DATA inside the literal.
+ESCAPED=$(printf '%s' "$MSG" | head -c 200 | sed "s/'/''/g")
 
 if command -v powershell.exe &>/dev/null; then
   powershell.exe -NoProfile -Command \
