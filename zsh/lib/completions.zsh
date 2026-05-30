@@ -9,21 +9,39 @@
 # After upgrading a tool, run `refresh-completions` to regenerate the cache.
 #
 # NOTE: some generators emit a stale #compdef binary name on line 1 (cortex
-# still says `meshctl`, reveried/engram still says `reveried`). We rewrite the
-# tag to match the real command so compinit registers it under the right name.
+# still says `meshctl`, engram still says `reveried`) or none at all (sops).
+# We rewrite/prepend the tag to match the real command so compinit registers it
+# under the right name; non-#compdef output is rejected outright.
 
 local compdir="$HOME/.zsh/completions"
 [[ -d $compdir ]] || mkdir -p "$compdir"
 
-# file → "generator cmd|||correct #compdef tag (optional, fixes stale tags)"
+# file → "generator cmd|||correct #compdef tag (optional, fixes stale/missing tags)"
+# Only installed tools that emit a REAL #compdef script belong here. _gen_one is
+# hardened to reject any output that isn't a #compdef script, so an uninstalled
+# tool or a generator that prints a usage stub simply gets skipped — but we keep
+# the list to what's actually present to avoid dead entries.
+# `terraform` and `vault` use `complete -C` (bashcompinit) and are wired in
+# .zshrc / env.zsh respectively, not here.
 typeset -gA _COMPLETION_GEN=(
-  _cortex 'cortex completions zsh|||cortex'
-  _engram 'engram completions zsh|||engram'
-  _rclone 'rclone completion zsh -'
-  _sops   'sops completion zsh|||sops'
-  _flyctl 'flyctl completion zsh'
-  _rustup 'rustup completions zsh'
-  _cargo  'rustup completions zsh cargo'
+  # generators that emit a correct #compdef tag on line 1 — no rewrite needed
+  _gh                 'gh completion -s zsh'
+  _kubectl            'kubectl completion zsh'
+  _op                 'op completion zsh'
+  _uv                 'uv generate-shell-completion zsh'
+  _rclone             'rclone completion zsh -'
+  _flyctl             'flyctl completion zsh'
+  _rustup             'rustup completions zsh'
+  _cargo              'rustup completions zsh cargo'
+  # reverie mesh CLIs — emit real #compdef scripts under their own names
+  _reveried           'reveried completions zsh'
+  _reverie-bench      'reverie-bench completions zsh'
+  _reverie-introspect 'reverie-introspect completions zsh'
+  _reverie-tracee     'reverie-tracee completions zsh'
+  # generators with a stale or missing tag — rewritten/prepended to the rhs
+  _cortex             'cortex completions zsh|||cortex'   # emits stale #compdef meshctl
+  _engram             'engram completions zsh|||engram'   # emits stale #compdef reveried
+  _sops               'sops completion zsh|||sops'         # emits no #compdef tag at all
 )
 
 _gen_one() {
@@ -45,6 +63,10 @@ _gen_one() {
     fi
     out=${(F)lines}
   fi
+  # Reject anything that isn't a real #compdef script (e.g. a tool whose
+  # `completions zsh` prints a stub/usage line). Without this, a 15-byte stub
+  # would be written and confuse compinit.
+  [[ $out == '#compdef '* ]] || return 1
   print -r -- "$out" >| "$compdir/$f"
   [[ -s $compdir/$f ]] || { rm -f "$compdir/$f"; return 1; }
   return 0
