@@ -11,77 +11,70 @@ COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
 # If jq fails or command is empty, allow (don't block on parse errors)
 [ -z "$COMMAND" ] && exit 0
 
-# Block destructive database operations.
-#   - DROP/TRUNCATE are always destructive → block outright.
-#   - DELETE FROM <table> with NO WHERE clause is a mass delete → block; a
-#     WHERE-qualified DELETE is a normal targeted op and is allowed. (The old
-#     rule required a trailing `;`, so `psql -c "DELETE FROM users"` slipped.)
-if echo "$COMMAND" | grep -qiE '(DROP\s+(TABLE|DATABASE|SCHEMA|INDEX)|TRUNCATE\s+(TABLE\s+)?\S+)'; then
-  echo "BLOCKED: Destructive database operation (DROP/TRUNCATE) detected. Use explicit confirmation." >&2
-  exit 2
-fi
-if echo "$COMMAND" | grep -qiE 'DELETE\s+FROM\s+\S+' && ! echo "$COMMAND" | grep -qiE 'DELETE\s+FROM\s+.*[^a-zA-Z_]WHERE[^a-zA-Z_]'; then
-  echo "BLOCKED: Unqualified DELETE FROM (no WHERE) is a mass delete. Add a WHERE clause or confirm explicitly." >&2
-  exit 2
-fi
-
-# Block force pushes to main/master, regardless of flag order or syntax.
-# Old rules required the force flag BEFORE the branch, so `git push origin main
-# --force` and `git push origin +main` (refspec force) both slipped through.
-# Detect loosely (git + push + a force indicator) and confirm a protected ref
-# is referenced. Force-push to a NON-protected feature branch stays allowed.
-if echo "$COMMAND" | grep -qE '(^|[^[:alnum:]])git([[:space:]]|$)' \
-   && echo "$COMMAND" | grep -qE '(^|[^[:alnum:]])push([^[:alnum:]]|$)' \
-   && echo "$COMMAND" | grep -qE '(--force([^-[:alnum:]]|=|$)|--force-with-lease|(^|[[:space:]])-[a-zA-Z]*f([[:space:]]|$)|[[:space:]]\+(main|master|HEAD)([^[:alnum:]]|$))' \
-   && echo "$COMMAND" | grep -qE '(^|[^[:alnum:]_])(main|master)([^[:alnum:]_]|$)'; then
-  echo "BLOCKED: Force push to main/master is not allowed." >&2
-  exit 2
-fi
-
-# Block writing to critical dotfiles (.ssh/.gpg/.secrets/.gitconfig). Covers
-# redirect/append/tee/sed-i (target adjacent to the operator) and cp/mv/install/
-# rsync (protected path as the LAST token = destination), with ~ / $HOME /
-# ${HOME} / absolute forms. Reads (cat/grep ~/.ssh/config) are NOT writers.
+# PER-STATEMENT scanning. Split COMMAND on ; && || and newlines (NOT a single
+# |, so pipelines like `curl … | bash` stay intact within a statement) and run
+# each dangerous-op rule against its OWN statement. This stops cross-statement
+# conflation that the prior whole-command scan produced:
+#   - `rm -rf /tmp/x && echo /home/ctodie` no longer false-blocks (the rm and
+#     the /home token are different statements),
+#   - a stray `-f` or `main` in one statement can't trip the force/rm rule that
+#     belongs to another,
+#   - a `localhost` token in one statement can't disable the curl|interpreter
+#     guard in a different statement (was a real fail-OPEN).
+# The full AST/policy redesign (Phase 4) supersedes this interim parser.
 PROT_DOT='(~|\$\{?HOME\}?|/home/ctodie)/\.(ssh|gpg|secrets|gitconfig)'
-if echo "$COMMAND" | grep -qE "(>>?|tee([[:space:]]+-a)?|sed[[:space:]]+-i[^[:space:]]*)[[:space:]]*[\"']?${PROT_DOT}"; then
-  echo "BLOCKED: Cannot write to critical dotfiles (.ssh, .gpg, .secrets, .gitconfig) via redirect/tee/sed -i." >&2
-  exit 2
-fi
-case "$COMMAND" in
-  *"cp "*|*"mv "*|*"install "*|*"rsync "*|*"sed -i"*|*"sed --in-place"*)
-    # destination / in-place target = last token of the first command segment
-    _seg=$(printf '%s' "$COMMAND" | sed -E 's/[[:space:]]*[;|&].*$//')
-    _dst=$(printf '%s' "$_seg" | awk '{print $NF}' | sed -E "s/^[\"']//; s/[\"']\$//")
-    if printf '%s' "$_dst" | grep -qE "^${PROT_DOT}"; then
-      echo "BLOCKED: Cannot write to critical dotfiles (.ssh, .gpg, .secrets, .gitconfig) as a copy/move/sed-i destination." >&2
-      exit 2
-    fi
-    ;;
-esac
-
-# Block running scripts piped from the internet.
-# Localhost / 127.0.0.1 / docker-internal / private 172.16-31 hosts are NOT
-# remote — allow piping from those (the dev mesh hits them constantly: ollama,
-# reveried, prometheus). The local-host token is anchored to the URL HOST (it
-# must be followed by :port, /, whitespace or end) so an attacker hostname like
-# `localhost.evil.com` no longer satisfies the carve-out.
 LOCAL_HOST='https?://([^/@[:space:]]*@)?(127\.0\.0\.1|0\.0\.0\.0|localhost|host\.docker\.internal|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]+\.[0-9]+)(:[0-9]+)?([/[:space:]]|$)'
-if echo "$COMMAND" | grep -qE '(curl|wget)\s.*\|\s*(bash|sh|zsh|python[0-9.]*|perl|ruby|node)' \
-   && ! echo "$COMMAND" | grep -qE "$LOCAL_HOST"; then
-  echo "BLOCKED: Piping remote content to interpreter. Download first, review, then run." >&2
-  exit 2
-fi
 
-# Block recursive deletion of home or root, regardless of flag order/spelling.
-# Old rule only matched `-rf`/`-r` immediately before the target at EOL, so
-# `rm -fr ~`, `rm -r -f ~`, `rm -R ~`, `rm -rf --no-preserve-root /` slipped.
-# Detect rm + a recursive flag + a target that IS home/root (subdirs allowed).
-if echo "$COMMAND" | grep -qE '(^|[^[:alnum:]_./-])rm([[:space:]]|$)' \
-   && echo "$COMMAND" | grep -qE '(^|[[:space:]])(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)([[:space:]]|$)' \
-   && echo "$COMMAND" | grep -qE '(^|[[:space:]])["'"'"']?(/|~|\$\{?HOME\}?|/home/ctodie|/root)/?["'"'"']?([[:space:]]|;|\||&|$)'; then
-  echo "BLOCKED: Recursive deletion of home or root directory." >&2
-  exit 2
-fi
+scan_segment() {
+  local seg="$1"
+
+  # Destructive DB (DROP/TRUNCATE always; unqualified DELETE FROM = mass delete)
+  if echo "$seg" | grep -qiE '(DROP\s+(TABLE|DATABASE|SCHEMA|INDEX)|TRUNCATE\s+(TABLE\s+)?\S+)'; then
+    echo "BLOCKED: Destructive database operation (DROP/TRUNCATE) detected. Use explicit confirmation." >&2; exit 2
+  fi
+  if echo "$seg" | grep -qiE 'DELETE\s+FROM\s+\S+' && ! echo "$seg" | grep -qiE 'DELETE\s+FROM\s+.*[^a-zA-Z_]WHERE[^a-zA-Z_]'; then
+    echo "BLOCKED: Unqualified DELETE FROM (no WHERE) is a mass delete. Add a WHERE clause or confirm explicitly." >&2; exit 2
+  fi
+
+  # Force push to main/master — git + push + force-indicator + protected ref, ALL in this statement.
+  if echo "$seg" | grep -qE '(^|[^[:alnum:]])git([[:space:]]|$)' \
+     && echo "$seg" | grep -qE '(^|[^[:alnum:]])push([^[:alnum:]]|$)' \
+     && echo "$seg" | grep -qE '(--force([^-[:alnum:]]|=|$)|--force-with-lease|(^|[[:space:]])-[a-zA-Z]*f([[:space:]]|$)|[[:space:]]\+(main|master|HEAD)([^[:alnum:]]|$))' \
+     && echo "$seg" | grep -qE '(^|[^[:alnum:]_])(main|master)([^[:alnum:]_]|$)'; then
+    echo "BLOCKED: Force push to main/master is not allowed." >&2; exit 2
+  fi
+
+  # Critical dotfile writes (redirect/tee/sed-i adjacent; cp/mv/install/rsync/sed-i dest = last token).
+  if echo "$seg" | grep -qE "(>>?|tee([[:space:]]+-a)?|sed[[:space:]]+-i[^[:space:]]*)[[:space:]]*[\"']?${PROT_DOT}"; then
+    echo "BLOCKED: Cannot write to critical dotfiles (.ssh, .gpg, .secrets, .gitconfig) via redirect/tee/sed -i." >&2; exit 2
+  fi
+  case "$seg" in
+    *"cp "*|*"mv "*|*"install "*|*"rsync "*|*"sed -i"*|*"sed --in-place"*)
+      _dst=$(printf '%s' "$seg" | awk '{print $NF}' | sed -E "s/^[\"']//; s/[\"']\$//")
+      if printf '%s' "$_dst" | grep -qE "^${PROT_DOT}"; then
+        echo "BLOCKED: Cannot write to critical dotfiles (.ssh, .gpg, .secrets, .gitconfig) as a copy/move/sed-i destination." >&2; exit 2
+      fi ;;
+  esac
+
+  # Remote script piped to an interpreter — localhost carve-out scoped to THIS statement.
+  if echo "$seg" | grep -qE '(curl|wget)\s.*\|\s*(bash|sh|zsh|python[0-9.]*|perl|ruby|node)' \
+     && ! echo "$seg" | grep -qE "$LOCAL_HOST"; then
+    echo "BLOCKED: Piping remote content to interpreter. Download first, review, then run." >&2; exit 2
+  fi
+
+  # Recursive deletion of home/root (rm + recursive flag + a home/root target; subdirs allowed).
+  if echo "$seg" | grep -qE '(^|[^[:alnum:]_./-])rm([[:space:]]|$)' \
+     && echo "$seg" | grep -qE '(^|[[:space:]])(-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)([[:space:]]|$)' \
+     && echo "$seg" | grep -qE '(^|[[:space:]])["'"'"']?(/|~|\$\{?HOME\}?|/home/ctodie|/root)/?["'"'"']?([[:space:]]|;|\||&|$)'; then
+    echo "BLOCKED: Recursive deletion of home or root directory." >&2; exit 2
+  fi
+}
+
+# Iterate statements (process substitution keeps the loop in this shell so a
+# scan_segment `exit 2` blocks the whole command).
+while IFS= read -r _seg; do
+  [ -n "$_seg" ] && scan_segment "$_seg"
+done < <(printf '%s\n' "$COMMAND" | sed -E 's/&&/\n/g; s/[|][|]/\n/g; s/;/\n/g')
 
 # ─── Secret-leak prevention ──────────────────────────────────────────────────
 # Origin: 2026-04-06 leak of ANTHROPIC_API_KEY via ${VAR:+yes}${VAR:-no} pattern.
