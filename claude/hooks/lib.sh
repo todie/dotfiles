@@ -61,12 +61,15 @@ check_version() {
 # --- HTTP ops ---
 
 http_ok() {
-  # http_ok http://127.0.0.1:7437/health
-  curl -sf "${1}" >/dev/null 2>&1
+  # http_ok http://127.0.0.1:7437/health [timeout_secs]
+  # --max-time bounds a reachable-but-wedged daemon (port open, no response —
+  # e.g. during VACUUM / write-lock / dream-cycle pause) so it can't burn the
+  # whole hook budget; connection-refused already returns instantly.
+  curl -sf -m "${2:-2}" "${1}" >/dev/null 2>&1
 }
 
 http_get() {
-  curl -sf "$1" 2>/dev/null || echo ""
+  curl -sf -m "${2:-3}" "$1" 2>/dev/null || echo ""
 }
 
 http_post() {
