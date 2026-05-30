@@ -14,3 +14,8 @@
 .zshrc-*
 /.skill-lock.json
 Thumbs.db
+# Backups
+*.bak
+*.bak.*
+# Tooling artifacts
+.wrangler/
