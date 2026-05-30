@@ -47,12 +47,23 @@ done
 unset _comp
 
 # ── claude code harness ─────────────────────────────────────────────────────
-# PreToolUse Bash hooks and helper scripts. Each file is symlinked individually
-# (not the whole directory) so unmanaged hooks in ~/.claude/hooks/ are
-# preserved.
+# Hooks + helper scripts referenced by ~/.claude/settings.json. Each repo file
+# is symlinked individually (not the whole directory) so unmanaged hooks in
+# ~/.claude/hooks/ are preserved. Every *.sh / *.py in claude/hooks/ is linked
+# — adding a new hook to the repo is enough; no edit to this script required.
 mkdir -p "$HOME/.claude/hooks" "$HOME/.local/bin"
-link "$DOTFILES_DIR/claude/hooks/guard-dangerous-commands.sh" "$HOME/.claude/hooks/guard-dangerous-commands.sh"
-link "$DOTFILES_DIR/claude/bin/claude-secret-test"            "$HOME/.local/bin/claude-secret-test"
+for _hook in "$DOTFILES_DIR"/claude/hooks/*.sh "$DOTFILES_DIR"/claude/hooks/*.py; do
+  [[ -e $_hook ]] || continue
+  link "$_hook" "$HOME/.claude/hooks/$(basename "$_hook")"
+done
+unset _hook
+
+# Helper binaries shipped alongside the hooks.
+for _bin in "$DOTFILES_DIR"/claude/bin/*; do
+  [[ -e $_bin ]] || continue
+  link "$_bin" "$HOME/.local/bin/$(basename "$_bin")"
+done
+unset _bin
 
 # ── tmux ────────────────────────────────────────────────────────────────────
 # N E O N   D R E A M S — main config + helper scripts referenced by the
