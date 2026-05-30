@@ -49,6 +49,7 @@ $aws\
 $cmd_duration\
 [](fg:neon_dim)\
 $fill\
+$claude_code\
 $time\
 $line_break\
 $jobs\
@@ -231,6 +232,10 @@ disabled = true
 
 [hostname]
 disabled = true
+
+[claude_code]
+format = '[ $claude_code ]($style)'
+style = "fg:neon_cyan"
 
 # ═══════════════════════════════════════════════════════════════════════════
 #  THEME OVERRIDE — auto-loaded from a sibling file if it exists

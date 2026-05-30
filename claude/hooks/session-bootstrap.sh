@@ -18,8 +18,8 @@ fi
 
 # 2. Mesh health
 HEALTH=""
-if require_cmd meshctl; then
-  HEALTH=$(meshctl health --json 2>/dev/null || true)
+if require_cmd cortex; then
+  HEALTH=$(cortex health --json 2>/dev/null || true)
 fi
 
 # 3. Auto-memory check
@@ -40,7 +40,7 @@ echo ""
 if [ -n "$HEALTH" ]; then
   hook_kv "mesh=$(echo "$HEALTH" | jq -r 'if .ok then "ok" else "degraded" end' 2>/dev/null)"
 else
-  hook_warn "meshctl unavailable"
+  hook_warn "cortex unavailable"
 fi
 
 if [ "$MEMORY_OK" = true ]; then

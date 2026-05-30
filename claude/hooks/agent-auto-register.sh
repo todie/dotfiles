@@ -29,7 +29,7 @@
 # Dual-write (TOD-TBD): after the best-effort POST to /agents/register we
 # ALSO invoke `coord register` so the subagent shows up in the coord
 # filesystem registry (/tmp/claude-coord/sessions/) that `coord peers` and
-# `meshctl dash` read. Without this, Agent-tool dispatches populate only
+# `cortex peers` read. Without this, Agent-tool dispatches populate only
 # the reveried HTTP /agents registry and are invisible to the mesh dash.
 # The coord call is best-effort, wrapped in timeout(1), and never blocks
 # the approve verdict. PreToolUse cannot run on Agent completion, so
@@ -155,7 +155,7 @@ if command -v curl >/dev/null 2>&1; then
 fi
 
 # ─── Dual-write: coord filesystem registry (TOD-TBD) ────────────────────
-# Mirror the registration into coord so `coord peers` and `meshctl dash`
+# Mirror the registration into coord so `coord peers` and `cortex peers`
 # can see Agent-tool subagents. Best-effort: a missing/failing coord must
 # NEVER block the approve verdict. The reveried HTTP registry above is
 # the source of truth; coord is the view layer.
