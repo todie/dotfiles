@@ -11,8 +11,14 @@ require_cmd jq || { hook_skip "jq missing"; exit 0; }
 
 IFS='|' read -r PROJECT _ _ <<< "$(project_info "$PWD")"
 
-# Build a session summary prompt — ask engram to snapshot current session
-SESSION_ID="${CLAUDE_SESSION_ID:-$(basename "${CLAUDE_CONVERSATION_DIR:-unknown}")}"
+# Build a session summary prompt — ask engram to snapshot current session.
+# Read the real session_id from the event JSON on stdin (as session-cleanup.sh
+# does). CLAUDE_SESSION_ID / CLAUDE_CONVERSATION_DIR are unset in this hook, so
+# the old env-only fallback collapsed every snapshot onto the single
+# topic_key=session/snapshot-unknown (5 cross-project rows already merged).
+INPUT=$(safe_read_stdin)
+SESSION_ID=$(json_field "$INPUT" '.session_id')
+[ -z "$SESSION_ID" ] && SESSION_ID="${CLAUDE_SESSION_ID:-$(basename "${CLAUDE_CONVERSATION_DIR:-unknown}")}"
 
 # Capture what we know: active tasks, recent tool calls, key decisions
 # The hook runs *before* compaction, so the full context is still available.

@@ -7,6 +7,12 @@ hook_name "prompt-capture"
 
 INPUT="$(safe_read_stdin)"
 
+# Fires on EVERY prompt under a 2s harness timeout. Gate on a fast (1s) health
+# check before the two sequential `-m 1` POSTs below — otherwise a
+# reachable-but-wedged engram burns the full budget and the prompt is dropped
+# mid-POST anyway. engram down/wedged → skip cleanly, prompt unaffected.
+http_ok "$ENGRAM_URL/health" 1 || { echo '{}'; exit 0; }
+
 SESSION_ID="$(json_field "$INPUT" '.session_id')"
 USER_PROMPT="$(json_field "$INPUT" '.user_prompt // .prompt')"
 PROJECT="$(json_field "$INPUT" '.project')"

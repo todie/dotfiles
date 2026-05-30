@@ -38,7 +38,11 @@ esac
 # substitution count to stderr (captured by the caller).
 sanitize_text() {
     if command -v python3 >/dev/null 2>&1; then
-        python3 - <<'PY'
+        # NB: `python3 -c "$(cat <<'PY' ... )"` — NOT `python3 - <<'PY'`. With
+        # `-`, python reads its PROGRAM from stdin (the heredoc), leaving the
+        # piped "$val" unread (sys.stdin.read() → ""), so sanitisation was a
+        # silent no-op. Passing the program via -c keeps stdin = the piped text.
+        python3 -c "$(cat <<'PY'
 import sys, re
 text = sys.stdin.read()
 # Split on triple-backtick fences. Even indices = outside fences; odd = inside.
@@ -61,6 +65,7 @@ for i, part in enumerate(parts):
 sys.stderr.write(str(count))
 sys.stdout.write(''.join(parts))
 PY
+)"
     else
         # Fallback: cruder, no code-fence awareness. Just strip angle brackets
         # from short tokens. Log count as 0 since we can't accurately measure.
