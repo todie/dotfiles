@@ -65,3 +65,47 @@ unpack() {
       ;;
   esac
 }
+
+# ── windows-host editors (WSL interop) ─────────────────────────────────────────
+# Open paths in the Windows-native Zed rather than a WSL/X11 build. WSL paths
+# are translated to Windows form (UNC \\wsl.localhost\… for the WSL fs, drive
+# paths for /mnt/*) so the Windows process can resolve them. `code` shadows the
+# VS Code launcher on PATH — intentional. `path:line[:col]` and Zed flags
+# (-n/--new, -a/--add, -w/--wait, …) pass through. No path → current directory.
+# Note: zsh functions are interactive-only; for $EDITOR/git use a PATH script.
+zed() {
+  local bin='/mnt/c/Users/chris/AppData/Local/Programs/Zed/bin/zed.exe'
+  [[ -x "$bin" ]] || bin='/mnt/c/Users/chris/AppData/Local/Programs/Zed/Zed.exe'
+  if [[ ! -x "$bin" ]]; then
+    perror "zed: Windows Zed not found under %LOCALAPPDATA%\\Programs\\Zed"
+    return 127
+  fi
+
+  local -a out
+  local wait=0
+  if (( $# == 0 )); then
+    out=("$(wslpath -w "$PWD")")
+  else
+    local arg
+    for arg in "$@"; do
+      case "$arg" in
+        -w|--wait|--foreground) wait=1; out+=("$arg") ;;           # honor blocking flags
+        -*)                     out+=("$arg") ;;                   # other flags → passthrough
+        *:[0-9]*)               out+=("$(wslpath -w "${${arg%%:*}:a}"):${arg#*:}") ;;  # path:line[:col]
+        *)                      out+=("$(wslpath -w "${arg:a}")") ;;                    # resolve → win path
+      esac
+    done
+  fi
+
+  # The Windows CLI stays attached to the session, so launching in the
+  # foreground would block the prompt until Zed exits. Detach by default;
+  # only stay foreground when the caller explicitly asked to wait.
+  if (( wait )); then
+    "$bin" "${out[@]}"
+  else
+    "$bin" "${out[@]}" >/dev/null 2>&1 &!
+  fi
+}
+
+# `code` opens the Windows-host Zed too (shadows VS Code on PATH, by design).
+code() { zed "$@"; }
