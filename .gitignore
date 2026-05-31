@@ -2,6 +2,9 @@
 !.zshrc-local.example
 # Editor
 # OS
+# Tool caches (regenerated; .wrangler can leak the Cloudflare account id)
+.wrangler/
+
 # Secrets / local overrides
 *.local
 *.swo
