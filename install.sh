@@ -65,6 +65,13 @@ for _bin in "$DOTFILES_DIR"/claude/bin/*; do
 done
 unset _bin
 
+# ── general-purpose bin/ helpers (host-editor launchers, etc.) ───────────────
+for _bin in "$DOTFILES_DIR"/bin/*; do
+  [[ -e $_bin ]] || continue
+  link "$_bin" "$HOME/.local/bin/$(basename "$_bin")"
+done
+unset _bin
+
 # ── tmux ────────────────────────────────────────────────────────────────────
 # N E O N   D R E A M S — main config + helper scripts referenced by the
 # status bar (claude state, git branch) and keybindings (sessionizer, copy).
