@@ -1,6 +1,9 @@
 
 !.zshrc-local.example
-# Editor
+# Editor / config backups
+*.bak
+*.bak.*
+
 # OS
 # Tool caches (regenerated; .wrangler can leak the Cloudflare account id)
 .wrangler/
