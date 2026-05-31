@@ -124,8 +124,10 @@ if (( $+functions[fzf-tab] )); then
 fi
 
 # ── zsh-history-substring-search bindings ───────────────────────────────────
-# Use ↑/↓ ONLY when the line is empty; otherwise our partial-line search wins.
-# This gives us: empty line + ↑ → full fuzzy history, partial line + ↑ → prefix.
+# These OVERRIDE the up-line-or-beginning-search bindings from options.zsh when
+# the plugin is present: ↑/↓/^P/^N do substring history search (type any text,
+# ↑ cycles matches containing it). options.zsh's prefix-search bindings remain
+# the fallback if the plugin failed to load.
 if (( $+functions[history-substring-search-up] )); then
   bindkey '^[[A' history-substring-search-up
   bindkey '^[[B' history-substring-search-down

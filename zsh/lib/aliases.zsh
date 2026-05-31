@@ -9,7 +9,7 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 alias .....='cd ../../../..'
 alias -- -='cd -'                      # jump back to previous dir
-alias d='dirs -v | head -20'           # numbered dir stack (for `cd -N`)
+alias dv='dirs -v | head -20'          # numbered dir stack (for `cd -N`) — `d` is docker
 
 # mkdir + cd in one step
 mkcd() {
@@ -128,6 +128,11 @@ fi
 
 # ── s3cmd shim ───────────────────────────────────────────────────────────────
 has s3cmd && alias s3='s3cmd'
+
+# ── Zed on the Windows host (WSL) ────────────────────────────────────────────
+# `zedw` opens paths in the Windows-host Zed via Zed's --wsl remoting. It's a
+# real binary (bin/zedw, symlinked to ~/.local/bin by install.sh) — NOT an alias
+# — so it also works as $EDITOR: `export EDITOR="zedw --wait"`. See `zedw` header.
 
 # ── clipboard (WSL2-friendly, matches tmux-copy script) ─────────────────────
 if has clip.exe || has win32yank.exe; then
