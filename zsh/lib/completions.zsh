@@ -79,7 +79,7 @@ refresh-completions() {
     if _gen_one "$f" "$compdir"; then print -r -- "regenerated $f"
     else print -r -- "skip $f"; fi
   done
-  autoload -Uz compinit && compinit -u
+  autoload -Uz compinit && compinit -u -d "${ZCOMPDUMP:-${DOTFILES_ZSH_CACHE}/.zcompdump}"
 }
 
 # Startup: generate only missing files, reload compinit if any were added.
@@ -88,5 +88,5 @@ for f in ${(k)_COMPLETION_GEN}; do
   [[ -s $compdir/$f ]] && continue
   _gen_one "$f" "$compdir" && _added=1
 done
-(( _added )) && { autoload -Uz compinit && compinit -u; }
+(( _added )) && { autoload -Uz compinit && compinit -u -d "${ZCOMPDUMP:-${DOTFILES_ZSH_CACHE}/.zcompdump}"; }
 unset f _added

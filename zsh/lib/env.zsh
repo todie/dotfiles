@@ -1,5 +1,10 @@
 # env.zsh — environment variables and directory bootstrapping
 
+# Keep PATH/FPATH/MANPATH free of duplicates. Without this, every `exec zsh`
+# (and our `reload` alias) re-appends the same dirs, growing PATH unbounded.
+# Must run BEFORE any path+= below so dedup applies as entries are added.
+typeset -gU path fpath manpath PATH FPATH MANPATH
+
 # ── XDG directories ──────────────────────────────────────────────────────────
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -64,8 +69,11 @@ export KEYTIMEOUT=1
 export LIBRARY_LOG_TIMESTAMP=1
 export PAGER="less -RF"
 
+# bashcompinit — needed for `complete -C` style completions (vault, terraform).
+# Init once here (the first module that needs it); later users just call `complete`.
+(( $+functions[compdef] )) && (( ! $+functions[complete] )) && { autoload -U +X bashcompinit && bashcompinit; }
+
 # vault completion (requires vault binary in BIN_DIR)
-autoload -U +X bashcompinit && bashcompinit
 [[ -x "${BIN_DIR}/vault" ]] && complete -o nospace -C "${BIN_DIR}/vault" vault
 
 # ── modern tool init ─────────────────────────────────────────────────────────
@@ -139,8 +147,8 @@ if has fnm; then
   eval "$(fnm env --use-on-cd --shell zsh)"
 fi
 
-# rust — cargo + rustup binaries live in ~/.cargo/bin
-[[ -d "$HOME/.cargo/bin" ]] && path+=("$HOME/.cargo/bin")
+# rust — cargo + rustup binaries live in ~/.cargo/bin (added once above; the
+# typeset -gU at the top of this file collapses any re-adds, so no append here).
 
 # uv — Astral's Python toolchain (pip/pipx/venv/pyenv replacement)
 # Completion only — binary lives in /opt/homebrew/bin

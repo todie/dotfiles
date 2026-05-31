@@ -7,7 +7,22 @@ export DOTFILES_ZSH_CACHE=${XDG_CACHE_HOME:-~/.cache}/zsh
 
 # Completion fpath must be set BEFORE compinit so cached _tool files autoload.
 fpath=("$HOME/.zsh/completions" $fpath)
-autoload -U +X compinit && compinit -u
+
+# Daily-cached compinit. Rebuilding the dump (compaudit + compdump) costs
+# ~200ms and runs on EVERY start by default. Instead: regenerate at most once
+# per 24h; otherwise load the existing dump with -C (skips the security audit).
+# Shared dump path ($ZCOMPDUMP) is reused by completions.zsh's regen.
+export ZCOMPDUMP="${DOTFILES_ZSH_CACHE}/.zcompdump"
+[[ -d $DOTFILES_ZSH_CACHE ]] || mkdir -p "$DOTFILES_ZSH_CACHE"
+autoload -U +X compinit
+() {
+  setopt local_options extended_glob
+  if [[ -n $ZCOMPDUMP(#qNmh-24) ]]; then
+    compinit -C -d "$ZCOMPDUMP"      # fresh dump (<24h) — trust it, skip audit
+  else
+    compinit -u -d "$ZCOMPDUMP"      # stale/missing — full rebuild
+  fi
+}
 
 # ~w => Windows home on WSL
 [[ -z $dotfiles_win_home ]] || hash -d w=$dotfiles_win_home
@@ -55,5 +70,5 @@ if [ -f '/home/ctodie/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/ctod
 # claude yolo (sandboxed/throwaway dirs only)
 alias cy="claude --dangerously-skip-permissions"
 
-autoload -U +X bashcompinit && bashcompinit
+# bashcompinit already initialized in lib/env.zsh; just register the completion.
 complete -o nospace -C /home/ctodie/.local/bin/terraform terraform
