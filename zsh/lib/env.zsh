@@ -36,8 +36,15 @@ export HISTSIZE=10000
 export SAVEHIST=10000
 export HISTFILE="${XDG_CACHE_HOME}/zsh-history"
 
-# ── editor — prefer Zed, fall back gracefully ────────────────────────────────
-if has zed; then
+# ── editor — prefer host Zed on WSL, then Linux Zed, fall back gracefully ────
+if [[ -n ${WSL_DISTRO_NAME:-} ]] && has zedw; then
+  # Windows-host Zed via WSL remoting (bin/zedw). --wait so git/kubectl/etc block
+  # until the buffer is closed. Off-WSL this branch is skipped (zedw needs the
+  # Windows zed.exe), so the Linux-native Zed below stays the default there.
+  export EDITOR="zedw --wait"
+  export KUBE_EDITOR="zedw --wait"
+  export GIT_EDITOR="zedw --wait"
+elif has zed; then
   ZED_BIN="$(which zed)"
   export EDITOR="$ZED_BIN --wait"
   export KUBE_EDITOR="$ZED_BIN --wait"
