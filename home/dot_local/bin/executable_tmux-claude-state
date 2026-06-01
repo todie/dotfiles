@@ -26,7 +26,20 @@ command -v tmux >/dev/null 2>&1 || exit 0
 projects="$HOME/.claude/projects"
 now="$(date +%s)"
 cache="${TMPDIR:-/tmp}/tmux-claude-state.$(id -u).map"
+out_cache="$cache.out"
+lock="$cache.lock"
 ttl=4
+
+# ── single-instance guard ───────────────────────────────────────────────────
+# tmux reruns this #() every status redraw; without a lock a slow run lets the
+# next redraw stack another → the pileup that pegged 16 cores and spun the fans.
+# Non-blocking: if another instance holds the lock, reuse its last-rendered
+# aggregate ($out_cache) so the bar doesn't blink, then bail. Degrades to no-lock
+# if flock is unavailable — the `timeout` wrapper in claude.conf still caps any
+# single run's lifetime, so the flock+timeout pair bounds both pileup and runaway.
+if command -v flock >/dev/null 2>&1 && exec 9>"$lock" 2>/dev/null; then
+  flock -n 9 || { cat "$out_cache" 2>/dev/null; exit 0; }
+fi
 
 pal() { local v; v="$(tmux show -gv "$1" 2>/dev/null)"; printf '%s' "${v:-$2}"; }
 G="$(pal @t_green green)"; Y="$(pal @t_yellow yellow)"
@@ -55,6 +68,11 @@ if [ ! -f "$cache" ] || [ "$(( now - $(stat -c %Y "$cache" 2>/dev/null || echo 0
   : > "$tmp"
   declare -A seen_pane
   for pid in $(pgrep -u "$(id -u)" -f 'claude' 2>/dev/null); do
+    # Skip our own pid: this script's name contains "claude", so `pgrep -f
+    # claude` matches it (and its `timeout` wrapper) — the same self-match that
+    # amplified the original pileup. The environ gate below also excludes them,
+    # but skipping up front avoids the wasted /proc read.
+    [ "$pid" = "$$" ] && continue
     # cat (not a shell redirect) so a proc vanishing mid-scan is swallowed by
     # its own 2>/dev/null instead of printing a redirection error to the bar.
     env="$(cat "/proc/$pid/environ" 2>/dev/null | tr '\0' '\n')"
@@ -131,9 +149,13 @@ while IFS= read -r w; do
 done < <(tmux list-windows -a -F '#{window_id}' 2>/dev/null)
 
 # ── 4. status-right aggregate ───────────────────────────────────────────────
-[ "$active" -eq 0 ] && exit 0
 out=""
-[ "$waiting" -gt 0 ] && out="#[fg=${R},bold]◉${waiting}#[default] "
-out="${out}#[fg=${D}]●${active}#[default]"
-[ "$max" -ge 0 ] && out="${out} #[fg=$(ctx_color "$max")]⤒${max}%#[default]"
+if [ "$active" -gt 0 ]; then
+  [ "$waiting" -gt 0 ] && out="#[fg=${R},bold]◉${waiting}#[default] "
+  out="${out}#[fg=${D}]●${active}#[default]"
+  [ "$max" -ge 0 ] && out="${out} #[fg=$(ctx_color "$max")]⤒${max}%#[default]"
+fi
+# Persist the rendered aggregate so a lock-contended sibling can echo it
+# instead of blanking the bar, then print it.
+printf '%s' "$out" >"$out_cache" 2>/dev/null
 printf '%s' "$out"
