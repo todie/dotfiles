@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install zsh + tmux
+        run: sudo apt-get update && sudo apt-get install -y zsh tmux shellcheck
+
+      # shellcheck understands sh/bash, NOT zsh — so lint only files whose
+      # shebang invokes bash or sh, and check zsh separately with `zsh -n`.
+      - name: shellcheck (sh/bash)
+        run: |
+          files=()
+          while IFS= read -r f; do
+            case "$(head -n1 "$f")" in
+              *zsh) ;;                                  # skip zsh shebangs
+              '#!'*bash*|'#!'*sh) files+=("$f") ;;       # bash or .../sh
+            esac
+          done < <(git ls-files)
+          echo "Linting ${#files[@]} sh/bash files:"; printf '  %s\n' "${files[@]}"
+          shellcheck -S error "${files[@]}"
+
+      # zsh has no shellcheck; `zsh -n` is its built-in no-exec syntax check.
+      - name: zsh syntax (zsh -n)
+        run: |
+          rc=0
+          for f in zsh/.zshenv zsh/.zshrc zsh/lib/*.zsh zsh/completions/_*; do
+            [ -e "$f" ] || continue
+            if zsh -n "$f"; then echo "ok:   $f"; else echo "FAIL: $f"; rc=1; fi
+          done
+          exit $rc
+
+      # tmux must be able to source .tmux.conf without errors. The theme/local
+      # fragments it sources are absent in CI (if-shell guards skip them).
+      - name: tmux config parses
+        run: |
+          SHELL=/bin/bash tmux -f tmux/.tmux.conf new-session -d -s ci 2>tmux.err || true
+          tmux kill-server 2>/dev/null || true
+          if grep -iE 'error|unknown command|invalid|no such' tmux.err; then
+            echo "tmux.conf has config errors (above)"; exit 1
+          fi
+          echo "tmux.conf parsed clean"

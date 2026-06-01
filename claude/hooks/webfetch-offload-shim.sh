@@ -91,7 +91,8 @@ LLM_OUT=$(timeout 20 llm --reason --max 600 --temp 0.0 --sys "$LLM_SYS" \
 LLM_RC=$?
 
 if [ "$LLM_RC" -ne 0 ] || [ -z "$LLM_OUT" ]; then
-  log "skip: llm_rc=$LLM_RC empty_out=$([ -z \"$LLM_OUT\" ] && echo yes || echo no) url=$URL"
+  empty_out=no; [ -z "$LLM_OUT" ] && empty_out=yes
+  log "skip: llm_rc=$LLM_RC empty_out=$empty_out url=$URL"
   hook_allow
 fi
 
