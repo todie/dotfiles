@@ -1,13 +1,14 @@
 # claude.zsh — `cc`: low-friction control for multiple Claude Code tmux sessions.
 #
-# Pairs with the tmux glance (~/.local/bin/tmux-claude-state + claude.conf).
+# Pairs with the tmux glance (~/.local/bin/tmux-claude-glanced + claude.conf).
 # Data comes straight from tmux in single calls — claude panes are identified by
-# #{pane_current_command}, and per-window state by the @claude_glyph option the
-# glance already maintains (◉ = waiting). No process scans, no caches, no fragile
+# #{pane_current_command}, and per-window state by the options the daemon
+# maintains: @claude_act (working|waiting), @claude_ctx (context %), @claude_since
+# (epoch the current state began). No process scans, no caches, no fragile
 # command-substitutions inside read loops.
 #
-#   cc            fzf picker of live Claude sessions (project · window) → jump
-#   cc go         jump to a session that needs you (a ◉ window) else first claude
+#   cc            fzf picker of live Claude sessions (project · ctx% · window) → jump
+#   cc go         jump to the session that's needed you longest (oldest waiting)
 #   cc new [dir]  open a window named after dir (default $PWD), launch claude
 #   cc <dir>      shorthand for `cc new <dir>`
 
@@ -23,10 +24,17 @@ _cc_new() {
 
 # "pane<TAB>display" for each Claude pane. One tmux call piped to awk — awk does
 # the filter (command==claude), basename, and formatting in a single process, so
-# there's no per-row shell command-substitution to trip over.
+# there's no per-row shell command-substitution to trip over. The daemon's
+# per-window @claude_act/@claude_ctx resolve in the pane's window scope, so the
+# row can show ◉/● + context % with no extra call.
 _cc_rows() {
-  tmux list-panes -a -F '#{pane_id}	#{window_index}:#{window_name}	#{pane_current_path}	#{pane_current_command}' 2>/dev/null \
-    | awk -F'\t' '$4=="claude"{ n=split($3,p,"/"); printf "%s\t%-20s %s\n", $1, p[n], $2 }'
+  tmux list-panes -a -F '#{pane_id}	#{window_index}:#{window_name}	#{pane_current_path}	#{pane_current_command}	#{@claude_act}	#{@claude_ctx}' 2>/dev/null \
+    | awk -F'\t' '$4=="claude"{
+        n=split($3,p,"/");
+        tag = ($5=="waiting" ? "◉" : "●");
+        ctx = ($6=="" ? "" : " "$6"%");
+        printf "%s\t%s %-18s %s%s\n", $1, tag, p[n], $2, ctx
+      }'
 }
 
 _cc_ls() {
@@ -46,8 +54,13 @@ _cc_ls() {
 _cc_go() {
   _cc_need_tmux || return 1
   local target
-  # a window the glance marked waiting (◉); else the first Claude pane.
-  target=$(tmux list-windows -a -F '#{window_id}	#{@claude_glyph}' 2>/dev/null \
+  # The session that's needed you LONGEST: among @claude_act=waiting windows, the
+  # smallest @claude_since (epoch). Falls back to any ◉ glyph, then the first
+  # Claude pane, if the daemon hasn't populated options yet.
+  target=$(tmux list-windows -a -F '#{@claude_since}	#{@claude_act}	#{window_id}' 2>/dev/null \
+           | awk -F'\t' '$2=="waiting" && $1!=""' \
+           | sort -t$'\t' -k1,1n | head -1 | cut -f3)
+  [[ -n "$target" ]] || target=$(tmux list-windows -a -F '#{window_id}	#{@claude_glyph}' 2>/dev/null \
            | awk -F'\t' '$2 ~ /◉/{print $1; exit}')
   [[ -n "$target" ]] || target=$(tmux list-panes -a -F '#{pane_id}	#{pane_current_command}' 2>/dev/null \
            | awk -F'\t' '$2=="claude"{print $1; exit}')
