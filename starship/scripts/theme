@@ -105,6 +105,46 @@ export THEME_HSS_NOTFOUND="bg=$red,fg=#ffffff"
 EOF
 }
 
+# OPT-IN: mirror the palette into Windows Terminal's settings.json (WSL only).
+# Off by default — it writes a *Windows app* config, so you enable it explicitly
+# with DOTFILES_THEME_WT=1 (e.g. in ~/.zshrc-${USER}). Guardrails: backs up
+# settings.json once (.dotfiles-bak), writes atomically, and validates the JSON
+# before replacing — a failed merge leaves the original untouched. Maintains one
+# reused scheme named "dotfiles" and points the active profile ($WT_PROFILE_ID,
+# else profiles.defaults) at it. WT auto-reloads on save → recolors live.
+_emit_windows_terminal() {
+    [[ "${DOTFILES_THEME_WT:-0}" == "1" ]] || return 0
+    command -v jq >/dev/null 2>&1 || { printf "${DIM}WT theming needs jq — skipped${NC}\n" >&2; return 0; }
+    local wt cand
+    for cand in /mnt/c/Users/*/AppData/Local/Packages/Microsoft.WindowsTerminal*_8wekyb3d8bbwe/LocalState/settings.json; do
+        [[ -f "$cand" ]] && { wt="$cand"; break; }
+    done
+    [[ -n "${wt:-}" ]] || return 0           # not on WSL / WT not installed
+    [[ -f "$wt.dotfiles-bak" ]] || cp "$wt" "$wt.dotfiles-bak"
+    local scheme
+    scheme=$(jq -n --arg name dotfiles \
+        --arg bg "${_pal[neon_void]}"  --arg fg "${_pal[neon_text]}" \
+        --arg cur "${_pal[neon_pink]}" --arg sel "${_pal[neon_dim]}" \
+        --arg red "${_pal[neon_red]}"  --arg grn "${_pal[neon_green]}" \
+        --arg yel "${_pal[neon_yellow]}" --arg blu "${_pal[neon_cyan]}" \
+        --arg pur "${_pal[neon_purple]}" --arg blk "${_pal[neon_panel]}" \
+        --arg dim "${_pal[neon_dim]}" '{
+            name:$name, background:$bg, foreground:$fg, cursorColor:$cur, selectionBackground:$sel,
+            black:$blk, red:$red, green:$grn, yellow:$yel, blue:$blu, purple:$pur, cyan:$blu, white:$fg,
+            brightBlack:$dim, brightRed:$red, brightGreen:$grn, brightYellow:$yel, brightBlue:$blu,
+            brightPurple:$pur, brightCyan:$blu, brightWhite:$fg }') || return 0
+    jq --argjson s "$scheme" --arg id "${WT_PROFILE_ID:-}" '
+        .schemes |= ([.[] | select(.name != "dotfiles")] + [$s])
+        | if ($id != "" and any(.profiles.list[]; .guid == $id))
+          then .profiles.list |= map(if .guid==$id then .colorScheme="dotfiles" else . end)
+          else .profiles.defaults.colorScheme = "dotfiles" end
+    ' "$wt" > "$wt.tmp" 2>/dev/null \
+        && jq -e . "$wt.tmp" >/dev/null 2>&1 \
+        && mv "$wt.tmp" "$wt" \
+        && printf "${DIM}Windows Terminal scheme updated${NC}\n" \
+        || { rm -f "$wt.tmp"; printf "${PINK}WT update failed — settings.json left untouched${NC}\n" >&2; }
+}
+
 set_theme() {
     local name="$1"
     local target="$THEMES_DIR/${name}.toml"
@@ -137,6 +177,7 @@ set_theme() {
     _parse_palette "$target"
     _emit_tmux_theme
     _emit_zsh_theme
+    _emit_windows_terminal   # opt-in (DOTFILES_THEME_WT=1); no-op otherwise
     # Live-reload tmux if a server is running (no-op otherwise).
     if command -v tmux >/dev/null 2>&1 && tmux info &>/dev/null; then
         tmux source-file "$HOME/.tmux.conf" >/dev/null 2>&1 || true
