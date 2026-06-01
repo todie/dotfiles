@@ -24,7 +24,7 @@ tmux new-window -n "$SESSION" -c "$PROJECT"
 tmux send-keys "claude" Enter
 
 # Split right pane (30% width) running claude-esp tailing this project
-tmux split-window -h -p 30 -c "$PROJECT"
+tmux split-window -h -l 30% -c "$PROJECT"
 tmux send-keys "claude-esp" Enter
 
 # Focus the left (claude) pane
