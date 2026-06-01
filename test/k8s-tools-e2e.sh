@@ -30,20 +30,14 @@ if grep -q '{{' "$BOOT" && command -v chezmoi >/dev/null 2>&1; then chezmoi exec
 K8S_TOOLS_SOURCE_ONLY=1 source "$render"
 BIN=$(mktemp -d)
 
-# Force a real download of each pinned release into the throwaway BIN.
+# Force a real download of the pinned kubecolor release into the throwaway BIN.
+# (stern + kustomize moved to the mise manifest; only kubecolor lives on this
+# installer now, so this is the only tool the e2e exercises.)
 _fetch_verify_install kubecolor \
   "https://github.com/kubecolor/kubecolor/releases/download/v${KUBECOLOR_VER}/kubecolor_${KUBECOLOR_VER}_linux_${ARCH}.tar.gz" \
   "https://github.com/kubecolor/kubecolor/releases/download/v${KUBECOLOR_VER}/checksums.txt" kubecolor >/dev/null 2>&1
-_fetch_verify_install stern \
-  "https://github.com/stern/stern/releases/download/v${STERN_VER}/stern_${STERN_VER}_linux_${ARCH}.tar.gz" \
-  "https://github.com/stern/stern/releases/download/v${STERN_VER}/checksums.txt" stern >/dev/null 2>&1
-_fetch_verify_install kustomize \
-  "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VER}/kustomize_v${KUSTOMIZE_VER}_linux_${ARCH}.tar.gz" \
-  "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VER}/checksums.txt" kustomize >/dev/null 2>&1
 
 "$BIN/kubecolor" --kubecolor-version 2>/dev/null | grep -q "$KUBECOLOR_VER"  && ok "kubecolor $KUBECOLOR_VER installed + verified" || bad "kubecolor install/verify failed"
-"$BIN/stern" --version 2>/dev/null | grep -q "$STERN_VER"                    && ok "stern $STERN_VER installed + verified"     || bad "stern install/verify failed"
-"$BIN/kustomize" version 2>/dev/null | grep -q "v${KUSTOMIZE_VER}"           && ok "kustomize v$KUSTOMIZE_VER installed + verified" || bad "kustomize install/verify failed"
 
 # Guard: only ever remove a /tmp throwaway dir — never ~/.local/bin etc.
 case "$BIN" in /tmp/*|"$TMPDIR"/*) rm -rf "$BIN" ;; *) echo "refusing to rm non-temp BIN=$BIN" >&2 ;; esac

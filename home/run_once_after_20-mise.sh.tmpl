@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# run_once_after_20-mise.sh.tmpl
+#
+# Machine-layer bootstrap (docs/tooling-strategy.md): install the pinned mise
+# binary (checksum-verified) then `mise install` to materialize every tool in
+# ~/.config/mise/config.toml. On a fresh machine this restores helm/k9s/
+# kustomize/stern/terraform/sops/gh/jq/uv/direnv/btop/rclone/flyctl/starship +
+# node/go/deno + proto/moon in one pass.
+#
+# _20 ordering: runs BEFORE _25 (kubecolor installer) and _30 (completion
+# pre-warm) so mise-managed tools exist for them.
+#
+# NOT `set -e`: a transient download must not abort `chezmoi apply` (mise is
+# `command -v`-guarded in .zshrc, so a miss degrades cleanly). Bump MISE_VER to
+# reinstall the binary (the tool versions themselves are pinned in config.toml).
+
+set -uo pipefail
+
+MISE_VER="2026.5.18"
+BIN="$HOME/.local/bin"; mkdir -p "$BIN"
+case "$(uname -m)" in
+  x86_64|amd64)  ARCH=x64 ;;
+  aarch64|arm64) ARCH=arm64 ;;
+  *) echo "mise: unsupported arch $(uname -m) — skipping" >&2; exit 0 ;;
+esac
+
+# ── install the mise binary (pinned + checksum-verified) ─────────────────────
+if ! { command -v mise >/dev/null 2>&1 && mise --version 2>/dev/null | grep -q "$MISE_VER"; }; then
+  tmp=$(mktemp -d)
+  base="https://github.com/jdx/mise/releases/download/v${MISE_VER}"
+  if curl -fsSL "$base/mise-v${MISE_VER}-linux-${ARCH}" -o "$tmp/mise" \
+     && curl -fsSL "$base/SHASUMS256.txt" -o "$tmp/sums"; then
+    want=$(grep -E "mise-v${MISE_VER}-linux-${ARCH}\$" "$tmp/sums" | awk '{print $1}' | head -1)
+    got=$(sha256sum "$tmp/mise" | awk '{print $1}')
+    if [[ -n "$want" && "$want" == "$got" ]]; then
+      install -m755 "$tmp/mise" "$BIN/mise" && echo "mise: installed $MISE_VER"
+    else
+      echo "mise: CHECKSUM MISMATCH (want=$want got=$got) — NOT installing" >&2
+    fi
+  else
+    echo "mise: download failed — skipping (re-run: chezmoi state delete-bucket --bucket=scriptState && chezmoi apply)" >&2
+  fi
+  rm -rf "$tmp"
+fi
+
+# ── materialize the pinned tool manifest (idempotent) ────────────────────────
+if command -v "$BIN/mise" >/dev/null 2>&1; then
+  "$BIN/mise" install -y 2>&1 | tail -8 || echo "mise install: non-fatal failure — re-run \`mise install\`" >&2
+fi
