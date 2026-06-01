@@ -99,7 +99,7 @@ link "$DOTFILES_DIR/starship/scripts/theme" "$HOME/.local/bin/theme"
 # Generate the active starship.toml from the persisted theme state, defaulting
 # to neon-dreams on first install.
 if [[ -x "$HOME/.local/bin/theme" ]]; then
-  active_theme="neon-dreams"
+  active_theme="synthwave-84"
   [[ -f "$HOME/.config/starship.theme" ]] && active_theme="$(cat "$HOME/.config/starship.theme")"
   DOTFILES_DIR="$DOTFILES_DIR" "$HOME/.local/bin/theme" set "$active_theme" >/dev/null 2>&1 \
     && ok "Starship theme: $active_theme"
