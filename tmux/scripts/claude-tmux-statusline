@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# claude-tmux-statusline — single-line summary for tmux status-right.
+# Runs every status-interval (~2s) in EVERY pane, so the find over
+# ~/.claude/projects is cached for a few seconds: a cache hit is a stat+cat
+# (<5ms), and the scan runs at most once per $ttl regardless of pane count.
+set -euo pipefail
+
+projects_dir="$HOME/.claude/projects"
+[ -d "$projects_dir" ] || { echo ""; exit 0; }
+
+cache="${TMPDIR:-/tmp}/claude-tmux-statusline.$(id -u).cache"
+ttl=15
+
+# Serve a fresh-enough cache without scanning.
+if [ -f "$cache" ]; then
+    age=$(( $(date +%s) - $(stat -c %Y "$cache" 2>/dev/null || echo 0) ))
+    [ "$age" -ge 0 ] && [ "$age" -lt "$ttl" ] && { cat "$cache"; exit 0; }
+fi
+
+# Count session transcripts touched in the last 5 minutes.
+active=$(find "$projects_dir" -maxdepth 2 -name "*.jsonl" -mmin -5 2>/dev/null | wc -l)
+if [ "$active" -eq 0 ]; then out="claude:idle"; else out="claude:${active}*"; fi
+
+# Atomic write (PID-suffixed temp → rename) so concurrent panes never read a
+# half-written cache.
+tmp="$cache.$$"
+printf '%s\n' "$out" > "$tmp" 2>/dev/null && mv "$tmp" "$cache" 2>/dev/null || rm -f "$tmp"
+printf '%s\n' "$out"

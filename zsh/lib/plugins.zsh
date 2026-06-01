@@ -118,7 +118,8 @@ if (( $+functions[fzf-tab] )); then
   zstyle ':fzf-tab:complete:(cat|bat|less|vim|nvim|code):*' fzf-preview 'bat --color=always --line-range=:200 $realpath 2>/dev/null'
   # Dim the descriptions, pop the matches
   zstyle ':completion:*:descriptions' format '[%d]'
-  zstyle ':fzf-tab:*' fzf-flags --height=60% --border --color=fg:#a89bd6,bg:-1,hl:#ff2975,fg+:#ffffff,bg+:#160b3b,hl+:#ff2975,border:#2d1f4f,pointer:#ff2975,marker:#5af78e,spinner:#b026ff,header:#4a3f6b
+  # fzf-tab colors from the active theme (THEME_FZFTAB_COLORS, set in env.zsh).
+  zstyle ':fzf-tab:*' fzf-flags --height=60% --border --color="${THEME_FZFTAB_COLORS:-hl:cyan,hl+:cyan}"
   # Continuously trigger fzf for subcommand completions (e.g. git checkout <tab>)
   zstyle ':fzf-tab:*' continuous-trigger '/'
 fi
@@ -133,6 +134,7 @@ if (( $+functions[history-substring-search-up] )); then
   bindkey '^[[B' history-substring-search-down
   bindkey '^P'   history-substring-search-up
   bindkey '^N'   history-substring-search-down
-  HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_FOUND='bg=#ff2975,fg=#0d0221,bold'
-  HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_NOT_FOUND='bg=#ff5577,fg=#ffffff'
+  # highlight colors from the active theme (THEME_HSS_*, set in env.zsh)
+  HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_FOUND="${THEME_HSS_FOUND:-bg=cyan,fg=black,bold}"
+  HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_NOT_FOUND="${THEME_HSS_NOTFOUND:-bg=red,fg=white}"
 fi
