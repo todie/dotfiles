@@ -29,6 +29,8 @@ typeset -gA _COMPLETION_GEN=(
   _kubectl            'kubectl completion zsh'
   _helm               'helm completion zsh'
   _k9s                'k9s completion zsh'
+  _stern              'stern completion zsh'
+  _kustomize          'kustomize completion zsh'
   _op                 'op completion zsh'
   _uv                 'uv generate-shell-completion zsh'
   _rclone             'rclone completion zsh -'
@@ -44,6 +46,7 @@ typeset -gA _COMPLETION_GEN=(
   _cortex             'cortex completions zsh|||cortex'   # emits stale #compdef meshctl
   _engram             'engram completions zsh|||engram'   # emits stale #compdef reveried
   _sops               'sops completion zsh|||sops'         # emits no #compdef tag at all
+  _kubecolor          'kubecolor completion zsh|||kubecolor' # emits stale #compdef kubectl (it proxies kubectl)
 )
 
 _gen_one() {

@@ -54,6 +54,14 @@ fi
 # ── btop → top (system monitor under the familiar name) ─────────────────────
 has btop && alias top='btop'
 
+# ── kubecolor → kubectl (colorized kubectl under the familiar name) ──────────
+# Same tool-substitution pattern as ls→eza / cat→bat: kubecolor is a drop-in
+# kubectl wrapper that colorizes output and falls back to plain kubectl for any
+# command it doesn't recognize. It auto-disables color when piped/non-tty, so
+# scripts and `kubectl … | grep` stay clean. Completion is registered under
+# `kubecolor` in completions.zsh; the `kubectl` word keeps its own completion.
+has kubecolor && alias kubectl='kubecolor'
+
 # ── zoxide (smart cd) ───────────────────────────────────────────────────────
 # `z foo` jumps to the most-frecent dir matching foo; `zi` is interactive.
 # Provided by `zoxide init` (env.zsh), not aliased here.
