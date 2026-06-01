@@ -32,17 +32,17 @@ jobs:
       - name: zsh syntax (zsh -n)
         run: |
           rc=0
-          for f in zsh/.zshenv zsh/.zshrc zsh/lib/*.zsh zsh/completions/_*; do
+          for f in home/dot_zshenv home/dot_zshrc home/dot_config/zsh/lib/*.zsh home/dot_local/share/zsh/completions/_*; do
             [ -e "$f" ] || continue
             if zsh -n "$f"; then echo "ok:   $f"; else echo "FAIL: $f"; rc=1; fi
           done
           exit $rc
 
-      # tmux must be able to source .tmux.conf without errors. The theme/local
+      # tmux must be able to source the config without errors. The theme/local
       # fragments it sources are absent in CI (if-shell guards skip them).
       - name: tmux config parses
         run: |
-          SHELL=/bin/bash tmux -f tmux/.tmux.conf new-session -d -s ci 2>tmux.err || true
+          SHELL=/bin/bash tmux -f home/dot_tmux.conf new-session -d -s ci 2>tmux.err || true
           tmux kill-server 2>/dev/null || true
           if grep -iE 'error|unknown command|invalid|no such' tmux.err; then
             echo "tmux.conf has config errors (above)"; exit 1
