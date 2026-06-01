@@ -1,0 +1,7 @@
+{
+  "command": "npx",
+  "args": ["@piotr-agier/google-drive-mcp"],
+  "env": {
+    "GOOGLE_DRIVE_OAUTH_CREDENTIALS": "/home/ctodie/.config/google-drive-mcp/gcp-oauth.keys.json"
+  }
+}
