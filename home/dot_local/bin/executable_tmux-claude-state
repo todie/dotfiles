@@ -1,26 +1,139 @@
 #!/usr/bin/env bash
-# tmux-claude-state — one-line summary of Claude Code activity.
+# tmux-claude-state — render the multi-session Claude glance for tmux.
 #
-# Outputs one of:
-#   ◐ <N>      — N active sessions (modified in last 5 minutes)
-#   ○          — no active sessions
+# Poll-based and self-contained: NO hooks, NO settings.json changes, NO
+# dependence on env propagating into hook subprocesses. Driven by the status
+# bar (#() runs in status-left/right), it:
+#   1. finds live Claude processes and reads each one's OWN /proc/<pid>/environ
+#      for TMUX_PANE + CLAUDE_CODE_SESSION_ID — a precise pane→session map
+#      (a Claude proc always has TMUX_PANE because it was launched in the pane);
+#   2. resolves each session's transcript and derives context-% + activity;
+#   3. PUSHES a pre-colored per-window glyph into @claude_glyph (tmux can't run
+#      #() in window-status-format, so we push and the format just embeds it);
+#   4. prints the status-right aggregate: ◉<waiting> ●<active> ⤒<hottest ctx>%.
 #
-# Also includes a context warning if any session is over 80% (best-effort,
-# parsed from the most recently modified session's last assistant message).
+# Glyph: ● working (transcript written in the last few seconds) · ◉ idle/waiting
+# (may need you). Color = context pressure: green <60 · yellow 60–85 · red ≥85.
+# The % is appended only once it matters (≥60). Theme colors are read from the
+# @t_* palette, so `theme set` recolors within one status interval.
 #
-# Designed to run every 2-5 seconds from tmux status-right. Must complete
-# in <200ms or the status bar will lag.
+# Must be cheap (runs every status redraw): the process/transcript scan is cached
+# briefly; only the (cheap) tmux push + summary run every call.
+set -uo pipefail
 
-set -euo pipefail
+command -v jq   >/dev/null 2>&1 || exit 0
+command -v tmux >/dev/null 2>&1 || exit 0
+projects="$HOME/.claude/projects"
+now="$(date +%s)"
+cache="${TMPDIR:-/tmp}/tmux-claude-state.$(id -u).map"
+ttl=4
 
-projects_dir="${HOME}/.claude/projects"
-[ -d "$projects_dir" ] || { echo "○"; exit 0; }
+pal() { local v; v="$(tmux show -gv "$1" 2>/dev/null)"; printf '%s' "${v:-$2}"; }
+G="$(pal @t_green green)"; Y="$(pal @t_yellow yellow)"
+R="$(pal @t_red red)";     D="$(pal @t_dim white)"
 
-# Count session files modified in the last 5 minutes
-active=$(find "$projects_dir" -maxdepth 2 -name "*.jsonl" -mmin -5 2>/dev/null | wc -l)
+# Context limit override. MUST come from a tmux option (or, off-tmux, the env):
+# tmux #() runs with the SERVER's environment, so a shell `export
+# CLAUDE_CTX_LIMIT` is invisible here — `set -g @claude_ctx_limit` in tmux.conf
+# is the runtime-valid knob. Unset → the per-session conservative heuristic.
+CTX_LIMIT="$(tmux show -gv @claude_ctx_limit 2>/dev/null)"
+: "${CTX_LIMIT:=${CLAUDE_CTX_LIMIT:-0}}"
+case "$CTX_LIMIT" in *[!0-9]*) CTX_LIMIT=0 ;; esac
 
-if [ "$active" -eq 0 ]; then
-    echo "○ idle"
-else
-    echo "◐ ${active}"
+ctx_color() {  # $1=ctx(int|"") → hex
+  case "$1" in
+    "" ) printf '%s' "$D" ;;
+    * ) if   [ "$1" -ge 85 ] 2>/dev/null; then printf '%s' "$R"
+        elif [ "$1" -ge 60 ] 2>/dev/null; then printf '%s' "$Y"
+        else printf '%s' "$G"; fi ;;
+  esac
+}
+
+# ── 1+2. (cached) scan live Claude procs → pane<TAB>activity<TAB>ctx ─────────
+if [ ! -f "$cache" ] || [ "$(( now - $(stat -c %Y "$cache" 2>/dev/null || echo 0) ))" -ge "$ttl" ]; then
+  tmp="$cache.$$"
+  : > "$tmp"
+  declare -A seen_pane
+  for pid in $(pgrep -u "$(id -u)" -f 'claude' 2>/dev/null); do
+    # cat (not a shell redirect) so a proc vanishing mid-scan is swallowed by
+    # its own 2>/dev/null instead of printing a redirection error to the bar.
+    env="$(cat "/proc/$pid/environ" 2>/dev/null | tr '\0' '\n')"
+    [ -n "$env" ] || continue
+    sid="$(printf '%s\n' "$env" | sed -n 's/^CLAUDE_CODE_SESSION_ID=//p' | head -1)"
+    pane="$(printf '%s\n' "$env" | sed -n 's/^TMUX_PANE=//p' | head -1)"
+    [ -n "$sid" ] && [ -n "$pane" ] || continue          # excludes non-claude procs
+    # One session has several claude child procs sharing a pane — count once.
+    [ -n "${seen_pane[$pane]:-}" ] && continue
+    seen_pane["$pane"]=1
+    # Liveness = the live claude process (gated above). Do NOT drop on transcript
+    # age: a session that's been *waiting* for you longest has the oldest mtime —
+    # dropping it would hide exactly what "who needs me" must surface. mtime only
+    # decides working(●) vs idle/waiting(◉) below.
+    t="$(find "$projects" -maxdepth 2 -name "$sid.jsonl" 2>/dev/null | head -1)"
+    [ -n "$t" ] && [ -f "$t" ] || continue
+    mt="$(stat -c %Y "$t" 2>/dev/null || echo 0)"
+    line="$(tail -n 400 "$t" | tac | jq -rc \
+      'select((.message.usage!=null) and (.isSidechain!=true))
+       | [(.message.model//""),
+          (.message.usage.input_tokens//0),
+          (.message.usage.cache_creation_input_tokens//0),
+          (.message.usage.cache_read_input_tokens//0)] | @tsv' 2>/dev/null | head -1)"
+    ctx=""
+    if [ -n "$line" ]; then
+      IFS=$'\t' read -r model itok ctok rtok <<<"$line"
+      used=$(( ${itok:-0} + ${ctok:-0} + ${rtok:-0} ))
+      limit="$CTX_LIMIT"
+      if [ "${limit:-0}" -le 0 ] 2>/dev/null; then
+        # No explicit limit: the transcript model id lacks the [1m] suffix, so
+        # assume 200k until usage provably exceeds it (over-warn, never under-warn).
+        case "$model" in
+          *'[1m]'*|*-1m) limit=1000000 ;;
+          *) if [ "$used" -gt 200000 ]; then limit=1000000; else limit=200000; fi ;;
+        esac
+      fi
+      (( limit > 0 )) && ctx=$(( used * 100 / limit ))
+    fi
+    if [ "$(( now - mt ))" -le 8 ]; then act=working; else act=waiting; fi
+    printf '%s\t%s\t%s\n' "$pane" "$act" "$ctx" >> "$tmp"
+  done
+  mv "$tmp" "$cache" 2>/dev/null || rm -f "$tmp"
 fi
+
+# ── pane→window map (one tmux call) ─────────────────────────────────────────
+declare -A pane_win
+while IFS=' ' read -r p w; do [ -n "$p" ] && pane_win["$p"]="$w"; done \
+  < <(tmux list-panes -a -F '#{pane_id} #{window_id}' 2>/dev/null)
+
+# ── 3. build desired per-window glyph + the aggregate ───────────────────────
+declare -A win_want
+waiting=0; active=0; max=-1
+while IFS=$'\t' read -r pane act ctx; do
+  [ -n "$pane" ] || continue
+  w="${pane_win[$pane]:-}"; [ -n "$w" ] || continue
+  case "$act" in waiting) glyph="◉" ;; *) glyph="●" ;; esac
+  if [ -n "$ctx" ] && [ "$ctx" -ge 60 ] 2>/dev/null; then glyph="$glyph$ctx"; fi
+  win_want["$w"]="#[fg=$(ctx_color "$ctx"),bold]${glyph}#[default]"
+  active=$(( active + 1 ))
+  [ "$act" = waiting ] && waiting=$(( waiting + 1 ))
+  if [ -n "$ctx" ] && [ "$ctx" -gt "$max" ] 2>/dev/null; then max="$ctx"; fi
+done < "$cache" 2>/dev/null
+
+# push: set changed windows, unset windows that no longer host a live session
+while IFS= read -r w; do
+  [ -n "$w" ] || continue
+  want="${win_want[$w]:-}"
+  cur="$(tmux show -wqv -t "$w" @claude_glyph 2>/dev/null)"
+  if [ -n "$want" ]; then
+    [ "$want" != "$cur" ] && tmux set -w -t "$w" @claude_glyph "$want" 2>/dev/null
+  elif [ -n "$cur" ]; then
+    tmux set -wu -t "$w" @claude_glyph 2>/dev/null
+  fi
+done < <(tmux list-windows -a -F '#{window_id}' 2>/dev/null)
+
+# ── 4. status-right aggregate ───────────────────────────────────────────────
+[ "$active" -eq 0 ] && exit 0
+out=""
+[ "$waiting" -gt 0 ] && out="#[fg=${R},bold]◉${waiting}#[default] "
+out="${out}#[fg=${D}]●${active}#[default]"
+[ "$max" -ge 0 ] && out="${out} #[fg=$(ctx_color "$max")]⤒${max}%#[default]"
+printf '%s' "$out"
