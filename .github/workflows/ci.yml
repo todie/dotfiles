@@ -48,3 +48,11 @@ jobs:
             echo "tmux.conf has config errors (above)"; exit 1
           fi
           echo "tmux.conf parsed clean"
+
+      # k8s-tools bootstrap regression tests — offline (file:// fixtures), no
+      # network: exercises the download/verify/extract/install path, the
+      # checksum-mismatch reject branch, and the completions.zsh ↔ run_once
+      # pre-warmer lock-step invariant. The networked e2e (k8s-tools-e2e.sh)
+      # is intentionally excluded from CI.
+      - name: k8s-tools regression
+        run: bash test/k8s-tools-test.sh
