@@ -35,8 +35,14 @@ work_window=8     # transcript written within Ns ⇒ working, else waiting
 rescan_every=15   # force a full proc rescan every N ticks (safety net)
 
 # ── singleton: exactly one daemon per tmux server ───────────────────────────
-exec 9>"$lock" 2>/dev/null || exit 0
-command -v flock >/dev/null 2>&1 && { flock -n 9 || exit 0; }
+# Re-exec under `flock --close`: the lock lives in the flock PARENT process and
+# its fd is closed before this script runs, so neither the daemon nor its
+# per-tick subshells/children ever inherit the lock fd. The lock then releases
+# the instant the daemon exits, and `fuser` shows one clean holder. FLOCK_GLANCE
+# guards the re-exec from looping; if flock is absent, degrade to no lock.
+if [ -z "${FLOCK_GLANCE:-}" ] && command -v flock >/dev/null 2>&1; then
+  exec env FLOCK_GLANCE=1 flock -n --close "$lock" "$0" "$@"
+fi
 
 # ── palette + helpers (mirrors tmux-claude-state so glyphs match) ───────────
 pal() { local v; v="$(tmux show -gv "$1" 2>/dev/null)"; printf '%s' "${v:-$2}"; }
