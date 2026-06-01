@@ -28,3 +28,8 @@ starship/themes/*.toml
 
 # ── runtime-generated secrets cache (legacy; superseded by rendered .env) ────
 .cache/zsh-secrets.env
+
+# ── operator-managed (chezmoi does NOT own ~/.secrets — token bootstrap) ─────
+# ~/.secrets holds OP_SERVICE_ACCOUNT_TOKEN and is managed by hand; the app keys
+# it used to also hold are rendered to ~/.config/zsh/secrets.env at apply time.
+.secrets

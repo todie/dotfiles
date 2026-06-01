@@ -1,44 +1,54 @@
 # dotfiles
 
-Minimal, modular zsh environment. Clone, run `install.sh`, done.
+Personal shell + terminal environment for `todie`, managed with [chezmoi](https://chezmoi.io).
 
 ## Requirements
 
-- zsh
-- git (for plugin auto-clone)
-- [starship](https://starship.rs) (prompt, optional but recommended)
-- [eza](https://github.com/eza-community/eza) (ls replacement, optional)
+- zsh, git
+- [chezmoi](https://chezmoi.io)
+- 1Password CLI (`op`) signed in, or `OP_SERVICE_ACCOUNT_TOKEN` set — for secret rendering
+- optional: [starship](https://starship.rs), [eza](https://github.com/eza-community/eza), bat, fzf, zoxide
 
 ## Install
 
 ```bash
-git clone git@github.com:todie/dotfiles.git ~/dotfiles
-cd ~/dotfiles
-./install.sh
-exec zsh
+chezmoi init --apply todie
 ```
 
-The install script symlinks `~/.zshrc` into place. Existing files are backed up
-to `~/.dotfiles-backup/<timestamp>/` before being replaced.
+chezmoi clones this repo into its source dir and applies the `home/` tree to `~`
+as **real files** (not symlinks), so your live config is decoupled from the repo's
+git state. On first interactive shell, zsh clones any missing plugins automatically.
 
-On first launch zsh will clone any missing plugins automatically.
+Preview before applying: `chezmoi diff`, then `chezmoi apply`.
+
+## Editing config
+
+```bash
+chezmoi edit --apply ~/.zshrc   # edit + deploy in one step
+chezmoi cd                      # jump into the source tree (home/)
+chezmoi diff                    # preview pending changes
+chezmoi apply                   # deploy
+```
 
 ## Structure
 
 | Path | Purpose |
 |------|---------|
-| `zsh/.zshrc` | Entry point — sources modules in order |
-| `zsh/lib/functions.zsh` | Utility functions (`pinfo`, `has`, `download`, …) |
-| `zsh/lib/env.zsh` | XDG dirs, PATH, EDITOR, starship init |
-| `zsh/lib/options.zsh` | `setopt`, `bindkey`, autoloads |
-| `zsh/lib/plugins.zsh` | Bare-metal plugin system + plugin list |
-| `zsh/lib/completions.zsh` | Per-tool completion setup |
-| `zsh/lib/aliases.zsh` | `ls`/`eza` shims, grep, s3cmd |
+| `home/dot_zshrc`, `home/dot_zshenv` | zsh entry points (→ `~/.zshrc`, `~/.zshenv`) |
+| `home/dot_config/zsh/lib/*` | functions, env, options, plugins, completions, aliases, tmux, secrets |
+| `home/dot_tmux.conf` (+ `dot_tmux.conf.d/claude.conf`) | tmux config |
+| `home/dot_local/bin/executable_*` | `theme`, `zedw`, tmux helper scripts |
+| `home/dot_claude/hooks/executable_*` | Claude Code hooks |
+| `home/starship/` | theme palettes (read by `theme`; not deployed) |
+| `home/run_*` | plugin bootstrap, completion + theme generation |
+| `agents/`, `docs/`, `test/`, `macos/` | skill defs, design records, health check, macOS defaults |
 
-## User-local overrides
+## Theming
 
-Create `~/.zshrc-$USER` for machine-specific config (secrets, work tokens, etc.).
-That file is sourced last and is intentionally not tracked.
+`theme set <name>` recolors starship + tmux + fzf together — 8 themes (neon-dreams,
+synthwave-84, catppuccin-mocha, tokyo-night, outrun, vaporwave, neutral-engineering,
+neutral-engineering-light). `theme list` / `theme next`. On WSL, sync Windows
+Terminal too with `DOTFILES_THEME_WT=1`.
 
 ## Plugin management
 
@@ -46,8 +56,17 @@ That file is sourced last and is intentionally not tracked.
 plugin update    # pull latest for all plugins
 plugin compile   # byte-compile plugins (faster startup)
 plugin list      # show installed plugins
-plugin clean     # nuke the plugin cache (will re-clone on next launch)
+plugin clean     # nuke the plugin cache (re-clones on next launch)
 ```
+
+## Secrets
+
+`~/.secrets` (operator-managed) holds the 1Password service-account token; app keys
+render to `~/.config/zsh/secrets.env` at apply time via `onepasswordRead`.
+
+## User-local overrides
+
+`~/.zshrc-$USER` for machine-specific config (sourced last, not tracked).
 
 ## License
 
