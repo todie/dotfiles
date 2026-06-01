@@ -38,6 +38,9 @@ Before claiming no prior context exists for a task, search engram and Obsidian v
 ## Loop Discipline (operator self-correcting drip-feed / shiny-chasing)
 Full rule: `~/.claude/rules/loop-discipline.md`. In short: **front-load context** (ask for landscape · constraints · goal before substantive work); **one thread to done-done** before the next, park deferred work to Linear/memory don't drop it; **build guardrails before using new power** (name blast radius first); **operator approves** all irreversible/outward actions (merge, apply, rotate, external send) — agent prepares, operator signs off.
 
+## Presentation & Decisions
+Full rule: `~/.claude/rules/presentation-and-decisions.md`. In short: **open decisions** — any fork where the operator's choice changes what you do next — go through **`AskUserQuestion` (interview mode)**, never enumerated as prose bullets for a free-form reply; **long-form to judge** (>~40 lines: plans, RFCs, proposals, migration docs) gets **written to a file + opened in `$EDITOR`**, with only a short orientation (what/where/decisions) in chat.
+
 ## Clarification Rules
 When asked to "connect to", "check", or "open" a service, default to **status/health** (e.g. `docker ps`) unless context clearly implies attach/open or configure.
 
