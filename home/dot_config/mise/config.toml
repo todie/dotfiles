@@ -1,0 +1,59 @@
+# ~/.config/mise/config.toml — global machine tool manifest (chezmoi-managed).
+#
+# The MACHINE LAYER of the tooling strategy (docs/tooling-strategy.md): mise is
+# the ONLY globally-activated version manager. It pins the CLIs + language
+# runtimes that live on PATH everywhere, plus proto & moon (the per-repo /
+# monorepo layer). Exact versions are frozen in the committed mise.lock.
+#
+# `mise install` restores every tool here after a wipe or on a fresh machine.
+# Bump a version → `mise install && mise pin` → commit config.toml + mise.lock.
+#
+# Backends resolve via the mise registry (aqua-first → SLSA + checksums).
+#
+# DELIBERATE EXCLUSIONS (managed elsewhere on purpose — do not add here):
+#   kubectl  — /usr/local/bin/kubectl is a Docker-Desktop symlink, version-
+#              coupled to the bundled cluster; let DD own it.
+#   fzf      — ~/.fzf (own installer wires shell key-bindings).
+#   bun      — ~/.local/bin/bun, hard-referenced by the claude-hud statusline.
+#   rust     — rustup/cargo at ~/.cargo.
+#   python   — system python3 + uv for project envs.
+#   kubecolor, op — checksummed run_once installer (provenance; see strategy doc).
+#   engram/cortex/reverie-* — first-party builds via the deploy skills.
+
+[tools]
+# Versions are pinned EXACT for reproducibility (the manifest is the pin). mise
+# checksum/SLSA-verifies every install regardless. To float a tool, set it to
+# "latest"; to bump a pin: `mise use -g <tool>@<ver>` then commit this file.
+
+# ── kubernetes / infra CLIs ──────────────────────────────────────────────────
+helm      = "4.2.0"
+k9s       = "0.50.18"
+kustomize = "5.8.1"
+stern     = "1.34.0"
+terraform = "1.15.5"
+sops      = "3.13.1"
+
+# ── general CLIs ─────────────────────────────────────────────────────────────
+gh       = "2.93.0"
+jq       = "1.8.1"
+uv       = "0.11.17"
+direnv   = "2.37.1"
+btop     = "1.4.7"
+rclone   = "1.74.2"
+flyctl   = "0.4.57"
+starship = "1.25.1"
+
+# ── language runtimes (global defaults; per-repo overrides via proto) ────────
+node = "24.16.0"
+go   = "1.26.3"
+deno = "2.8.1"
+
+# ── monorepo layer — pin the tools that drive it (aqua backend; not in the
+#    bare registry, so the full aqua:owner/repo locator is required) ──────────
+"aqua:moonrepo/proto" = "0.57.3"
+"aqua:moonrepo/moon"  = "2.2.6"
+
+[settings]
+# Don't auto-install on cd; installs are explicit (`mise install`) — keeps the
+# shell fast and avoids surprise network calls.
+not_found_auto_install = false

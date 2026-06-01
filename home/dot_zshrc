@@ -69,9 +69,14 @@ if [ -f '/home/ctodie/google-cloud-sdk/path.zsh.inc' ]; then . '/home/ctodie/goo
 # The next line enables shell command completion for gcloud.
 if [ -f '/home/ctodie/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/ctodie/google-cloud-sdk/completion.zsh.inc'; fi
 
+# mise — machine tool manager (helm/k9s/terraform/gh/node/proto/moon/…).
+# Activate LAST so its shims take PATH precedence over earlier entries. The
+# pinned manifest is ~/.config/mise/config.toml; see docs/tooling-strategy.md.
+command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"
 
 # claude yolo (sandboxed/throwaway dirs only)
 alias cy="claude --dangerously-skip-permissions"
 
-# bashcompinit already initialized in lib/env.zsh; just register the completion.
-complete -o nospace -C /home/ctodie/.local/bin/terraform terraform
+# terraform shell completion (terraform now resolves via the mise shim / PATH,
+# not a hardcoded ~/.local/bin path). bashcompinit is set up in lib/env.zsh.
+command -v terraform >/dev/null 2>&1 && complete -o nospace -C "$(command -v terraform)" terraform
