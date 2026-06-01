@@ -19,6 +19,7 @@ jobs:
         run: |
           files=()
           while IFS= read -r f; do
+            case "$f" in *.tmpl) continue ;; esac        # chezmoi templates: {{ }} isn't shell
             case "$(head -n1 "$f")" in
               *zsh) ;;                                  # skip zsh shebangs
               '#!'*bash*|'#!'*sh) files+=("$f") ;;       # bash or .../sh

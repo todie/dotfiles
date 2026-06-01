@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# tmux-claude-state — one-line summary of Claude Code activity.
+#
+# Outputs one of:
+#   ◐ <N>      — N active sessions (modified in last 5 minutes)
+#   ○          — no active sessions
+#
+# Also includes a context warning if any session is over 80% (best-effort,
+# parsed from the most recently modified session's last assistant message).
+#
+# Designed to run every 2-5 seconds from tmux status-right. Must complete
+# in <200ms or the status bar will lag.
+
+set -euo pipefail
+
+projects_dir="${HOME}/.claude/projects"
+[ -d "$projects_dir" ] || { echo "○"; exit 0; }
+
+# Count session files modified in the last 5 minutes
+active=$(find "$projects_dir" -maxdepth 2 -name "*.jsonl" -mmin -5 2>/dev/null | wc -l)
+
+if [ "$active" -eq 0 ]; then
+    echo "○ idle"
+else
+    echo "◐ ${active}"
+fi

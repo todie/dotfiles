@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# run_once_before_20-zsh-plugins.sh.tmpl
+#
+# OPTIONAL PRE-WARM. Clones the curated zsh plugin list into the plugin cache so
+# the FIRST interactive shell is fast. This is an honest duplication of runtime
+# behavior: plugins.zsh's `plugin-load` already self-heals — it clones any
+# missing plugin on first shell and `plugin update` handles updates. This script
+# only front-loads that one-time clone.
+#
+# run_once  — the clone is a one-time bootstrap; plugins.zsh owns updates after.
+# _before_  — no dependency on other applied files; cheap to run early.
+#
+# Keep this list in lock-step with zsh/lib/plugins.zsh `plugins=( … )`.
+
+set -euo pipefail
+
+# Mirror env.zsh/.zshrc: DOTFILES_ZSH_CACHE = ${XDG_CACHE_HOME:-~/.cache}/zsh,
+# ZPLUGINDIR = $DOTFILES_ZSH_CACHE/plugins.
+ZPLUGINDIR="${ZPLUGINDIR:-${XDG_CACHE_HOME:-$HOME/.cache}/zsh/plugins}"
+mkdir -p "$ZPLUGINDIR"
+
+# Curated list — mirrors plugins.zsh (active entries only; optional/commented
+# plugins there are intentionally excluded).
+plugins=(
+  romkatv/zsh-defer
+  Aloxaf/fzf-tab
+  zsh-users/zsh-autosuggestions
+  zsh-users/zsh-history-substring-search
+  zdharma-continuum/fast-syntax-highlighting
+)
+
+for repo in "${plugins[@]}"; do
+  name="${repo##*/}"
+  dir="$ZPLUGINDIR/$name"
+  [[ -d "$dir" ]] && continue   # already cloned — let plugins.zsh manage updates
+  echo "pre-warming plugin: $repo"
+  # SSH first (matches plugins.zsh), HTTPS fallback for token-less bootstrap.
+  git clone -q --depth 1 --recursive --shallow-submodules \
+      "git@github.com:${repo}.git" "$dir" 2>/dev/null || \
+  git clone -q --depth 1 --recursive --shallow-submodules \
+      "https://github.com/${repo}" "$dir" 2>/dev/null || \
+  echo "  warn: failed to clone $repo (plugins.zsh will retry on first shell)" >&2
+done
