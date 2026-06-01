@@ -1,4 +1,12 @@
 # aliases.zsh — aliases and shell shims
+#
+# Policy: NO command-hiding shorthands. We do not alias `g`→git, `k`→kubectl,
+# `d`→docker, `gca`→git commit --amend, etc. Type the real command — it keeps
+# shell history, scripts, and screen-shares readable, and never hides a
+# non-trivial/destructive op behind two letters. Only these belong here:
+#   • tool substitutions under the familiar name (ls→eza, cat→bat, top→btop)
+#   • structural navigation (.., -)
+#   • project cd-shortcuts and config-edit helpers
 
 alias sudo='/usr/bin/sudo'
 alias grep='grep --color=auto'
@@ -9,14 +17,13 @@ alias ...='cd ../..'
 alias ....='cd ../../..'
 alias .....='cd ../../../..'
 alias -- -='cd -'                      # jump back to previous dir
-alias dv='dirs -v | head -20'          # numbered dir stack (for `cd -N`) — `d` is docker
 
 # mkdir + cd in one step
 mkcd() {
   mkdir -p -- "$1" && cd -- "$1"
 }
 
-# ── ls / eza — eza if available, fall back to ls ────────────────────────────
+# ── ls / eza — modern ls under the familiar name ────────────────────────────
 _eza_flags='--color=auto --color-scale --links --icons --git --group --changed'
 if has eza; then
   alias ls='eza --color=auto --icons'
@@ -44,95 +51,12 @@ if has bat; then
   alias catn='bat --style=numbers'     # cat with line numbers
 fi
 
-# ── find → fd ───────────────────────────────────────────────────────────────
-has fd && alias f='fd'
-
-# ── grep → rg (keep grep alias for color; rg is its own command) ────────────
-has rg && alias rgf='rg --files'
+# ── btop → top (system monitor under the familiar name) ─────────────────────
+has btop && alias top='btop'
 
 # ── zoxide (smart cd) ───────────────────────────────────────────────────────
 # `z foo` jumps to the most-frecent dir matching foo; `zi` is interactive.
-# Keep cd available so muscle memory still works.
-
-# ── git — quick shims (full config lives in ~/.gitconfig) ──────────────────
-if has git; then
-  alias g='git'
-  alias gs='git status -sb'
-  alias gd='git diff'
-  alias gds='git diff --staged'
-  alias gl='git log --oneline --graph --decorate -20'
-  alias gll='git log --oneline --graph --decorate --all -30'
-  alias gp='git push'
-  alias gpl='git pull --rebase --autostash'
-  alias gco='git checkout'
-  alias gcb='git checkout -b'
-  alias gb='git branch'
-  alias ga='git add'
-  alias gaa='git add -A'
-  alias gc='git commit'
-  alias gcm='git commit -m'
-  alias gca='git commit --amend --no-edit'
-fi
-
-# ── docker ───────────────────────────────────────────────────────────────────
-if has docker; then
-  alias d='docker'
-  alias dc='docker compose'
-  alias dps='docker ps --format "table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}"'
-  alias dpsa='docker ps -a --format "table {{.Names}}\t{{.Image}}\t{{.Status}}"'
-  alias dimg='docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}"'
-fi
-
-# ── lazygit / lazydocker — TUI replacements ─────────────────────────────────
-has lazygit && alias lg='lazygit'
-has lazydocker && alias lzd='lazydocker'
-
-# ── btop / htop — system monitors ───────────────────────────────────────────
-has btop && alias top='btop'
-
-# ── opentofu / terraform ────────────────────────────────────────────────────
-if has tofu; then
-  alias tf='tofu'
-elif has terraform; then
-  alias tf='terraform'
-fi
-
-# ── k9s — kubernetes TUI ────────────────────────────────────────────────────
-has k9s && alias k9='k9s'
-
-# ── helm ────────────────────────────────────────────────────────────────────
-if has helm; then
-  alias h='helm'
-  alias hi='helm install'
-  alias hu='helm upgrade'
-  alias hl='helm list'
-  alias hd='helm uninstall'
-fi
-
-# ── uv — Python toolchain shims ─────────────────────────────────────────────
-if has uv; then
-  alias pip='uv pip'
-  alias pipi='uv pip install'
-  alias venv='uv venv'
-fi
-
-# ── kubectl ──────────────────────────────────────────────────────────────────
-if has kubectl; then
-  alias k='kubectl'
-  alias kg='kubectl get'
-  alias kd='kubectl describe'
-  alias kl='kubectl logs'
-  alias kx='kubectl config use-context'
-  alias kns='kubectl config set-context --current --namespace'
-fi
-
-# ── s3cmd shim ───────────────────────────────────────────────────────────────
-has s3cmd && alias s3='s3cmd'
-
-# ── Zed on the Windows host (WSL) ────────────────────────────────────────────
-# `zedw` opens paths in the Windows-host Zed via Zed's --wsl remoting. It's a
-# real binary (bin/zedw, symlinked to ~/.local/bin by install.sh) — NOT an alias
-# — so it also works as $EDITOR: `export EDITOR="zedw --wait"`. See `zedw` header.
+# Provided by `zoxide init` (env.zsh), not aliased here.
 
 # ── clipboard (WSL2-friendly, matches tmux-copy script) ─────────────────────
 if has clip.exe || has win32yank.exe; then
@@ -144,11 +68,12 @@ if has clip.exe || has win32yank.exe; then
   fi
 fi
 
-# ── json + yaml ──────────────────────────────────────────────────────────────
-has jq && alias j='jq'
-has yq && alias y='yq'
+# ── Zed on the Windows host (WSL) ────────────────────────────────────────────
+# `zedw` opens paths in the Windows-host Zed via Zed's --wsl remoting. It's a
+# real binary (bin/zedw, symlinked to ~/.local/bin by install.sh) — NOT an alias
+# — so it also works as $EDITOR: `export EDITOR="zedw --wait"`. See `zedw` header.
 
-# ── quick paths ──────────────────────────────────────────────────────────────
+# ── quick config edits ──────────────────────────────────────────────────────
 alias zshrc='${EDITOR:-vim} ~/projects/dotfiles/zsh/.zshrc'
 alias tmuxrc='${EDITOR:-vim} ~/projects/dotfiles/tmux/.tmux.conf'
 alias starrc='${EDITOR:-vim} ~/projects/dotfiles/starship/base.toml'

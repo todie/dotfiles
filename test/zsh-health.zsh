@@ -37,11 +37,13 @@ else _bad "duplicate PATH entries: ${_dupes[*]}"; fi
 # Editor configured
 [[ -n ${EDITOR:-} ]] && _ok "EDITOR set: $EDITOR" || _bad "EDITOR is unset"
 
-# Alias collision resolved: dv is the dir-stack, d is free for docker
-if [[ -n ${aliases[dv]:-} ]]; then _ok "dir-stack alias present as 'dv'"
-else _bad "alias 'dv' missing (dir-stack/docker collision may be back)"; fi
-[[ ${aliases[d]:-} == *'dirs -v'* ]] && _bad "alias 'd' still bound to dir-stack (collision)" \
-                                      || _ok "alias 'd' not shadowed by dir-stack"
+# No command-hiding aliases (policy: type the real command — see aliases.zsh)
+local -a _hiders=(g gs gd gca k kg kd d dc dps h hi tf lg lzd k9 s3 j y f rgf dv)
+local -a _present=()
+local _a
+for _a in $_hiders; do [[ -n ${aliases[$_a]:-} ]] && _present+=$_a; done
+if (( ${#_present[@]} == 0 )); then _ok "no command-hiding aliases defined"
+else _bad "command-hiding aliases present: ${_present[*]}"; fi
 
 # compinit cache wired to the XDG path
 if [[ -n ${ZCOMPDUMP:-} ]]; then _ok "ZCOMPDUMP set: ${ZCOMPDUMP}"
