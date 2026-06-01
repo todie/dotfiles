@@ -138,3 +138,31 @@ if (( $+functions[history-substring-search-up] )); then
   HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_FOUND="${THEME_HSS_FOUND:-bg=cyan,fg=black,bold}"
   HISTORY_SUBSTRING_SEARCH_HIGHLIGHT_NOT_FOUND="${THEME_HSS_NOTFOUND:-bg=red,fg=white}"
 fi
+
+# ── Transient prompt ──────────────────────────────────────────────────────────
+# Collapse the spent prompt to a bare ❯ once a command runs, keeping scrollback
+# clean. starship has NO native zsh transience (verified against v1.25.1 — its
+# `init zsh` defines no enable_transience), so this wraps accept-line ourselves.
+# It MUST be the outermost accept-line, so the binding is deferred onto the same
+# zsh-defer queue as fast-syntax-highlighting / zsh-autosuggestions (which also
+# touch the line editor) — guaranteeing it runs after them. If it ever fights the
+# highlighter or suggestions, delete this block; the airy prompt stands alone.
+# On accept: collapse the SPENT line to a bare ❯, then run the command. starship
+# sets PROMPT once to a `$(starship …)` string and never re-assigns it (its precmd
+# only captures $?/duration/jobs), so we must cache that string and RESTORE it on
+# the next precmd — otherwise the bare ❯ would stick for the rest of the session.
+_transient_prompt() {
+  PROMPT='%F{13}❯%f '
+  RPROMPT=''
+  zle .reset-prompt
+  zle .accept-line
+}
+_restore_prompt() { PROMPT=$_STARSHIP_PROMPT; RPROMPT=$_STARSHIP_RPROMPT }
+_install_transient_prompt() {
+  _STARSHIP_PROMPT=$PROMPT          # the live `$(starship prompt …)` string
+  _STARSHIP_RPROMPT=$RPROMPT
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd _restore_prompt
+  zle -N accept-line _transient_prompt
+}
+(( $+functions[zsh-defer] )) && zsh-defer _install_transient_prompt || _install_transient_prompt

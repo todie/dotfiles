@@ -1,41 +1,38 @@
 # ═══════════════════════════════════════════════════════════════════════════
-#  ~/.config/starship.toml — N E O N   D R E A M S
+#  ~/.config/starship.toml — A I R Y
 #
-#  Cyberpunk synthwave prompt that pairs with the dotfiles tmux config.
+#  Minimalist, contextual prompt. No solid powerline blocks — foreground color
+#  on the bare terminal background. Two lines: context on the first (path + git
+#  left, language/duration/time right-aligned via $fill), a clean `❯` on the
+#  second. Modules load only when they're relevant.
+#
 #  Theme is composable — see ~/projects/dotfiles/starship/themes/ for variants
-#  and `theme list` / `theme set <name>` to switch.
+#  and `theme list` / `theme set <name>` to switch. The base file (this one)
+#  defines the LAYOUT — what segments appear and how. Theme files override
+#  COLORS only: every palette defines the same semantic keys (neon_pink,
+#  neon_cyan, …) used here as foreground colors.
 #
 #  Author: Christian M. Todie <chris@todie.io>
 # ═══════════════════════════════════════════════════════════════════════════
-#
-#  Active theme is loaded by symlinking ~/.config/starship.toml.local →
-#  themes/<name>.toml at the bottom of this file. The base file (this one)
-#  defines the LAYOUT — what prompt segments appear, in what order, with
-#  what icons. The theme files override colors only.
-#
-# ═══════════════════════════════════════════════════════════════════════════
 
-# ── Format — multi-line with cyberpunk power-line separators ──────────────
 "$schema" = 'https://starship.rs/config-schema.json'
 
-# Root-level config — these MUST come before any [section] header. The theme
-# files are concatenated AFTER this file, so the [palettes.neon_dreams] block
-# they append is isolated from these root keys.
+# Root-level config — MUST precede any [section] header. Theme files are
+# concatenated AFTER this file (their [palettes.neon_dreams] block stays
+# isolated from these root keys).
 add_newline = true
 command_timeout = 500
 scan_timeout = 30
 palette = "neon_dreams"
 
+# ── Format — airy two-line, context right-aligned ─────────────────────────
 format = """
-[](fg:neon_pink)\
-$os\
 $username\
-[](bg:neon_purple fg:neon_pink)\
+$hostname\
 $directory\
-[](fg:neon_purple bg:neon_cyan)\
 $git_branch\
 $git_status\
-[](fg:neon_cyan bg:neon_yellow)\
+$fill\
 $rust\
 $nodejs\
 $python\
@@ -45,10 +42,7 @@ $nix_shell\
 $docker_context\
 $kubernetes\
 $aws\
-[](fg:neon_yellow bg:neon_dim)\
 $cmd_duration\
-[](fg:neon_dim)\
-$fill\
 ${custom.claude_code}\
 $time\
 $line_break\
@@ -56,54 +50,34 @@ $jobs\
 $status\
 $character"""
 
-# ── Transient prompt — collapse old prompts to a minimal glyph ────────────
-# After you run a command, the prompt that ran it shrinks to just the arrow.
-# Keeps scrollback readable. Enable with `enable_transience` on first run.
-
 [fill]
 symbol = " "
 style = "fg:neon_dim"
 
-[time]
-disabled = false
-use_12hr = false
-time_format = "%H:%M:%S"
-style = "fg:neon_cyan"
-format = '[ 󰥔 $time ]($style)'
-
-
-# ── Palette: neon dreams ──────────────────────────────────────────────────
-# ── OS ────────────────────────────────────────────────────────────────────
-[os]
-disabled = false
-format = '[ $symbol ]($style)'
-style = "bg:neon_pink fg:fg_on_pink"
-
-[os.symbols]
-Linux = ""
-Macos = ""
-Windows = ""
-Ubuntu = ""
-Debian = ""
-Arch = ""
-NixOS = ""
-
-# ── Username ──────────────────────────────────────────────────────────────
+# ── Identity — contextual: only over SSH / as root ────────────────────────
 [username]
-show_always = true
-style_user = "bg:neon_pink fg:fg_on_pink bold"
-style_root = "bg:neon_red fg:fg_on_pink bold"
-format = '[$user ]($style)'
+show_always = false
+style_user = "fg:neon_green"
+style_root = "fg:neon_red bold"
+format = "[$user]($style)"
+
+[hostname]
+ssh_only = true
+style = "fg:neon_purple"
+format = "[@$hostname]($style) "
+
+[os]
+disabled = true
 
 # ── Directory ─────────────────────────────────────────────────────────────
 [directory]
-style = "bg:neon_purple fg:fg_on_purple bold"
-format = "[ $path ]($style)"
+style = "bold fg:neon_cyan"
+format = "[$path]($style)[$read_only]($read_only_style) "
 truncation_length = 4
 truncation_symbol = "…/"
 truncate_to_repo = true
-read_only = " "
-read_only_style = "bg:neon_purple fg:neon_yellow"
+read_only = " 󰌾"
+read_only_style = "fg:neon_yellow"
 
 [directory.substitutions]
 "projects" = " "
@@ -116,85 +90,103 @@ read_only_style = "bg:neon_purple fg:neon_yellow"
 # ── Git ───────────────────────────────────────────────────────────────────
 [git_branch]
 symbol = " "
-style = "bg:neon_cyan fg:fg_on_cyan bold"
-format = '[ $symbol $branch ]($style)'
+style = "fg:neon_purple"
+format = "[$symbol$branch]($style) "
 
 [git_status]
-style = "bg:neon_cyan fg:fg_on_cyan"
-format = '[$all_status$ahead_behind ]($style)'
-conflicted = "  "
+style = "fg:neon_yellow"
+format = "([$all_status$ahead_behind]($style)) "
+conflicted = " "
 ahead = "⇡${count}"
 behind = "⇣${count}"
 diverged = "⇕⇡${ahead_count}⇣${behind_count}"
 up_to_date = ""
-untracked = " "
-stashed = " "
-modified = " "
-staged = '[++\($count\)](bg:neon_cyan fg:neon_void)'
-renamed = "󰟕 "
-deleted = " "
+untracked = ""
+stashed = ""
+modified = ""
+staged = '[++\($count\)](fg:neon_green)'
+renamed = "󰟕"
+deleted = ""
 
-# ── Languages — show on the yellow segment ────────────────────────────────
+# ── Languages — contextual (only with relevant files), subtle green ───────
 [rust]
 symbol = " "
-style = "bg:neon_yellow fg:fg_on_yellow bold"
-format = '[ $symbol($version) ]($style)'
+style = "fg:neon_green"
+format = "[$symbol($version)]($style) "
 
 [nodejs]
 symbol = " "
-style = "bg:neon_yellow fg:fg_on_yellow bold"
-format = '[ $symbol($version) ]($style)'
+style = "fg:neon_green"
+format = "[$symbol($version)]($style) "
 
 [python]
 symbol = " "
-style = "bg:neon_yellow fg:fg_on_yellow bold"
-format = '[ $symbol($version)(\($virtualenv\)) ]($style)'
+style = "fg:neon_green"
+format = "[$symbol($version)(\\($virtualenv\\))]($style) "
 
 [golang]
 symbol = " "
-style = "bg:neon_yellow fg:fg_on_yellow bold"
-format = '[ $symbol($version) ]($style)'
+style = "fg:neon_green"
+format = "[$symbol($version)]($style) "
 
 [lua]
 symbol = " "
-style = "bg:neon_yellow fg:fg_on_yellow bold"
-format = '[ $symbol($version) ]($style)'
+style = "fg:neon_green"
+format = "[$symbol($version)]($style) "
 
 [nix_shell]
 symbol = " "
-style = "bg:neon_yellow fg:fg_on_yellow bold"
-format = '[ $symbol$state(\($name\)) ]($style)'
+style = "fg:neon_green"
+format = "[$symbol$state(\\($name\\))]($style) "
 
-# ── Cloud / container context — only show when relevant ─────────────────
+# ── Cloud / container context — only show when relevant ───────────────────
 [docker_context]
 symbol = " "
 only_with_files = true
 detect_files = ["docker-compose.yml", "docker-compose.yaml", "Dockerfile", "compose.yaml", "compose.yml"]
-style = "bg:neon_yellow fg:fg_on_yellow bold"
-format = '[ $symbol$context ]($style)'
+style = "fg:neon_cyan"
+format = "[$symbol$context]($style) "
 
 [kubernetes]
 disabled = false
 detect_files = ["k8s", "Chart.yaml", "helmfile.yaml", "skaffold.yaml"]
 detect_folders = ["k8s", "kubernetes"]
-style = "bg:neon_yellow fg:fg_on_yellow bold"
-format = '[ 󱃾 $context( \($namespace\))]($style)'
+style = "fg:neon_cyan"
+format = "[󱃾 $context( \\($namespace\\))]($style) "
 contexts = [
-  { context_pattern = "prod.*", style = "bg:neon_red fg:fg_on_pink bold" },
-  { context_pattern = "stag.*", style = "bg:neon_yellow fg:fg_on_yellow bold" },
+  { context_pattern = "prod.*", style = "fg:neon_red bold" },
+  { context_pattern = "stag.*", style = "fg:neon_yellow" },
 ]
 
 [aws]
 disabled = false
 symbol = "󰸏 "
-format = '[ $symbol($profile )(\($region\))]($style)'
-style = "bg:neon_yellow fg:fg_on_yellow bold"
+style = "fg:neon_cyan"
+format = "[$symbol($profile )(\\($region\\))]($style) "
 
 # ── Cmd duration — only if > 2s ───────────────────────────────────────────
 [cmd_duration]
 min_time = 2_000
-style = "bg:neon_dim fg:fg_on_dim"
-format = '[ 󰔚 $duration ]($style)'
+style = "fg:neon_yellow"
+format = "[󰔚 $duration]($style) "
+
+# ── Claude Code session indicator — only inside a Claude Code session ─────
+# [custom] module: shows a glyph only when $CLAUDECODE is set (Claude Code
+# exports it in every shell it spawns). Renders nothing in a normal terminal.
+[custom.claude_code]
+description = "Shown when inside a Claude Code session"
+when = 'test -n "$CLAUDECODE"'
+symbol = "󰚩 "
+format = "[$symbol]($style)"
+style = "fg:neon_cyan"
+
+# ── Time — right-aligned ──────────────────────────────────────────────────
+[time]
+disabled = false
+use_12hr = false
+time_format = "%H:%M"
+style = "fg:neon_dim"
+format = "[󰥔 $time]($style)"
 
 # ── Background jobs ───────────────────────────────────────────────────────
 [jobs]
@@ -203,7 +195,7 @@ style = "fg:neon_yellow bold"
 format = "[$symbol$number]($style) "
 number_threshold = 1
 
-# ── Exit status — shown before the prompt character on non-zero ─────────
+# ── Exit status — before the prompt char on non-zero ──────────────────────
 [status]
 disabled = false
 symbol = " "
@@ -213,39 +205,25 @@ not_found_symbol = "󰼶 "
 sigint_symbol = "󰻹 "
 signal_symbol = "󱐋 "
 style = "fg:neon_red bold"
-format = '[$symbol$status]($style) '
+format = "[$symbol$status]($style) "
 map_symbol = true
 recognize_signal_code = true
 
-# ── Character — second line, prompt symbol ────────────────────────────────
+# ── Character — the prompt cursor (plain ❯, renders in any font) ──────────
 [character]
-success_symbol = "[](fg:neon_pink)[](fg:neon_cyan) "
-error_symbol = "[](fg:neon_red)[](fg:neon_red) "
-vimcmd_symbol = "[󰕷](fg:neon_yellow)[](fg:neon_yellow) "
-vimcmd_replace_one_symbol = "[󰕷](fg:neon_purple)[](fg:neon_purple) "
-vimcmd_replace_symbol = "[󰕷](fg:neon_purple)[](fg:neon_purple) "
-vimcmd_visual_symbol = "[󰕷](fg:neon_cyan)[](fg:neon_cyan) "
+success_symbol = "[❯](bold fg:neon_pink)"
+error_symbol   = "[❯](bold fg:neon_red)"
+vimcmd_symbol  = "[❮](bold fg:neon_yellow)"
+vimcmd_replace_one_symbol = "[❮](bold fg:neon_purple)"
+vimcmd_replace_symbol = "[❮](bold fg:neon_purple)"
+vimcmd_visual_symbol = "[❮](bold fg:neon_cyan)"
 
-# ── Disabled / unused ─────────────────────────────────────────────────────
+# ── Disabled ──────────────────────────────────────────────────────────────
 [battery]
 disabled = true
 
-[hostname]
-disabled = true
-
-# Claude Code session indicator — starship has no built-in module for this, so
-# it's a [custom] module: shows a glyph only when $CLAUDECODE is set (Claude Code
-# exports it in every shell it spawns). Renders nothing in a normal terminal.
-[custom.claude_code]
-description = "Shown when inside a Claude Code session"
-when = 'test -n "$CLAUDECODE"'
-symbol = "󰚩 "
-format = '[ $symbol]($style)'
-style = "fg:neon_cyan"
-
 # ═══════════════════════════════════════════════════════════════════════════
-#  THEME OVERRIDE — auto-loaded from a sibling file if it exists
-#  ~/.config/starship.local.toml is symlinked by `theme set <name>` to
-#  ~/projects/dotfiles/starship/themes/<name>.toml. The file is OPTIONAL —
-#  the base palette above is the default neon dreams.
+#  THEME OVERRIDE — palette block appended below by `theme set <name>`
+#  (the theme.tmpl helper concatenates base.toml + themes/<name>.toml into
+#  ~/.config/starship.toml). Default palette is synthwave-84 / neon dreams.
 # ═══════════════════════════════════════════════════════════════════════════
