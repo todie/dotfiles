@@ -1,15 +1,16 @@
 # functions.zsh — utility functions available across all zsh sessions
 
 # ── color helpers ────────────────────────────────────────────────────────────
-BOLD="$(tput bold 2>/dev/null || printf '')"
-GREY="$(tput setaf 0 2>/dev/null || printf '')"
-UNDERLINE="$(tput smul 2>/dev/null || printf '')"
-RED="$(tput setaf 1 2>/dev/null || printf '')"
-GREEN="$(tput setaf 2 2>/dev/null || printf '')"
-YELLOW="$(tput setaf 3 2>/dev/null || printf '')"
-BLUE="$(tput setaf 4 2>/dev/null || printf '')"
-MAGENTA="$(tput setaf 5 2>/dev/null || printf '')"
-NO_COLOR="$(tput sgr0 2>/dev/null || printf '')"
+# Hardcoded SGR escapes instead of 9 `tput` forks per shell start (perf). Only
+# emit color when stdout is a TTY; otherwise leave the vars empty so piped/
+# logged output stays clean. Codes are the standard ANSI set tput would return.
+if [[ -t 1 ]]; then
+  BOLD=$'\e[1m'      UNDERLINE=$'\e[4m'  NO_COLOR=$'\e[0m'
+  GREY=$'\e[30m'     RED=$'\e[31m'       GREEN=$'\e[32m'
+  YELLOW=$'\e[33m'   BLUE=$'\e[34m'      MAGENTA=$'\e[35m'
+else
+  BOLD='' UNDERLINE='' NO_COLOR='' GREY='' RED='' GREEN='' YELLOW='' BLUE='' MAGENTA=''
+fi
 
 pinfo()      { printf '%s\n' "${BOLD}${GREY}>${NO_COLOR} $*"; }
 pwarn()      { printf '%s\n' "${YELLOW}! $*${NO_COLOR}"; }

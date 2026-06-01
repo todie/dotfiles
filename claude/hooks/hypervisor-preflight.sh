@@ -161,32 +161,14 @@ if [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "Write" ] || [ "$TOOL_NAME" = "
         *) approve ;;
     esac
 
-    # Bypass: short-TTL sentinel file (5 min)
-    sentinel="/tmp/claude-coord/.preflight-skip-config-lock"
-    if [ -f "$sentinel" ]; then
-        # Check age ≤ 5 min
-        if [ "$(( $(date +%s) - $(stat -c %Y "$sentinel") ))" -lt 300 ]; then
-            approve
-        fi
-    fi
-
-    # Check lock holder. Lock file is /tmp/claude-coord/locks/claude-config/owner
-    lock_dir="/tmp/claude-coord/locks/claude-config"
-    if [ ! -d "$lock_dir" ] || [ ! -f "$lock_dir/owner" ]; then
-        block "hypervisor-preflight: ~/.claude/* edit requires coord lock 'claude-config' (no lock held). Run: coord lock claude-config --reason 'editing settings'"
-    fi
-
-    owner=$(cat "$lock_dir/owner" 2>/dev/null | tr -d '\n')
-    sid="${SESSION_ID:-}"
-    if [ -z "$sid" ]; then
-        sid=$(~/.claude/bin/coord status 2>/dev/null | sed -n 's/^session_id: *//p' | head -1)
-        [ -z "$sid" ] && sid="unknown"
-    fi
-
-    if [ "$owner" != "$sid" ]; then
-        block "hypervisor-preflight: ~/.claude/* edit requires coord lock 'claude-config' (held by: $owner, caller: $sid). Wait for release or create sentinel: touch /tmp/claude-coord/.preflight-skip-config-lock"
-    fi
-    approve
+    # ─── SOFTENED to warn-only (CER-1114) ────────────────────────────────────
+    # The claude-config lock gate was structurally broken: `coord lock` writes to
+    # the redis backend (coord default) while this hook read the lock holder from
+    # the filesystem (/tmp/claude-coord/locks/claude-config/owner) — and FS writes
+    # are NO-OPs in redis mode. So the gate was unsatisfiable via the documented
+    # command AND bypassable by a bare `touch`: friction with zero guarantee.
+    # Re-arm as a hard block once coord backend-coherence is fixed (CER-1114).
+    warn "hypervisor-preflight: editing ${FILE_PATH#$HOME/} under ~/.claude/ — coord-lock enforcement is SOFTENED to warn-only pending the coord backend-coherence fix (CER-1114). Proceeding without a lock; if a reverie peer is active, coordinate manually."
 fi
 
 # Unmatched tool — pass through

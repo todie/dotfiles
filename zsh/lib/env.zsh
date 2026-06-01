@@ -1,5 +1,10 @@
 # env.zsh — environment variables and directory bootstrapping
 
+# Keep PATH/FPATH/MANPATH free of duplicates. Without this, every `exec zsh`
+# (and our `reload` alias) re-appends the same dirs, growing PATH unbounded.
+# Must run BEFORE any path+= below so dedup applies as entries are added.
+typeset -gU path fpath manpath PATH FPATH MANPATH
+
 # ── XDG directories ──────────────────────────────────────────────────────────
 export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
 export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
@@ -31,14 +36,23 @@ export HISTSIZE=10000
 export SAVEHIST=10000
 export HISTFILE="${XDG_CACHE_HOME}/zsh-history"
 
-# ── editor — prefer Zed, fall back gracefully ────────────────────────────────
-if has zed; then
+# ── editor — prefer host Zed on WSL, then Linux Zed, fall back gracefully ────
+if [[ -n ${WSL_DISTRO_NAME:-} ]] && has zedw; then
+  # Windows-host Zed via WSL remoting (bin/zedw). EDITOR is NON-blocking so a
+  # stray editor-open (e.g. `starship config`) doesn't freeze the pane; only the
+  # tools that must read the file back get --wait. Off-WSL this branch is skipped.
+  export EDITOR="zedw"
+  export GIT_EDITOR="zedw --wait"
+  export KUBE_EDITOR="zedw --wait"
+  # crontab -e / visudo use bare $EDITOR and need blocking — run those as:
+  #   EDITOR='zedw --wait' crontab -e
+elif has zed; then
   ZED_BIN="$(which zed)"
-  export EDITOR="$ZED_BIN --wait"
-  export KUBE_EDITOR="$ZED_BIN --wait"
+  export EDITOR="$ZED_BIN"              # non-blocking (matches the `code` branch)
   export GIT_EDITOR="$ZED_BIN --wait"
+  export KUBE_EDITOR="$ZED_BIN --wait"
 
-  # sudoedit with Zed
+  # sudoedit with Zed (must block so sudo can install the edited file)
   suzed() { EDITOR="$ZED_BIN --wait" command -- sudo -e "$@"; }
 elif has code; then
   VSCODE_BIN="$(which code)"
@@ -64,8 +78,11 @@ export KEYTIMEOUT=1
 export LIBRARY_LOG_TIMESTAMP=1
 export PAGER="less -RF"
 
+# bashcompinit — needed for `complete -C` style completions (vault, terraform).
+# Init once here (the first module that needs it); later users just call `complete`.
+(( $+functions[compdef] )) && (( ! $+functions[complete] )) && { autoload -U +X bashcompinit && bashcompinit; }
+
 # vault completion (requires vault binary in BIN_DIR)
-autoload -U +X bashcompinit && bashcompinit
 [[ -x "${BIN_DIR}/vault" ]] && complete -o nospace -C "${BIN_DIR}/vault" vault
 
 # ── modern tool init ─────────────────────────────────────────────────────────
@@ -139,8 +156,8 @@ if has fnm; then
   eval "$(fnm env --use-on-cd --shell zsh)"
 fi
 
-# rust — cargo + rustup binaries live in ~/.cargo/bin
-[[ -d "$HOME/.cargo/bin" ]] && path+=("$HOME/.cargo/bin")
+# rust — cargo + rustup binaries live in ~/.cargo/bin (added once above; the
+# typeset -gU at the top of this file collapses any re-adds, so no append here).
 
 # uv — Astral's Python toolchain (pip/pipx/venv/pyenv replacement)
 # Completion only — binary lives in /opt/homebrew/bin
