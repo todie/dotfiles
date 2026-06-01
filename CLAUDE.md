@@ -45,6 +45,19 @@ chezmoi-managed — these are real files, **not** symlinks. Do **not** add an
 - App keys (`ANTHROPIC_API_KEY`, etc.) render from 1Password to
   `~/.config/zsh/secrets.env` at apply via `onepasswordRead` (service mode).
 
+**Bootstrap (the chicken-and-egg).** `secrets.env` needs `op` + a valid
+`OP_SERVICE_ACCOUNT_TOKEN` *in the apply-time env*; that token lives in
+`~/.secrets`, which is sourced by `lib/secrets.zsh`. On a **fresh machine** the
+token can't render the file that holds it, so provision it once by hand:
+```bash
+printf 'export OP_SERVICE_ACCOUNT_TOKEN=ops_...\n' > ~/.secrets && chmod 600 ~/.secrets
+export OP_SERVICE_ACCOUNT_TOKEN=ops_...   # also into the current env for the first apply
+chezmoi init --apply todie
+```
+If the token is **absent/unset** at apply time, `secrets.env.tmpl` renders a
+no-op placeholder (guarded by `{{ if env "OP_SERVICE_ACCOUNT_TOKEN" }}`) instead
+of **aborting the whole apply** — re-run `chezmoi apply` once the token is in env.
+
 ## Plugin policy
 
 Keep the plugin list in `home/dot_config/zsh/lib/plugins.zsh` **minimal** — only
