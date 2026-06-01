@@ -152,10 +152,19 @@ _emit_windows_terminal() {
             brightBlack:$dim, brightRed:$red, brightGreen:$grn, brightYellow:$yel, brightBlue:$blu,
             brightPurple:$pur, brightCyan:$blu, brightWhite:$fg }') || return 0
     jq --argjson s "$scheme" --arg id "${WT_PROFILE_ID:-}" '
-        .schemes |= ([.[] | select(.name != "dotfiles")] + [$s])
-        | if ($id != "" and any(.profiles.list[]; .guid == $id))
-          then .profiles.list |= map(if .guid==$id then .colorScheme="dotfiles" else . end)
-          else .profiles.defaults.colorScheme = "dotfiles" end
+        # upsert the scheme (tolerate a missing .schemes key)
+        .schemes = (((.schemes // []) | map(select(.name != "dotfiles"))) + [$s])
+        # point the active profile at it — handle BOTH profiles shapes:
+        # modern object { defaults, list:[…] } and legacy array […].
+        | if (.profiles | type) == "object" then
+            if ($id != "" and any((.profiles.list // [])[]; .guid == $id))
+            then .profiles.list |= map(if .guid == $id then .colorScheme = "dotfiles" else . end)
+            else .profiles.defaults.colorScheme = "dotfiles" end   # auto-vivifies defaults
+          elif (.profiles | type) == "array" then
+            if ($id != "" and any(.profiles[]; .guid == $id))
+            then .profiles |= map(if .guid == $id then .colorScheme = "dotfiles" else . end)
+            else . end                                             # array form has no defaults; leave as-is
+          else . end
     ' "$wt" > "$wt.tmp" 2>/dev/null \
         && jq -e . "$wt.tmp" >/dev/null 2>&1 \
         && mv "$wt.tmp" "$wt" \
