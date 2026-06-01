@@ -1,0 +1,21 @@
+# Theme: NEUTRAL ENGINEERING (dark)
+# Warm-neutral dark. Amber accent on a greyscale base; muted clay/olive/slate.
+# Imported from the Zed theme "Neutral Engineering Dark".
+
+
+[palettes.neon_dreams]
+neon_pink   = "#fcc21b"  # amber — primary accent (the signature)
+neon_cyan   = "#9ec5bd"  # sage — active windows
+neon_purple = "#a98ba6"  # muted mauve — user/secondary
+neon_yellow = "#ffd24d"  # bright amber — date
+neon_green  = "#9aa06a"  # olive — good state
+neon_red    = "#cc5f5a"  # clay red — alerts
+neon_void   = "#111111"  # editor base (darkest)
+neon_panel  = "#1c1c1c"  # surface
+neon_dim    = "#5e5e5e"  # muted grey (inactive / borders)
+neon_text   = "#e5e5e5"  # foreground
+fg_on_pink  = "#111111"
+fg_on_cyan  = "#111111"
+fg_on_yellow = "#111111"
+fg_on_purple = "#111111"
+fg_on_dim   = "#e5e5e5"
