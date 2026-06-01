@@ -1,0 +1,6 @@
+{
+  "command": "obsidian-mcp",
+  "args": [
+    "/home/ctodie/vault"
+  ]
+}

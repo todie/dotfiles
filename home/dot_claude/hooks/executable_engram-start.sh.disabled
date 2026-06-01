@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# engram-start.sh — SessionStart hook (global)
+# 1. Ensures engram HTTP daemon is running
+# 2. Outputs protocol instructions so Claude executes the startup sequence
+set -euo pipefail
+
+ENGRAM="$HOME/.local/bin/engram"
+
+# Ensure engram serve is running
+if ! pgrep -f "engram serve" > /dev/null 2>&1; then
+  nohup "$ENGRAM" serve > /tmp/engram.log 2>&1 &
+  disown
+  # Wait for HTTP (max 1s)
+  for i in {1..10}; do
+    curl -s http://127.0.0.1:7437/health > /dev/null 2>&1 && break
+    sleep 0.1
+  done
+fi
+
+# Verify health
+if curl -s http://127.0.0.1:7437/health > /dev/null 2>&1; then
+  # Derive project name from git or directory
+  PROJECT=$(git -C "$PWD" rev-parse --show-toplevel 2>/dev/null | xargs basename 2>/dev/null || basename "$PWD")
+  DATE=$(date +%Y-%m-%d)
+
+  cat <<EOF
+Engram is healthy. Execute the CLAUDE.md startup protocol NOW:
+1. Call mem_session_start (id: ${PROJECT}-${DATE}, project: ${PROJECT}, directory: ${PWD})
+2. Load context (smart-first, with /context fallback for older daemons):
+   mem raw "/context/smart?project=${PROJECT}&limit=15" || mem raw "/context?project=${PROJECT}&limit=10"
+3. Check maintenance: mem raw "/search?q=maintenance+last+ran&limit=1&scope=personal" — if >30 days, run maintenance
+EOF
+else
+  echo "WARNING: engram failed to start. Check /tmp/engram.log"
+fi
+
+exit 0

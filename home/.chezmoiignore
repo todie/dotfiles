@@ -33,3 +33,53 @@ starship/themes/*.toml
 # ~/.secrets holds OP_SERVICE_ACCOUNT_TOKEN and is managed by hand; the app keys
 # it used to also hold are rendered to ~/.config/zsh/secrets.env at apply time.
 .secrets
+
+# ── ~/.claude — persist CONFIG only (CLAUDE.md, RTK.md, rules, hooks, skills,
+#    agents, mcp). Everything below is state/secret/external and must NOT be
+#    managed. See docs/tooling-strategy.md / the persist plan. ────────────────
+# settings.json: committed ONCE as a recovery snapshot, then ignored — Claude
+# Code rewrites it, so chezmoi must not fight it (operator chose commit-once).
+.claude/settings.json
+.claude/settings.local.json
+.claude/settings.json.bak*
+# secrets / auth — never manage.
+.claude/.credentials.json
+.claude/.claude.json
+# reverie-owned (built/installed from the reverie repo, like ~/.claude/bin).
+.claude/bin
+# external-pointing skill symlinks live in ~/.agents (out of scope here).
+.claude/skills/coord-drain
+.claude/skills/cut-release
+.claude/skills/file-bug
+.claude/skills/linear-file-spec
+.claude/skills/mesh-cleanup
+.claude/skills/orphan-lock-clean
+.claude/skills/reveried-swap
+.claude/skills/snapshot
+.claude/skills-disabled
+# generated hook artifact.
+.claude/hooks/.rtk-hook.sha256
+# huge machine-state — never manage.
+.claude/plugins
+.claude/projects
+.claude/context-mode
+.claude/file-history
+.claude/history.jsonl
+.claude/shell-snapshots
+.claude/session-env
+.claude/backups
+.claude/cache
+.claude/usage-data
+.claude/tasks
+.claude/sessions
+.claude/logs
+.claude/jobs
+.claude/plans
+.claude/paste-cache
+.claude/daemon
+.claude/daemon.log
+.claude/coord
+.claude/ide
+.claude/downloads
+.claude/stats-cache.json
+.claude/mcp-needs-auth-cache.json
