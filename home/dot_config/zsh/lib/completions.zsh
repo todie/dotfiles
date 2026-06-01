@@ -27,6 +27,8 @@ typeset -gA _COMPLETION_GEN=(
   # generators that emit a correct #compdef tag on line 1 — no rewrite needed
   _gh                 'gh completion -s zsh'
   _kubectl            'kubectl completion zsh'
+  _helm               'helm completion zsh'
+  _k9s                'k9s completion zsh'
   _op                 'op completion zsh'
   _uv                 'uv generate-shell-completion zsh'
   _rclone             'rclone completion zsh -'

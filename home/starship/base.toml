@@ -149,8 +149,8 @@ format = "[$symbol$context]($style) "
 
 [kubernetes]
 disabled = false
-detect_files = ["k8s", "Chart.yaml", "helmfile.yaml", "skaffold.yaml"]
-detect_folders = ["k8s", "kubernetes"]
+# No detect_* gating — show the active context+namespace in any directory
+# whenever a kubeconfig context is set (kubectl/helm/k9s are daily drivers).
 style = "fg:neon_cyan"
 format = "[󱃾 $context( \\($namespace\\))]($style) "
 contexts = [
