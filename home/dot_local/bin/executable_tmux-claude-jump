@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# tmux-claude-jump — jump to the Claude session that needs you.
+#
+# Prefers a window the glance marked waiting (◉ in @claude_glyph, maintained by
+# tmux-claude-state); falls back to the first pane running claude. Cross-session
+# safe via switch-client. Bound to prefix+w. Pure tmux + awk — no scans.
+set -uo pipefail
+command -v tmux >/dev/null 2>&1 || exit 0
+
+t=$(tmux list-windows -a -F '#{window_id}'$'\t''#{@claude_glyph}' 2>/dev/null \
+    | awk -F'\t' '$2 ~ /◉/{print $1; exit}')
+[ -n "$t" ] || t=$(tmux list-panes -a -F '#{pane_id}'$'\t''#{pane_current_command}' 2>/dev/null \
+    | awk -F'\t' '$2=="claude"{print $1; exit}')
+[ -n "$t" ] || { tmux display-message "claude: no active sessions"; exit 0; }
+
+tmux switch-client -t "$t" 2>/dev/null || true
+tmux select-pane   -t "$t" 2>/dev/null || true

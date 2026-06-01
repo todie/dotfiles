@@ -1,0 +1,239 @@
+#!/usr/bin/env bash
+# tmux-claude-glanced — single long-lived producer for the multi-session Claude
+# glance. Replaces the old status-bar #() poll: the bar now just interpolates the
+# @claude_glance / @claude_glyph options THIS daemon pushes, so no heavy work runs
+# inside tmux's render loop (the re-entrant pileup that once pegged 16 cores and
+# spun the GPU fans is gone by construction).
+#
+# Lifecycle — tmux-spawned, singleton, dies with the server:
+#   • launched via `--ensure` from session-created/client-attached hooks in
+#     claude.conf; an flock makes it a singleton (extra --ensure calls no-op).
+#   • exits within one poll when its tmux calls fail (server gone) → no orphans.
+#
+# State store — tmux user-options (no files but the lock), so every consumer
+# reads state with a single `tmux … -F` call (matches claude.zsh's philosophy):
+#   per window:  @claude_glyph (rendered)  @claude_act  @claude_ctx  @claude_since
+#   global:      @claude_glance  (status-right segment, incl. red ◉N waiting count)
+#
+# Activity — internal stat-poll: the session→pane map lives in memory; each ~1s
+# tick only stat()s the active transcripts. A full proc rescan runs ONLY when the
+# claude-pane set changes (or every $rescan_every ticks as a safety net), so the
+# expensive pgrep/environ/find work is rare, not per-redraw.
+#
+# Glyph: ● working (transcript written in the last few seconds) · ◉ idle/waiting.
+# Color = context pressure: green <60 · yellow 60–85 · red ≥85 (dim if unknown).
+set -uo pipefail
+
+command -v jq   >/dev/null 2>&1 || exit 0
+command -v tmux >/dev/null 2>&1 || exit 0
+
+projects="$HOME/.claude/projects"
+runtime="${XDG_RUNTIME_DIR:-/tmp}"
+lock="$runtime/claude-glance.lock"
+poll=1            # seconds between ticks
+work_window=8     # transcript written within Ns ⇒ working, else waiting
+rescan_every=15   # force a full proc rescan every N ticks (safety net)
+
+# ── singleton: exactly one daemon per tmux server ───────────────────────────
+# Re-exec under `flock --close`: the lock lives in the flock PARENT process and
+# its fd is closed before this script runs, so neither the daemon nor its
+# per-tick subshells/children ever inherit the lock fd. The lock then releases
+# the instant the daemon exits, and `fuser` shows one clean holder. FLOCK_GLANCE
+# guards the re-exec from looping; if flock is absent, degrade to no lock.
+if [ -z "${FLOCK_GLANCE:-}" ] && command -v flock >/dev/null 2>&1; then
+  exec env FLOCK_GLANCE=1 flock -n --close "$lock" "$0" "$@"
+fi
+
+# ── palette + helpers (mirrors tmux-claude-state so glyphs match) ───────────
+pal() { local v; v="$(tmux show -gv "$1" 2>/dev/null)"; printf '%s' "${v:-$2}"; }
+ctx_color() {  # $1=ctx(int|"") → hex
+  case "$1" in
+    "" ) printf '%s' "$D" ;;
+    * ) if   [ "$1" -ge 85 ] 2>/dev/null; then printf '%s' "$R"
+        elif [ "$1" -ge 60 ] 2>/dev/null; then printf '%s' "$Y"
+        else printf '%s' "$G"; fi ;;
+  esac
+}
+
+# Context-window limit: a tmux option (`set -g @claude_ctx_limit`) is the runtime
+# knob — tmux #() / hooks run with the server env, so a shell export is invisible.
+read_ctx_limit() {
+  CTX_LIMIT="$(tmux show -gv @claude_ctx_limit 2>/dev/null)"
+  : "${CTX_LIMIT:=${CLAUDE_CTX_LIMIT:-0}}"
+  case "$CTX_LIMIT" in *[!0-9]*) CTX_LIMIT=0 ;; esac
+}
+
+# derive_ctx <transcript> → echoes ctx int (0-100) or empty. Same logic + model
+# heuristics as tmux-claude-state:75-94; only called when the transcript changed.
+derive_ctx() {
+  local t="$1" line model itok ctok rtok used limit
+  line="$(tail -n 400 "$t" 2>/dev/null | tac | jq -rc \
+    'select((.message.usage!=null) and (.isSidechain!=true))
+     | [(.message.model//""),
+        (.message.usage.input_tokens//0),
+        (.message.usage.cache_creation_input_tokens//0),
+        (.message.usage.cache_read_input_tokens//0)] | @tsv' 2>/dev/null | head -1)"
+  [ -n "$line" ] || { printf ''; return; }
+  IFS=$'\t' read -r model itok ctok rtok <<<"$line"
+  used=$(( ${itok:-0} + ${ctok:-0} + ${rtok:-0} ))
+  limit="$CTX_LIMIT"
+  if [ "${limit:-0}" -le 0 ] 2>/dev/null; then
+    case "$model" in
+      *'[1m]'*|*-1m) limit=1000000 ;;
+      *) if [ "$used" -gt 200000 ]; then limit=1000000; else limit=200000; fi ;;
+    esac
+  fi
+  if (( limit > 0 )); then printf '%s' $(( used * 100 / limit )); else printf ''; fi
+}
+
+# ── in-memory state (keyed by pane id, e.g. %3) ─────────────────────────────
+declare -A tr_of win_of proj_of   # pane → transcript / window / project
+declare -A mt_of ctx_of act_of since_of   # pane → last-mtime / ctx% / activity / since
+declare -A pushed                 # window → last pushed glyph string (push-if-changed)
+last_glance=""                    # last pushed @claude_glance aggregate
+fingerprint=""                    # claude-pane set signature (rescan trigger)
+
+# rescan(): rebuild tr_of/win_of/proj_of from a full proc scan. Expensive — runs
+# only on pane-set change. Preserves act/since/ctx for surviving panes; forgets
+# (and unsets the window option of) panes whose session has gone.
+rescan() {
+  local pid env sid pane t p w cp
+  read_ctx_limit
+  local -A ntr=() nwin=() nproj=() seen=()
+  for pid in $(pgrep -u "$(id -u)" -f 'claude' 2>/dev/null); do
+    [ "$pid" = "$$" ] && continue
+    env="$(cat "/proc/$pid/environ" 2>/dev/null | tr '\0' '\n')"
+    [ -n "$env" ] || continue
+    sid="$(printf '%s\n' "$env" | sed -n 's/^CLAUDE_CODE_SESSION_ID=//p' | head -1)"
+    pane="$(printf '%s\n' "$env" | sed -n 's/^TMUX_PANE=//p' | head -1)"
+    [ -n "$sid" ] && [ -n "$pane" ] || continue
+    [ -n "${seen[$pane]:-}" ] && continue
+    seen[$pane]=1
+    t="$(find "$projects" -maxdepth 2 -name "$sid.jsonl" 2>/dev/null | head -1)"
+    [ -n "$t" ] && [ -f "$t" ] && ntr[$pane]="$t"
+  done
+  # window + project for each live pane, in one tmux call
+  while IFS=$'\t' read -r p w cp; do
+    [ -n "${ntr[$p]:-}" ] || continue
+    nwin[$p]="$w"; nproj[$p]="${cp##*/}"
+  done < <(tmux list-panes -a -F '#{pane_id}	#{window_id}	#{pane_current_path}' 2>/dev/null)
+  # forget panes that vanished (and clear their window option)
+  for pane in "${!tr_of[@]}"; do
+    if [ -z "${nwin[$pane]:-}" ]; then
+      unset 'tr_of[$pane]' 'win_of[$pane]' 'proj_of[$pane]' \
+            'mt_of[$pane]' 'ctx_of[$pane]' 'act_of[$pane]' 'since_of[$pane]'
+    fi
+  done
+  # adopt/refresh live panes (only those tmux can place in a window)
+  for pane in "${!ntr[@]}"; do
+    [ -n "${nwin[$pane]:-}" ] || continue
+    tr_of[$pane]="${ntr[$pane]}"; win_of[$pane]="${nwin[$pane]}"
+    proj_of[$pane]="${nproj[$pane]:-?}"
+    : "${mt_of[$pane]:=0}"
+  done
+}
+
+# notify(): tmux-native, edge-triggered (working→waiting). One transient message
+# per attached client; the persistent ◉N count in @claude_glance carries the rest.
+notify() {  # $1=project
+  local c
+  while IFS= read -r c; do
+    [ -n "$c" ] && tmux display-message -c "$c" -d 2500 "◉ ${1:-claude} needs you" 2>/dev/null
+  done < <(tmux list-clients -F '#{client_name}' 2>/dev/null)
+}
+
+# tick(): cheap per-cycle work — stat transcripts, flip activity, derive ctx on
+# change, reduce per-window, push changed options + the aggregate.
+tick() {
+  local now pane w mt a
+  now="$(date +%s)"
+  G="$(pal @t_green green)"; Y="$(pal @t_yellow yellow)"
+  R="$(pal @t_red red)";     D="$(pal @t_dim white)"
+
+  for pane in "${!tr_of[@]}"; do
+    mt="$(stat -c %Y "${tr_of[$pane]}" 2>/dev/null || echo 0)"
+    if [ "$mt" != "${mt_of[$pane]}" ]; then       # transcript changed → refresh ctx
+      mt_of[$pane]="$mt"
+      ctx_of[$pane]="$(derive_ctx "${tr_of[$pane]}")"
+    fi
+    if [ "$(( now - mt ))" -le "$work_window" ]; then a=working; else a=waiting; fi
+    if [ "$a" != "${act_of[$pane]:-}" ]; then       # activity edge
+      [ "${act_of[$pane]:-}" = working ] && [ "$a" = waiting ] && notify "${proj_of[$pane]}"
+      act_of[$pane]="$a"; since_of[$pane]="$now"
+    fi
+  done
+
+  # reduce panes → per-window desired state (waiting dominates; ctx = max)
+  local -A w_act=() w_ctx=() w_since=()
+  for pane in "${!tr_of[@]}"; do
+    w="${win_of[$pane]}"; a="${act_of[$pane]:-working}"
+    if [ -z "${w_act[$w]:-}" ]; then
+      w_act[$w]="$a"; w_ctx[$w]="${ctx_of[$pane]}"; w_since[$w]="${since_of[$pane]:-$now}"
+    else
+      [ "$a" = waiting ] && w_act[$w]=waiting
+      local c="${ctx_of[$pane]}"
+      if [ -n "$c" ] && { [ -z "${w_ctx[$w]}" ] || [ "$c" -gt "${w_ctx[$w]}" ] 2>/dev/null; }; then w_ctx[$w]="$c"; fi
+      [ "${since_of[$pane]:-$now}" -lt "${w_since[$w]}" ] 2>/dev/null && w_since[$w]="${since_of[$pane]}"
+    fi
+  done
+
+  # push per-window options (glyph + raw fields), push-if-changed; aggregate.
+  local waiting=0 active=0 max=-1 glyph want ctx
+  declare -A live_win=()
+  for w in "${!w_act[@]}"; do
+    live_win[$w]=1
+    ctx="${w_ctx[$w]}"
+    case "${w_act[$w]}" in waiting) glyph="◉" ;; *) glyph="●" ;; esac
+    if [ -n "$ctx" ] && [ "$ctx" -ge 60 ] 2>/dev/null; then glyph="$glyph$ctx"; fi
+    want="#[fg=$(ctx_color "$ctx"),bold]${glyph}#[default]"
+    if [ "$want" != "${pushed[$w]:-}" ]; then
+      tmux set -w -t "$w" @claude_glyph "$want" 2>/dev/null
+      tmux set -w -t "$w" @claude_act "${w_act[$w]}" 2>/dev/null
+      tmux set -w -t "$w" @claude_ctx "${ctx:-}" 2>/dev/null
+      tmux set -w -t "$w" @claude_since "${w_since[$w]}" 2>/dev/null
+      pushed[$w]="$want"
+    fi
+    active=$(( active + 1 ))
+    [ "${w_act[$w]}" = waiting ] && waiting=$(( waiting + 1 ))
+    if [ -n "$ctx" ] && [ "$ctx" -gt "$max" ] 2>/dev/null; then max="$ctx"; fi
+  done
+
+  # clear options for windows we pushed before but no longer track
+  for w in "${!pushed[@]}"; do
+    if [ -z "${live_win[$w]:-}" ]; then
+      tmux set -wu -t "$w" @claude_glyph 2>/dev/null
+      tmux set -wu -t "$w" @claude_act 2>/dev/null
+      tmux set -wu -t "$w" @claude_ctx 2>/dev/null
+      tmux set -wu -t "$w" @claude_since 2>/dev/null
+      unset 'pushed[$w]'
+    fi
+  done
+
+  # global aggregate: ◉<waiting> ●<active> ⤒<hottest>%  (push-if-changed)
+  local glance=""
+  if [ "$active" -gt 0 ]; then
+    [ "$waiting" -gt 0 ] && glance="#[fg=${R},bold]◉${waiting}#[default] "
+    glance="${glance}#[fg=${D}]●${active}#[default]"
+    [ "$max" -ge 0 ] && glance="${glance} #[fg=$(ctx_color "$max")]⤒${max}%#[default]"
+  fi
+  if [ "$glance" != "$last_glance" ]; then
+    tmux set -g @claude_glance "$glance" 2>/dev/null
+    tmux refresh-client -S 2>/dev/null
+    last_glance="$glance"
+  fi
+}
+
+# ── main loop ───────────────────────────────────────────────────────────────
+ticks=0
+while :; do
+  tmux list-clients >/dev/null 2>&1 || exit 0      # server gone → die
+  fp="$(tmux list-panes -a -F '#{pane_id}:#{pane_current_command}' 2>/dev/null \
+        | grep -i claude | sort | tr '\n' ',')"
+  if [ "$fp" != "$fingerprint" ] || [ "$(( ticks % rescan_every ))" -eq 0 ]; then
+    rescan
+    fingerprint="$fp"
+  fi
+  tick
+  ticks=$(( ticks + 1 ))
+  sleep "$poll"
+done

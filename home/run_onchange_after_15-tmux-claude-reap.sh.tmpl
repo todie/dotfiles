@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Reap stale tmux-claude-state / tmux-claude-glanced instances on every `chezmoi
+# apply` that changes either script, then respawn the fresh daemon. Orphaned
+# old-version copies (reparented to PID 1 across a redeploy) keep spinning and
+# pile up — once 14 of them pegged 16 cores and spun the GPU fans for half an
+# hour. Killing them on apply guarantees the new version starts from a clean
+# slate.
+#
+# Keyed to BOTH scripts' content hashes so chezmoi re-runs this when either one
+# changes:
+#   state:   {{ include "dot_local/bin/executable_tmux-claude-state"   | sha256sum }}
+#   glanced: {{ include "dot_local/bin/executable_tmux-claude-glanced" | sha256sum }}
+set -u
+runtime="${XDG_RUNTIME_DIR:-/tmp}"
+
+# Match the DEPLOYED path, not the bare name. This reaper's own path also
+# contains "tmux-claude-…", so a bare `pkill -f tmux-claude-glanced` would kill
+# this script mid-run — the exact self-match bug it exists to prevent. Anchoring
+# on `.local/bin/` hits only the real instances (incl. their `timeout …`
+# wrappers) and never this run-script.
+pkill -f '\.local/bin/tmux-claude-(state|glanced)' 2>/dev/null || true
+
+# Respawn the daemon if a tmux server is up. This apply runs OUTSIDE tmux, so the
+# session-created/client-attached hooks won't fire on their own — an already
+# attached client would be left with a dead glance until its next new-window.
+# First wait for the just-killed daemon's inherited lock fds (transient child
+# procs) to drain so the fresh daemon can take the flock.
+if command -v tmux >/dev/null 2>&1 && tmux list-clients >/dev/null 2>&1; then
+  i=0
+  while [ "$i" -lt 6 ]; do
+    flock -n "$runtime/claude-glance.lock" true 2>/dev/null && break
+    sleep 0.5; i=$((i + 1))
+  done
+  tmux run-shell -b "$HOME/.local/bin/tmux-claude-glanced --ensure" 2>/dev/null || true
+fi
+exit 0
