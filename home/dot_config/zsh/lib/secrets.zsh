@@ -6,10 +6,14 @@
 ## and the daily-cache machinery that the symlink setup used. We simply source
 ## the rendered file here if it exists.
 ##
-## Bootstrap: ~/.secrets holds OP_SERVICE_ACCOUNT_TOKEN so the op-mcp wrapper
-## (and any interactive `op`) works headlessly. It is also rendered at apply
-## time (private_dot_secrets.tmpl) and is the env source for [onepassword]
-## mode="service" during apply.
+## Bootstrap: ~/.secrets is OPERATOR-MANAGED (NOT chezmoi-rendered — it's in
+## .chezmoiignore) and holds OP_SERVICE_ACCOUNT_TOKEN so the op-mcp wrapper and
+## any interactive `op` work headlessly. It is the env source that [onepassword]
+## mode="service" reads during `chezmoi apply` to resolve the op:// refs in
+## secrets.env.tmpl. Provision it by hand once on a fresh machine (the
+## irreducible bootstrap step — the token can't render the file that holds it).
+## If the token is absent at apply time, secrets.env.tmpl renders a no-op
+## placeholder instead of aborting the apply; re-run apply once it's present.
 
 # Bootstrap token for headless `op` (op-mcp wrapper sources this too — single
 # source of truth). Loaded regardless of whether `op` is installed.
