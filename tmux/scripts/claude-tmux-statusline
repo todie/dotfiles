@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# claude-tmux-statusline — single-line summary for tmux status-right
+# Must complete in <200ms; runs every few seconds.
+set -euo pipefail
+
+projects_dir="$HOME/.claude/projects"
+[ -d "$projects_dir" ] || { echo ""; exit 0; }
+
+# Count session transcripts touched in the last 5 minutes.
+active=$(find "$projects_dir" -maxdepth 2 -name "*.jsonl" -mmin -5 2>/dev/null | wc -l)
+
+if [ "$active" -eq 0 ]; then
+    echo "claude:idle"
+else
+    echo "claude:${active}*"
+fi
