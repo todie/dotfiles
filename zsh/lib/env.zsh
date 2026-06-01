@@ -38,19 +38,21 @@ export HISTFILE="${XDG_CACHE_HOME}/zsh-history"
 
 # ── editor — prefer host Zed on WSL, then Linux Zed, fall back gracefully ────
 if [[ -n ${WSL_DISTRO_NAME:-} ]] && has zedw; then
-  # Windows-host Zed via WSL remoting (bin/zedw). --wait so git/kubectl/etc block
-  # until the buffer is closed. Off-WSL this branch is skipped (zedw needs the
-  # Windows zed.exe), so the Linux-native Zed below stays the default there.
-  export EDITOR="zedw --wait"
-  export KUBE_EDITOR="zedw --wait"
+  # Windows-host Zed via WSL remoting (bin/zedw). EDITOR is NON-blocking so a
+  # stray editor-open (e.g. `starship config`) doesn't freeze the pane; only the
+  # tools that must read the file back get --wait. Off-WSL this branch is skipped.
+  export EDITOR="zedw"
   export GIT_EDITOR="zedw --wait"
+  export KUBE_EDITOR="zedw --wait"
+  # crontab -e / visudo use bare $EDITOR and need blocking — run those as:
+  #   EDITOR='zedw --wait' crontab -e
 elif has zed; then
   ZED_BIN="$(which zed)"
-  export EDITOR="$ZED_BIN --wait"
-  export KUBE_EDITOR="$ZED_BIN --wait"
+  export EDITOR="$ZED_BIN"              # non-blocking (matches the `code` branch)
   export GIT_EDITOR="$ZED_BIN --wait"
+  export KUBE_EDITOR="$ZED_BIN --wait"
 
-  # sudoedit with Zed
+  # sudoedit with Zed (must block so sudo can install the edited file)
   suzed() { EDITOR="$ZED_BIN --wait" command -- sudo -e "$@"; }
 elif has code; then
   VSCODE_BIN="$(which code)"
