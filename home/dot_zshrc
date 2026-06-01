@@ -32,6 +32,13 @@ autoload -U +X compinit
 # literal path to the deployed lib dir (~/.config/zsh, from dot_config/zsh).
 DOTFILES_ZSH_DIR="$HOME/.config/zsh"
 
+# mise — machine tool manager. Activate BEFORE loading the lib modules so the
+# tool-inits inside them (env.zsh runs `starship init`, direnv hook, …) can
+# resolve mise-managed binaries. mise prepends its shim dir; env.zsh's later
+# path+= only appends, so mise keeps PATH precedence. Manifest:
+# ~/.config/mise/config.toml — see docs/tooling-strategy.md.
+command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"
+
 # Load modules in dependency order.
 for _module in \
   $DOTFILES_ZSH_DIR/lib/functions.zsh \
@@ -68,11 +75,6 @@ if [ -f '/home/ctodie/google-cloud-sdk/path.zsh.inc' ]; then . '/home/ctodie/goo
 
 # The next line enables shell command completion for gcloud.
 if [ -f '/home/ctodie/google-cloud-sdk/completion.zsh.inc' ]; then . '/home/ctodie/google-cloud-sdk/completion.zsh.inc'; fi
-
-# mise — machine tool manager (helm/k9s/terraform/gh/node/proto/moon/…).
-# Activate LAST so its shims take PATH precedence over earlier entries. The
-# pinned manifest is ~/.config/mise/config.toml; see docs/tooling-strategy.md.
-command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"
 
 # claude yolo (sandboxed/throwaway dirs only)
 alias cy="claude --dangerously-skip-permissions"
