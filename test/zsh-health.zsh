@@ -76,6 +76,28 @@ if [[ -o interactive ]] && (( $+functions[_zsh_autosuggest_start] )); then
   _ok "zsh-autosuggestions live (widgets bound)"
 fi
 
+# ── kubernetes tooling (only asserts what's installed; misses are skipped) ──
+if command -v kubecolor >/dev/null 2>&1; then
+  [[ ${aliases[kubectl]:-} == kubecolor ]] && _ok "kubectl → kubecolor alias live" \
+    || _bad "kubecolor installed but kubectl alias not set"
+else _skip "kubectl→kubecolor alias" "kubecolor not installed"; fi
+
+# completion registered for each installed k8s tool (compdef from completions.zsh)
+local _kt
+for _kt in kubectl helm k9s stern kustomize kubecolor; do
+  command -v "$_kt" >/dev/null 2>&1 || { _skip "comp $_kt" "not installed"; continue; }
+  [[ -n ${_comps[$_kt]:-} ]] && _ok "completion registered: $_kt" || _bad "completion NOT registered: $_kt"
+done
+
+# krew bin on PATH + plugin-completion shims for cobra plugins
+local _krew="${KREW_ROOT:-$HOME/.krew}/bin"
+if [[ -d $_krew ]]; then
+  (( ${path[(I)$_krew]} )) && _ok "krew bin on PATH" || _bad "krew bin present but not on PATH"
+  local -a _shims=("$HOME"/.local/bin/kubectl_complete-*(N))
+  (( ${#_shims} )) && _ok "kubectl plugin completion shims present (${#_shims})" \
+    || _skip "kubectl plugin shims" "none generated (run_once k8s-tools, or no cobra plugins)"
+else _skip "krew" "not installed"; fi
+
 print -r -- "───────────────────────────────────────────────────────────"
 if (( _fail == 0 )); then print -r -- "${_GRN}all checks passed${_NC}"
 else print -r -- "${_RED}${_fail} check(s) failed${_NC}"; fi
