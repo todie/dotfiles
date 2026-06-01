@@ -1,0 +1,133 @@
+#compdef claude
+# zsh completion for Anthropic's Claude Code CLI.
+
+_claude() {
+  local context state line
+  typeset -A opt_args
+
+  local -a commands=(
+    'agents:List configured agents'
+    'auth:Manage authentication'
+    'auto-mode:Inspect auto mode classifier configuration'
+    'doctor:Check Claude Code auto-updater health'
+    'install:Install Claude Code native build'
+    'mcp:Configure and manage MCP servers'
+    'plugin:Manage Claude Code plugins'
+    'plugins:Manage Claude Code plugins'
+    'setup-token:Set up a long-lived authentication token'
+    'update:Check for updates and install if available'
+    'upgrade:Check for updates and install if available'
+  )
+
+  local -a global_opts=(
+    '(-c --continue)'{-c,--continue}'[Continue most recent conversation in current dir]'
+    '(-r --resume)'{-r,--resume}'[Resume a conversation by session ID]:session id:'
+    '(-p --print)'{-p,--print}'[Print response and exit (pipes)]'
+    '(-d --debug)'{-d,--debug}'[Enable debug mode]:filter:'
+    '(-h --help)'{-h,--help}'[Show help]'
+    '(-v --version)'{-v,--version}'[Show version]'
+    '--model[Model for the session]:model:(opus sonnet haiku claude-opus-4-7 claude-sonnet-4-6 claude-haiku-4-5)'
+    '--effort[Effort level]:level:(low medium high xhigh max)'
+    '--permission-mode[Permission mode]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)'
+    '--output-format[Output format]:format:(text json stream-json)'
+    '--input-format[Input format]:format:(text stream-json)'
+    '--add-dir[Additional directories to allow tool access to]:directory:_files -/'
+    '--agent[Agent for the session]:agent:'
+    '--allowedTools[Tools to allow]:tools:'
+    '--disallowedTools[Tools to deny]:tools:'
+    '--mcp-config[Load MCP servers from JSON file/string]:config:_files'
+    '--settings[Path to settings JSON or JSON string]:file:_files'
+    '--system-prompt[Override system prompt]:prompt:'
+    '--append-system-prompt[Append to system prompt]:prompt:'
+    '--max-budget-usd[Max dollar amount for API calls]:amount:'
+    '--session-id[Use a specific session UUID]:uuid:'
+    '(-n --name)'{-n,--name}'[Display name for this session]:name:'
+    '(-w --worktree)'{-w,--worktree}'[Create new git worktree]:worktree name:'
+    '--from-pr[Resume session linked to PR]:pr:'
+    '--ide[Auto-connect to IDE on startup]'
+    '--tmux[Create tmux session for the worktree]'
+    '--bare[Minimal mode]'
+    '--verbose[Override verbose mode setting]'
+    '--dangerously-skip-permissions[Bypass all permission checks]'
+    '--allow-dangerously-skip-permissions[Allow bypass as opt-in]'
+    '--fork-session[On resume, create new session ID]'
+    '--no-session-persistence[Do not save sessions to disk]'
+    '--strict-mcp-config[Use only --mcp-config MCP servers]'
+    '--fallback-model[Fallback model when overloaded]:model:(opus sonnet haiku)'
+  )
+
+  _arguments -C \
+    $global_opts \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'claude command' commands
+      ;;
+    args)
+      case $line[1] in
+        mcp)     _claude_mcp ;;
+        plugin|plugins) _claude_plugin ;;
+        install) _claude_install ;;
+        auth)    _claude_auth ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_mcp() {
+  local -a sub=(
+    'add:Add an MCP server'
+    'add-from-claude-desktop:Import MCP servers from Claude Desktop'
+    'add-json:Add an MCP server with a JSON string'
+    'get:Get details about an MCP server'
+    'list:List configured MCP servers'
+    'remove:Remove an MCP server'
+    'reset-project-choices:Reset approved/rejected project-scoped servers'
+    'serve:Start the Claude Code MCP server'
+  )
+  _arguments \
+    '1: :->mcp_cmd' \
+    '*::mcp_arg:->mcp_args'
+  case $state in
+    mcp_cmd) _describe -t commands 'mcp command' sub ;;
+    mcp_args)
+      case $line[1] in
+        get|remove) _claude_mcp_servers ;;
+        add) _arguments \
+          '--transport[Transport type]:type:(stdio http sse)' \
+          '--header[HTTP header]:header:' \
+          '-e[Environment variable]:env:' \
+          '*: :_default' ;;
+      esac ;;
+  esac
+}
+
+_claude_mcp_servers() {
+  local -a servers
+  servers=(${(f)"$(claude mcp list 2>/dev/null | awk -F: '/^[a-zA-Z]/{print $1}' | sort -u)"})
+  _describe -t servers 'mcp server' servers
+}
+
+_claude_plugin() {
+  _arguments '1: :->p' '*::a:->args'
+  case $state in
+    p) _values 'plugin command' \
+        'install[Install a plugin]' \
+        'list[List plugins]' \
+        'remove[Remove a plugin]' \
+        'enable[Enable a plugin]' \
+        'disable[Disable a plugin]' ;;
+  esac
+}
+
+_claude_install() {
+  _values 'install target' stable latest
+}
+
+_claude_auth() {
+  _values 'auth command' login logout status
+}
+
+_claude "$@"

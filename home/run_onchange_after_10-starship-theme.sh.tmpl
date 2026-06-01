@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# run_onchange_after_10-starship-theme.sh.tmpl
+#
+# ESSENTIAL run script. Regenerates the active starship/tmux/zsh theme artifacts
+# from base.toml + the active palette by invoking the deployed `theme` binary:
+#   ~/.config/starship.toml      (starship prompt)
+#   ~/.config/starship.theme     (persisted active theme name)
+#   ~/.config/tmux/theme.conf    (tmux @t_* user-options + status styling)
+#   ~/.config/zsh/theme.zsh      (fzf / fzf-tab / hss color exports)
+#
+# WHY a run script: these are GENERATED files (imperative concat + palette
+# parse), not declarative copies — chezmoi can't template them. They're listed
+# in .chezmoiignore so chezmoi never owns them. This script reproduces what
+# install.sh did (default synthwave-84, else the persisted ~/.config/starship.theme).
+#
+# WHY run_onchange + _after_:
+#   _after_   — runs after the executable_theme binary and the theme source
+#               tomls are in place for this apply pass (10 ordering, late).
+#   onchange  — chezmoi hashes this script's *rendered content*. The include
+#               directives below splice the LIVE content of base.toml and every
+#               palette toml into a hashed comment, so editing ANY of those source
+#               tomls changes the hash and retriggers a regen. (.chezmoiignore only
+#               controls what gets APPLIED to $HOME — `include` still reads freely
+#               from the source tree, so ignored tomls remain hashable here.)
+#
+# Change-detection hash (DO NOT EDIT — derived from the source tomls):
+#   base.toml:
+#     {{ include "starship/base.toml" | sha256sum }}
+{{- range (glob (joinPath .chezmoi.sourceDir "starship/themes/*.toml")) }}
+#   {{ base . }}: {{ include (joinPath "starship/themes" (base .)) | sha256sum }}
+{{- end }}
+
+set -euo pipefail
+
+THEME_BIN="$HOME/.local/bin/theme"
+THEME_STATE="$HOME/.config/starship.theme"
+
+# Fail loud if the theme binary did not deploy (ordering bug).
+if [[ ! -x "$THEME_BIN" ]]; then
+    echo "run_onchange theme: $THEME_BIN missing or not executable — skipping" >&2
+    exit 0
+fi
+
+# Default to synthwave-84 on first install (matches install.sh:102), else honor
+# the persisted active theme.
+active_theme="synthwave-84"
+[[ -f "$THEME_STATE" ]] && active_theme="$(cat "$THEME_STATE")"
+
+"$THEME_BIN" set "$active_theme" >/dev/null 2>&1 \
+    && echo "starship theme regenerated: $active_theme" \
+    || echo "run_onchange theme: 'theme set $active_theme' failed" >&2

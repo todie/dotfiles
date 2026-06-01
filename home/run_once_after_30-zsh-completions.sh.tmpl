@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# run_once_after_30-zsh-completions.sh.tmpl
+#
+# OPTIONAL PRE-WARM. Generates the per-tool zsh completion cache into
+# ~/.zsh/completions for tools that are installed, so the first interactive
+# shell doesn't pay the generation cost. Honest duplication of runtime behavior:
+# completions.zsh already generates any MISSING file on first shell startup and
+# `refresh-completions` regenerates after tool upgrades. The generated _tool
+# files stay UNMANAGED by chezmoi (the dir is .chezmoiignore'd).
+#
+# run_once — generation is idempotent and completions.zsh self-heals; we only
+#            front-load it once.
+# _after_  — runs after bin/ scripts and other tools are deployed (30 ordering).
+#
+# Keep the generator map in lock-step with zsh/lib/completions.zsh _COMPLETION_GEN.
+# Mirrors its hardening: reject any output that isn't a real #compdef script,
+# and fix stale/missing #compdef tags for cortex/engram/sops.
+
+set -euo pipefail
+
+compdir="$HOME/.zsh/completions"
+mkdir -p "$compdir"
+
+# file|generator command|optional corrected #compdef tag
+# (tag present => rewrite stale first-line tag, or prepend if missing.)
+specs=(
+  "_gh|gh completion -s zsh|"
+  "_kubectl|kubectl completion zsh|"
+  "_op|op completion zsh|"
+  "_uv|uv generate-shell-completion zsh|"
+  "_rclone|rclone completion zsh -|"
+  "_flyctl|flyctl completion zsh|"
+  "_rustup|rustup completions zsh|"
+  "_cargo|rustup completions zsh cargo|"
+  "_reveried|reveried completions zsh|"
+  "_reverie-bench|reverie-bench completions zsh|"
+  "_reverie-introspect|reverie-introspect completions zsh|"
+  "_reverie-tracee|reverie-tracee completions zsh|"
+  "_cortex|cortex completions zsh|cortex"
+  "_engram|engram completions zsh|engram"
+  "_sops|sops completion zsh|sops"
+)
+
+gen_one() {
+  local f=$1 cmd=$2 tag=$3
+  local bin=${cmd%% *}
+  command -v "$bin" >/dev/null 2>&1 || return 1
+  local out
+  out=$(eval "$cmd" 2>/dev/null) || return 1
+  [[ -n $out ]] || return 1
+  # Rewrite/prepend a corrected #compdef tag when given.
+  if [[ -n $tag ]]; then
+    local first rest
+    first=${out%%$'\n'*}
+    if [[ $first == '#compdef '* ]]; then
+      rest=${out#*$'\n'}
+      out="#compdef $tag"$'\n'"$rest"
+    elif [[ $first != '#compdef'* ]]; then
+      out="#compdef $tag"$'\n'"$out"
+    fi
+  fi
+  # Reject anything that isn't a real #compdef script (stub/usage line).
+  [[ $out == '#compdef '* ]] || return 1
+  printf '%s\n' "$out" > "$compdir/$f"
+  [[ -s "$compdir/$f" ]] || { rm -f "$compdir/$f"; return 1; }
+  return 0
+}
+
+for spec in "${specs[@]}"; do
+  IFS='|' read -r f cmd tag <<<"$spec"
+  [[ -s "$compdir/$f" ]] && continue   # already cached; completions.zsh manages refresh
+  gen_one "$f" "$cmd" "$tag" && echo "pre-warmed completion: $f" || true
+done

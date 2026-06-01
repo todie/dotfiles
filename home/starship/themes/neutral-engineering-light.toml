@@ -1,0 +1,22 @@
+# Theme: NEUTRAL ENGINEERING (light)
+# Paper-and-ink light. Ochre accent on warm greige; muted clay/olive/slate.
+# Imported from the Zed theme "Neutral Engineering Light".
+# NOTE: assumes a light terminal background.
+
+
+[palettes.neon_dreams]
+neon_pink   = "#a8780a"  # ochre — primary accent
+neon_cyan   = "#3f6a8a"  # slate blue — active windows
+neon_purple = "#8a5e80"  # mauve — user/secondary
+neon_yellow = "#caa413"  # amber — date
+neon_green  = "#5f6e3a"  # olive — good state
+neon_red    = "#9c4f3f"  # clay red — alerts
+neon_void   = "#e9e5db"  # paper base
+neon_panel  = "#d4d0c8"  # greige surface
+neon_dim    = "#9a948a"  # muted greige (inactive / borders)
+neon_text   = "#111111"  # ink foreground
+fg_on_pink  = "#f5f2eb"
+fg_on_cyan  = "#f5f2eb"
+fg_on_yellow = "#111111"
+fg_on_purple = "#f5f2eb"
+fg_on_dim   = "#111111"

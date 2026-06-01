@@ -1,0 +1,29 @@
+# chezmoi config — reference copy.
+#
+# This is NOT a chezmoi-managed source file (it lives at the repo root, OUTSIDE
+# the .chezmoiroot=home tree, so `chezmoi apply` never copies it). It is the
+# canonical content for chezmoi's OWN config, which chezmoi reads from
+# ~/.config/chezmoi/chezmoi.toml.
+#
+# To activate (operator, manually — NOT done by the convert agents):
+#   mkdir -p ~/.config/chezmoi
+#   cp /home/ctodie/projects/dotfiles/chezmoi.toml ~/.config/chezmoi/chezmoi.toml
+#
+# Verification (sandbox only) drives apply against /tmp without touching $HOME:
+#   OP_SERVICE_ACCOUNT_TOKEN=... \
+#     chezmoi apply --config /home/ctodie/projects/dotfiles/chezmoi.toml \
+#       --source /home/ctodie/projects/dotfiles \
+#       --destination /tmp/chezmoi-verify
+# (chezmoi appends 'home/' to sourceDir via .chezmoiroot, so the source tree is
+#  /home/ctodie/projects/dotfiles/home and {{ .chezmoi.sourceDir }} resolves
+#  to that 'home' dir.)
+
+# Keep the repo as the chezmoi source. .chezmoiroot=home makes the effective
+# source tree /home/ctodie/projects/dotfiles/home.
+sourceDir = "/home/ctodie/projects/dotfiles"
+
+[onepassword]
+    # Service-account mode: reads OP_SERVICE_ACCOUNT_TOKEN from the environment
+    # at apply time (the token must already be exported when `chezmoi apply`
+    # runs — it is the bootstrap for onepasswordRead). No interactive `op signin`.
+    mode = "service"
