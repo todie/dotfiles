@@ -10,8 +10,8 @@
 - **GitHub:** `todie` (SSH + GPG, key `29234C4D7EE749F2`). Email: `chris@todie.io`.
 - **All commits signed** — never `--no-gpg-sign`.
 
-## Local LLM Offload
-Three-tier chain: **Tier 1** Ollama (gemma3:4b/qwen2.5-coder:7b-instruct-q4_K_M/gemma3n:e4b) → **Tier 2** OpenRouter → **Tier 3** Claude (mission-critical only). Enforced via `~/.local/bin/anchor-offload` and `maybe-offload` hooks. CRITICAL mode is default — Claude only for: production breakage, security incident, data loss, cut release, explicit user override. Before spawning `Agent`, run `maybe-offload`.
+## Local LLM Offload — DISABLED
+Offload is off per standing user directive — Claude handles all work directly; do **not** run `anchor-offload` / `maybe-offload` before spawning `Agent`. The three-tier chain (Ollama → OpenRouter → Claude) and its hooks are retired. (Was: route non-critical work to local models.)
 
 ## Tool Priority
 1. **LSP first for symbol work** — use the `LSP` tool for go-to-definition, find-references, hover types, rename, and diagnostics. More accurate than Grep for symbols and cheaper than re-reading whole files. Grep only for free text, comments, strings, or languages with no LSP.
@@ -66,3 +66,4 @@ Check `.impeccable.md` at project root before design/UX decisions. If missing an
 Before any UI or content change, read the project's CLAUDE.md and design docs to catch documented anti-patterns (e.g., if accordions are forbidden, don't introduce them).
 
 @RTK.md
+@rules/presentation-and-decisions.md

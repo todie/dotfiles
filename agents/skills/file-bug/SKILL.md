@@ -1,15 +1,17 @@
 ---
 name: file-bug
-description: Quick single-issue Linear filer for mid-session bug discoveries. Complement to `/linear-file-spec` — that one parses multi-section markdown specs, this one is "I just hit a bug, file it with evidence before I forget." Formats Repro / Evidence / Root cause / Fix direction / Acceptance into the house markdown template, creates a Linear issue in team=TOD project=Reverie via the claude_ai_Linear MCP, and reports the new TOD-ID. Use when the user says "file a bug", "ticket this", "open an issue for X", "log this in Linear", or when you discover a reproducible defect mid-debug. Args — `<title>` required, `--priority <1-4>` (default 3), `--related <TOD-101,TOD-102>` csv of related tickets, `--labels <bug,mesh>` csv of label names.
+description: Quick single-issue Linear filer for mid-session bug discoveries. Complement to `/linear-file-spec` — that one parses multi-section markdown specs, this one is "I just hit a bug, file it with evidence before I forget." Formats Repro / Evidence / Root cause / Fix direction / Acceptance into the house markdown template, creates a Linear issue in team=CER (Cerebral Work Institute) project=Reverie via the claude_ai_Linear MCP, and reports the new CER-ID. Use when the user says "file a bug", "ticket this", "open an issue for X", "log this in Linear", or when you discover a reproducible defect mid-debug. Args — `<title>` required, `--priority <1-4>` (default 3), `--related <CER-101,CER-102>` csv of related tickets, `--labels <bug,mesh>` csv of label names.
 ---
 
 # file-bug — one-shot Linear bug filer with evidence template
 
-Create a single Linear issue with a proper Repro / Evidence / Root cause / Fix / Acceptance body, without hand-rolling the markdown each time. Built for the "I hit a bug while debugging something else — file it before the context evaporates" case. Matches the format of TOD-723/724/725/730 so the team reads the same template every time.
+Create a single Linear issue with a proper Repro / Evidence / Root cause / Fix / Acceptance body, without hand-rolling the markdown each time. Built for the "I hit a bug while debugging something else — file it before the context evaporates" case. Uses the house evidence template so the team reads the same shape every time.
+
+> **Team migration (2026-05-21):** reverie tickets moved from legacy team Todie (TOD) to **Cerebral Work Institute (CER)**. This skill files to **CER**; legacy `TOD-NNN` in old examples below are historical.
 
 ## When to use
 
-- User says "file a bug", "ticket this", "open an issue", "log this in Linear", "create a TOD"
+- User says "file a bug", "ticket this", "open an issue", "log this in Linear", "create a CER" (or "a TOD" out of habit)
 - You (Claude) just hit a reproducible defect mid-debug and want to persist it before switching contexts
 - You found a bug in a review / audit that doesn't block the current PR but needs to land on the backlog
 
@@ -74,8 +76,8 @@ Use this exact template (matches TOD-723/724/725/730):
 
 ## Related
 
-- <TOD-XXX>
-- <TOD-YYY>
+- <CER-XXX>
+- <CER-YYY>
 ```
 
 Omit the `## Related` block entirely if `--related` is empty.
@@ -84,21 +86,21 @@ Omit the `## Related` block entirely if `--related` is empty.
 
 Call `mcp__claude_ai_Linear__save_issue` with:
 
-- `team`: `TOD`
+- `team`: `CER` (Cerebral Work Institute)
 - `project`: `Reverie`
 - `title`: `<title>` positional arg
 - `description`: the composed markdown body (send real newlines, not `\n` escapes — per the claude_ai_Linear MCP instruction)
 - `priority`: numeric from `--priority`
 - `labels`: array from `--labels` csv
 
-Capture the returned issue identifier (e.g. `TOD-731`) and URL.
+Capture the returned issue identifier (e.g. `CER-731`) and URL.
 
 ### 5. Report
 
 One line only:
 
 ```
-filed TOD-731: <title> — https://linear.app/todie/issue/TOD-731
+filed CER-731: <title> — https://linear.app/cerebral-work/issue/CER-731
 ```
 
 No rehashing the body content — the user can click through.
@@ -121,7 +123,7 @@ Files a P3 bug (default) with `bug,coord` labels and no related tickets.
 
 - Never file without a title.
 - Never embed secrets in the Evidence block. If a log line contains what looks like a token/key, redact to `<REDACTED:token>` before filing.
-- Never file under a different team/project than `TOD`/`Reverie` from this skill — if you need a different target, call the Linear MCP directly.
+- Never file under a different team/project than `CER`/`Reverie` from this skill — if you need a different target, call the Linear MCP directly.
 - Always use real newlines in the description (the claude_ai_Linear MCP rejects escape sequences).
 
 ## Related skills
