@@ -47,7 +47,9 @@ starship/themes/*.toml
 .claude/.claude.json
 # reverie-owned (built/installed from the reverie repo, like ~/.claude/bin).
 .claude/bin
-# external-pointing skill symlinks live in ~/.agents (out of scope here).
+# ~/.agents: NOT ignored — skill-lock is managed (home/dot_agents); the skills/
+# symlink + skill-manager backups stay unmanaged but visible (they surface in
+# `chezmoi unmanaged`) so new skills/state can be tracked as they appear.
 .claude/skills/coord-drain
 .claude/skills/cut-release
 .claude/skills/file-bug
