@@ -6,14 +6,17 @@
 # is the Zed analogue of the `code` command reaching host VS Code.
 #
 # Because it's a real executable (not a shell function), it works as $EDITOR /
-# $GIT_EDITOR for external tools — pass --wait so the caller blocks:
+# $GIT_EDITOR for external tools — pass --wait so the caller blocks. Add
+# --existing (-e) to force the file into the running Zed window instead of
+# letting Zed spawn a separate workspace:
 #
-#     export EDITOR="zedw --wait"
-#     git commit            # opens COMMIT_EDITMSG in host Zed, waits for close
+#     export EDITOR="zedw --wait --existing"
+#     git commit            # opens COMMIT_EDITMSG in the running Zed window, waits for close
 #
 # Interactive use:
 #     zedw .                open cwd          zedw -w notes.md   wait until closed
-#     zedw foo.rs bar.rs    open files        zedw -n bar.rs     force new window
+#     zedw foo.rs bar.rs    open files        zedw -e notes.md   reuse existing window
+#                                             zedw -n bar.rs     force new window
 set -euo pipefail
 
 # Locate host zed.exe (first match wins; no hardcoded Windows username).
@@ -36,7 +39,7 @@ wsluser="${USER:-$(id -un)}"
 args=()
 for a in "$@"; do
   if [[ "$a" == -* ]]; then
-    args+=("$a")                      # flag — pass through (-w/--wait, -n, -a, …)
+    args+=("$a")                      # flag — pass through (-w/--wait, -e, -n, -a, …)
   elif [[ "$a" == /* ]]; then
     args+=("$a")                      # already absolute
   else
