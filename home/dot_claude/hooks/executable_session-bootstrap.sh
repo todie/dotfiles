@@ -48,4 +48,14 @@ if [ -n "${PROJECT:-}" ]; then
   fi
 fi
 
+# 4. Proactive-memory protocol nudge (previously injected by the external engram
+#    plugin's session-start hook; restored here after that plugin's removal).
+cat >&2 <<'PROTO'
+
+=== engram memory protocol ===
+mem_save proactively after: a decision, a bug fix (with root cause), a new
+convention/workflow, a non-obvious gotcha, or a learned user preference.
+Search memory before claiming no prior context exists. Session close → mem_session_summary.
+PROTO
+
 exit 0
