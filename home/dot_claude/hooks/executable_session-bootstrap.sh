@@ -3,10 +3,10 @@
 # 1. Check mesh health
 # 2. Ensure auto-memory dir exists for this project
 #
-# Engram memory context is intentionally NOT dumped here — the engram plugin's
-# own session-start hook injects it (compact=1, server-trimmed). This hook used
-# to also dump /context/smart, producing a duplicate ~40-line memory block per
-# session; that was removed to cut per-session context.
+# 3. Inject engram memory context (reveried /context/smart) for this project.
+#    This was previously delegated to the external engram plugin's session-start
+#    hook; that plugin was removed (we use our own reveried directly), so the
+#    inject lives here again — single source, no duplicate dump.
 set -euo pipefail
 source "${BASH_SOURCE[0]%/*}/lib.sh"
 hook_name "bootstrap"
@@ -37,6 +37,15 @@ if [ "$MEMORY_OK" = true ]; then
   hook_kv "auto-memory=ok"
 else
   hook_warn "auto-memory missing — create memory/MEMORY.md for this project"
+fi
+
+# 3. Engram context inject — reveried /context/smart for this project (graceful
+#    skip if the daemon is down/wedged; never blocks session start).
+if [ -n "${PROJECT:-}" ]; then
+  CTX=$(curl -sf -m 3 "http://127.0.0.1:7437/context/smart?project=${PROJECT}&limit=15" 2>/dev/null || true)
+  if [ -n "$CTX" ]; then
+    printf '\n=== engram context (%s) ===\n%s\n' "$PROJECT" "$CTX" >&2
+  fi
 fi
 
 exit 0
