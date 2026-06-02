@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""freeze-monitor — catch WSL/terminal stalls in the act.
+
+A watchdog loop targets a fixed 1s tick. It measures BOTH the monotonic clock
+(real elapsed) and the wall clock (calendar time) each tick:
+
+  * monotonic gap >> tick   -> a REAL freeze: the process/VM was descheduled or
+                               stalled. This is the "hang then catch up" symptom.
+  * |wall - monotonic| big  -> CLOCK JUMP: WSL2 time drift (host sleep/resume).
+                               Apps that mix wall+monotonic clocks stutter on this.
+
+On any anomaly it snapshots cheap /proc state so we can correlate the cause:
+load, MemAvailable, run-queue, D-state (uninterruptible I/O) procs, top CPU proc.
+
+Output: appends one line per anomaly to the log (default /tmp/freeze-monitor.log),
+plus a heartbeat line every 60 clean ticks so we know it's alive.
+"""
+import os, sys, time, glob
+
+TICK = 1.0                  # target seconds between ticks
+STALL = 2.0                 # monotonic gap above this = freeze (s)
+JUMP = 0.75                 # |wall-mono| above this = clock jump (s)
+LOG = sys.argv[1] if len(sys.argv) > 1 else "/tmp/freeze-monitor.log"
+
+def read(path):
+    try:
+        with open(path) as f: return f.read()
+    except Exception: return ""
+
+def dstate_and_run():
+    """Return (n_dstate, n_running, worst_d_comm)."""
+    nd = nr = 0; worst = ""
+    for st in glob.glob("/proc/[0-9]*/stat"):
+        try:
+            data = read(st)
+            # comm is in parens; state is the field right after the closing paren
+            rp = data.rindex(")")
+            state = data[rp+2]
+            if state == "D":
+                nd += 1
+                if not worst:
+                    worst = data[data.index("(")+1:rp]
+            elif state == "R":
+                nr += 1
+        except Exception:
+            continue
+    return nd, nr, worst
+
+def top_cpu():
+    """Cheapest top-CPU snapshot via two utime+stime reads 100ms apart."""
+    def snap():
+        out = {}
+        for st in glob.glob("/proc/[0-9]*/stat"):
+            try:
+                d = read(st); rp = d.rindex(")")
+                comm = d[d.index("(")+1:rp]
+                f = d[rp+2:].split()
+                out[st] = (int(f[11]) + int(f[12]), comm)  # utime+stime, comm
+            except Exception: continue
+        return out
+    a = snap(); time.sleep(0.1); b = snap()
+    best = (0, "?")
+    for k, (tb, comm) in b.items():
+        ta = a.get(k, (tb, comm))[0]
+        d = tb - ta
+        if d > best[0]: best = (d, comm)
+    return best[1]
+
+def mem_avail_mb():
+    for line in read("/proc/meminfo").splitlines():
+        if line.startswith("MemAvailable:"):
+            return int(line.split()[1]) // 1024
+    return -1
+
+def stamp():
+    return time.strftime("%Y-%m-%d %H:%M:%S")
+
+def log(msg):
+    with open(LOG, "a") as f:
+        f.write(msg + "\n")
+
+log(f"[{stamp()}] freeze-monitor START pid={os.getpid()} tick={TICK}s stall>{STALL}s jump>{JUMP}s")
+clean = 0
+mono = time.monotonic()
+wall = time.time()
+while True:
+    time.sleep(TICK)
+    m2 = time.monotonic(); w2 = time.time()
+    mg = m2 - mono            # real elapsed
+    wg = w2 - wall            # calendar elapsed
+    skew = wg - mg            # >0 wall ran ahead, <0 wall went backward
+    mono, wall = m2, w2
+
+    if mg >= STALL:
+        nd, nr, worst = dstate_and_run()
+        log(f"[{stamp()}] STALL froze {mg:.2f}s (target {TICK}s) "
+            f"| load={read('/proc/loadavg').split()[0]} memAvail={mem_avail_mb()}MB "
+            f"| runq={nr} dstate={nd}{(' worstD='+worst) if worst else ''} "
+            f"| topcpu={top_cpu()}")
+        clean = 0
+    elif abs(skew) >= JUMP:
+        log(f"[{stamp()}] CLOCK-JUMP wall moved {skew:+.2f}s vs monotonic "
+            f"(mono {mg:.2f}s) — WSL2 time drift")
+        clean = 0
+    else:
+        clean += 1
+        if clean % 60 == 0:
+            log(f"[{stamp()}] ok ({clean} clean ticks; last mono {mg:.3f}s skew {skew:+.3f}s "
+                f"load {read('/proc/loadavg').split()[0]})")
