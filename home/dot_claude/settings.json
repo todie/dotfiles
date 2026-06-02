@@ -937,11 +937,6 @@
             "type": "command",
             "command": "/home/ctodie/projects/claude-relay/hooks/relay-poll.sh",
             "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "/home/ctodie/.claude/hooks/engram-obsidian-sync.sh",
-            "timeout": 10
           }
         ]
       }
