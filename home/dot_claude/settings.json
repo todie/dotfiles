@@ -656,7 +656,6 @@
       "Read(//^### Recent Observations/ { in_obs = 1; print; next }\n    /^### / && !/^### Recent Observations/ { in_obs = 0; print; next }\n    in_obs && /^- \\\\[/**)",
       "Read(//^jobs:/**)",
       "Read(//home/ctodie/**)",
-      "Read(//home/ctodie/.claude/plugins/marketplaces/engram/function flush\\(\\) {\n  if \\(buf == \"\"\\) return\n  if \\(kept < lim\\) {\n    gsub\\(/[[:space:]]+/, \" \", buf\\)\n    if \\(length\\(buf\\) > max\\) buf = substr\\(buf, 1, max - 1\\) \"…\"\n    print buf\n    kept++\n  }\n  buf = \"\"\n}\n/^### Recent Observations/ { flush\\(\\); in_obs = 1; print; next }\n/^### / { flush\\(\\); in_obs = 0; print; next }\nin_obs && /^- \\\\[/**)",
       "Read(//home/ctodie/projects/reach/**)",
       "Read(//home/ctodie/projects/reach/BEGIN{n=1; c=0} /^---$/**)",
       "Read(//home/ctodie/projects/reverie/**)",
@@ -714,10 +713,7 @@
       "mcp__claude_ai_Linear__list_projects",
       "mcp__claude_ai_Linear__list_teams",
       "mcp__claude_ai_Linear__list_users",
-      "mcp__engram__*",
-      "mcp__plugin_engram_engram__*",
-      "mcp__plugin_engram_engram__mem_context",
-      "mcp__plugin_engram_engram__mem_get_observation"
+      "mcp__engram__*"
     ],
     "deny": [
       "Bash(rm -rf /)",
@@ -767,7 +763,6 @@
       "/tmp/gestalt-snapshots",
       "/home/ctodie/.claude/rules",
       "/home/ctodie/.claude/hooks",
-      "/home/ctodie/.claude/plugins/marketplaces/engram/plugin/claude-code/scripts",
       "/home/ctodie/projects/reverie/.claude"
     ]
   },
@@ -1059,7 +1054,6 @@
     "command": "bash -c 'plugin_dir=$(ls -d \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}\"/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null | awk -F/ '\"'\"'{ print $(NF-1) \"\\t\" $(0) }'\"'\"' | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-); exec \"/home/ctodie/.local/bin/bun\" --env-file /dev/null \"${plugin_dir}src/index.ts\"'"
   },
   "enabledPlugins": {
-    "engram@engram": true,
     "gopls-lsp@claude-plugins-official": false,
     "rust-analyzer-lsp@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true,
