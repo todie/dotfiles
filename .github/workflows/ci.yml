@@ -11,7 +11,14 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install zsh + tmux
-        run: sudo apt-get update && sudo apt-get install -y zsh tmux shellcheck
+        run: sudo apt-get update && sudo apt-get install -y zsh tmux
+
+      - uses: jdx/mise-action@v2
+
+      # Pinned shell tooling — the SAME versions as the mise manifest, so CI
+      # lints/formats/tests with exactly what runs locally (no apt-vs-pin drift).
+      - name: Install pinned shell tooling
+        run: mise install shellcheck@0.11.0 bats@1.13.0 argc@1.24.0
 
       # shellcheck understands sh/bash, NOT zsh — so lint only files whose
       # shebang invokes bash or sh, and check zsh separately with `zsh -n`.
@@ -26,7 +33,11 @@ jobs:
             esac
           done < <(git ls-files)
           echo "Linting ${#files[@]} sh/bash files:"; printf '  %s\n' "${files[@]}"
-          shellcheck -S error "${files[@]}"
+          mise exec shellcheck@0.11.0 -- shellcheck -S error "${files[@]}"
+
+      # Behavioral tests for the cci CLI (needs argc on PATH at runtime).
+      - name: bats (cci)
+        run: mise exec bats@1.13.0 argc@1.24.0 -- bats test/cci.bats
 
       # zsh has no shellcheck; `zsh -n` is its built-in no-exec syntax check.
       - name: zsh syntax (zsh -n)
