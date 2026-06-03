@@ -23,7 +23,14 @@ plugin-load() {
       ln -s "${initfiles[1]}" "$initfile"
     fi
     fpath+="$plugin_dir"
-    (( $+functions[zsh-defer] )) && zsh-defer . "$initfile" || . "$initfile"
+    # Load SYNCHRONOUSLY. zsh-defer's idle-flush (a zle -F fd-handler) proved
+    # unreliable in this env: the deferred plugin inits never ran, so fzf-tab
+    # never rebound TAB (stuck on the default expand-or-complete) and
+    # zsh-autosuggestions / fast-syntax-highlighting never started — i.e.
+    # completions AND inline suggestions silently dead. Verified: all three load
+    # and bind correctly when sourced synchronously after compinit. The ~tens of
+    # ms startup cost is the right trade for an interactive shell that works.
+    . "$initfile"
   done
 }
 

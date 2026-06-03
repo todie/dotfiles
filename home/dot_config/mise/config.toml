@@ -13,7 +13,6 @@
 # DELIBERATE EXCLUSIONS (managed elsewhere on purpose — do not add here):
 #   kubectl  — /usr/local/bin/kubectl is a Docker-Desktop symlink, version-
 #              coupled to the bundled cluster; let DD own it.
-#   fzf      — ~/.fzf (own installer wires shell key-bindings).
 #   bun      — ~/.local/bin/bun, hard-referenced by the claude-hud statusline.
 #   rust     — rustup/cargo at ~/.cargo.
 #   python   — system python3 + uv for project envs.
@@ -43,6 +42,11 @@ rclone   = "1.74.2"
 flyctl   = "0.4.57"
 starship = "1.25.1"
 gum      = "0.17.0"   # charmbracelet — interactive TUI primitives for shell scripts
+fzf      = "0.73.1"   # fuzzy finder — REQUIRED by fzf-tab (TAB completion). Was
+                      # previously unmanaged (~/.fzf own-installer) and went
+                      # missing → broke TAB. mise-managed now so it can't vanish.
+                      # (Ctrl-R is atuin's; fzf's own Ctrl-T/Alt-C bindings load via
+                      # env.zsh only if ~/.fzf.zsh exists — independent of the binary.)
 
 # ── Claude Developer Platform CLI (`ant`) ────────────────────────────────────
 # github backend: not in the bare registry, so the full locator is required and
