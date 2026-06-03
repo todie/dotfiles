@@ -116,7 +116,13 @@ plugin load "${plugins[@]}"
 unset plugins
 
 # ── fzf-tab tuning ───────────────────────────────────────────────────────────
-if (( $+functions[fzf-tab] )); then
+# fzf-tab needs the `fzf` BINARY, not just the plugin function. If fzf is absent,
+# engaging fzf-tab AND setting `menu no` leaves TAB dead — the picker can't run
+# and the normal menu is disabled. So only engage fzf-tab when fzf is actually
+# installed; otherwise disable it and restore a normal navigable menu so TAB
+# still completes. (Requires synchronous plugin load above, so fzf-tab is already
+# loaded when this guard runs.)
+if (( $+functions[fzf-tab-complete] )) && command -v fzf >/dev/null 2>&1; then
   # Disable default completion menu in favor of fzf
   zstyle ':completion:*' menu no
   # Preview directories with eza, files with bat
@@ -129,6 +135,11 @@ if (( $+functions[fzf-tab] )); then
   zstyle ':fzf-tab:*' fzf-flags --height=60% --border --color="${THEME_FZFTAB_COLORS:-hl:cyan,hl+:cyan}"
   # Continuously trigger fzf for subcommand completions (e.g. git checkout <tab>)
   zstyle ':fzf-tab:*' continuous-trigger '/'
+elif (( $+functions[disable-fzf-tab] )); then
+  # fzf-tab loaded but the fzf binary is missing → un-hijack TAB and give back a
+  # normal navigable menu, so completion still works instead of dying silently.
+  disable-fzf-tab
+  zstyle ':completion:*' menu select
 fi
 
 # ── zsh-autosuggestions color ───────────────────────────────────────────────
