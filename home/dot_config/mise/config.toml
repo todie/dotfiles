@@ -56,6 +56,16 @@ fzf      = "0.73.1"   # fuzzy finder — REQUIRED by fzf-tab (TAB completion). W
 # `ant @completion zsh` feeds the zsh completion cache. See docs/sdks/cli.
 "github:anthropics/anthropic-cli" = { version = "1.10.0", exe = "ant" }
 
+# ── Linear Release CLI (`linear-release`) ────────────────────────────────────
+# github backend (SLSA-provenance verified on install, like ant). Bridges CI/CD
+# to Linear's release management: scans commits for issue IDs + PR refs and
+# creates/updates Linear releases. Commands: sync / complete / update. Needs
+# $LINEAR_ACCESS_KEY (per-pipeline access key — operator-wired via 1Password →
+# secrets.env) to run. Companion skill: linear-release-setup (dot_claude/skills,
+# vendored from linear/linear-release@v0.14.0). Relevant to release-automation
+# work (unsigned-paas OPS-80 / OPS-92).
+"github:linear/linear-release" = "0.14.0"
+
 # ── shell / CLI-authoring stack (see docs/shell-script-tooling-research.md) ──
 argc       = "1.24.0"   # arg-parser + subcommand/help generator (inline # @cmd tags)
 shfmt      = "3.13.1"   # shell formatter (gofmt-for-bash); CI runs `shfmt -d`
