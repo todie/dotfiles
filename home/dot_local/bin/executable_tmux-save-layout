@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# tmux-save-layout — snapshot the live tmux server into a runnable restore script.
+#
+# Captures every session/window/pane: exact geometry (window_layout), each pane's
+# cwd, and which panes were running `claude` (relaunched fresh on restore — live
+# processes don't survive a restart anyway). Writes a self-contained, editable
+# restore.sh to a persistent path (~/.local/state survives `wsl --shutdown`;
+# /tmp does not).
+#
+# Usage:
+#   tmux-save-layout [OUTFILE]     # default: ~/.local/state/tmux-layout/restore.sh
+# Restore (after restart, from OUTSIDE tmux):
+#   ~/.local/state/tmux-layout/restore.sh            # rebuild + relaunch claude
+#   ~/.local/state/tmux-layout/restore.sh --no-launch # geometry + cwds only
+set -euo pipefail
+
+OUT="${1:-$HOME/.local/state/tmux-layout/restore.sh}"
+mkdir -p "$(dirname "$OUT")"
+
+tmux list-sessions >/dev/null 2>&1 || {
+  echo "tmux-save-layout: no tmux server running" >&2
+  exit 1
+}
+
+# Foreground command -> command to relaunch on restore. Only auto-relaunch things
+# that are safe to re-run blind; everything else gets a plain shell at the cwd.
+relaunch_for() {
+  case "$1" in
+    claude) printf 'claude' ;;
+    *) printf '' ;;
+  esac
+}
+
+q() { printf '%q' "$1"; } # shell-safe single arg
+
+{
+  echo '#!/usr/bin/env bash'
+  echo "# tmux layout restore — generated $(date -Iseconds 2>/dev/null || echo now)"
+  echo '# Run from OUTSIDE tmux. Args: --no-launch = recreate geometry+cwds only.'
+  echo 'set -euo pipefail'
+  echo 'command -v tmux >/dev/null || { echo "tmux not found" >&2; exit 1; }'
+  echo 'LAUNCH=1; [ "${1:-}" = "--no-launch" ] && LAUNCH=0'
+  echo
+
+  while IFS= read -r sess; do
+    first_win=1
+    while IFS=$'\t' read -r widx wname wlayout; do
+      # Panes in creation order (pane_index ascending).
+      mapfile -t plines < <(tmux list-panes -t "${sess}:${widx}" \
+        -F '#{pane_current_path}'$'\t''#{pane_current_command}')
+      IFS=$'\t' read -r cwd0 cmd0 <<<"${plines[0]}"
+
+      echo "# --- session $(q "$sess") · window ${widx} $(q "$wname") ---"
+      if ((first_win)); then
+        echo "tmux new-session -d -s $(q "$sess") -n $(q "$wname") -c $(q "$cwd0")"
+        first_win=0
+      else
+        echo "tmux new-window -t $(q "$sess"): -n $(q "$wname") -c $(q "$cwd0")"
+      fi
+      # Extra panes (split; geometry is fixed up by select-layout below).
+      for ((i = 1; i < ${#plines[@]}; i++)); do
+        IFS=$'\t' read -r cwd cmd <<<"${plines[i]}"
+        echo "tmux split-window -t $(q "${sess}:${widx}") -c $(q "$cwd")"
+      done
+      echo "tmux select-layout -t $(q "${sess}:${widx}") $(q "$wlayout")"
+
+      # Relaunch list (one entry per pane, creation order). Empty = leave a shell.
+      printf 'cmds=('
+      for ln in "${plines[@]}"; do
+        IFS=$'\t' read -r _ cmd <<<"$ln"
+        printf ' %q' "$(relaunch_for "$cmd")"
+      done
+      printf ' )\n'
+      # Map by live pane position so this is robust to pane-base-index.
+      cat <<RELAUNCH
+i=0; for c in "\${cmds[@]}"; do
+  p=\$(tmux list-panes -t $(q "${sess}:${widx}") -F '#{pane_index}' | sed -n "\$((i+1))p")
+  [ "\$LAUNCH" = 1 ] && [ -n "\$c" ] && tmux send-keys -t "${sess}:${widx}.\$p" "\$c" Enter
+  i=\$((i+1))
+done
+RELAUNCH
+      echo
+    done < <(tmux list-windows -t "$sess" -F '#{window_index}'$'\t''#{window_name}'$'\t''#{window_layout}')
+
+    # Restore the active window for this session.
+    aw=$(tmux display -p -t "$sess" '#{window_index}' 2>/dev/null || true)
+    [ -n "$aw" ] && echo "tmux select-window -t $(q "${sess}:${aw}")"
+    echo
+  done < <(tmux list-sessions -F '#{session_name}')
+
+  echo 'echo "tmux layout restored. attach with: tmux attach"'
+} >"$OUT"
+
+chmod +x "$OUT"
+echo "saved layout -> $OUT"
+echo "restore after restart:  $OUT            (relaunches claude panes)"
+echo "                        $OUT --no-launch (geometry + cwds only)"

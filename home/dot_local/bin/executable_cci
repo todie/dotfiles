@@ -1,0 +1,136 @@
+#!/usr/bin/env bash
+# cci — Claude Code Introspect.
+#
+# A best-practices argc-based CLI that unifies the session-introspection helpers
+# (pid / alive / pane) under one self-documenting interface. argc generates the
+# arg-parsing, subcommand dispatch, `--help`, and shell completions from the
+# `# @cmd` / `# @flag` / `# @arg` comment tags below — no spec file, no codegen
+# step checked into the tree.
+#
+# Runtime dep: argc (mise-pinned). To ship a dependency-free copy for a machine
+# without argc:  argc --argc-build cci > cci.standalone
+#
+# Examples:
+#   cci pid                 # 84648            (owning session pid)
+#   cci pid --chain         # full claude ancestry, nearest-first
+#   cci alive               # alive | dead     (own session, identity-guarded)
+#   cci alive --loose 1     # plain liveness of any pid
+#   cci pane                # 0:1.2            (hosting tmux pane)
+#   cci pane --id 70998     # %70
+#   cci --help              # auto-generated
+set -euo pipefail
+
+# @describe Claude Code Introspect — resolve and inspect the owning Claude Code session.
+
+# ---------- shared resolvers (plain functions, not subcommands) ----------
+
+# Parent pid via /proc status (robust to comm strings with spaces/parens).
+_ppid() { awk '/^PPid:/{print $2; exit}' "/proc/$1/status" 2>/dev/null; }
+
+# Is pid $1 a claude process? (comm == claude, or argv[0] basename == claude).
+_is_claude() {
+  local pid="$1" comm cmd0
+  comm=$(cat "/proc/$pid/comm" 2>/dev/null) || return 1
+  [ "$comm" = claude ] && return 0
+  cmd0=$(tr '\0' '\n' <"/proc/$pid/cmdline" 2>/dev/null | head -1)
+  [ -n "${cmd0:-}" ] && [ "$(basename -- "$cmd0")" = claude ] && return 0
+  return 1
+}
+
+# Print every claude ancestor of $1, nearest-first.
+_claude_ancestors() {
+  local cur="$1"
+  while [ -n "${cur:-}" ] && [ "$cur" -gt 1 ] 2>/dev/null; do
+    _is_claude "$cur" && echo "$cur"
+    cur=$(_ppid "$cur")
+  done
+}
+
+# Owning session pid = nearest claude ancestor of $1 (default $$).
+_own_pid() {
+  local first
+  first=$(_claude_ancestors "${1:-$$}" | head -1)
+  [ -n "$first" ] && echo "$first"
+}
+
+# Alive without the kill -0 EPERM ambiguity (ESRCH=dead vs EPERM=alive-unsignalable).
+_is_alive() {
+  kill -0 "$1" 2>/dev/null && return 0
+  [ -e "/proc/$1" ] && return 0
+  return 1
+}
+
+# ---------- subcommands ----------
+
+# @cmd Print the owning Claude Code session's pid (nearest `claude` ancestor)
+# @flag  --top    Print the OUTERMOST claude ancestor instead of the nearest
+# @flag  --chain  Print the full claude ancestry, nearest-first
+# @arg   start    Pid to resolve from (default: this process)
+pid() {
+  local start="${argc_start:-$$}" ancestors
+  mapfile -t ancestors < <(_claude_ancestors "$start")
+  if [ "${#ancestors[@]}" -eq 0 ]; then
+    echo "cci pid: no claude ancestor of pid $start — not inside a Claude Code session" >&2
+    return 1
+  fi
+  if [ -n "${argc_chain:-}" ]; then
+    printf '%s\n' "${ancestors[@]}"
+  elif [ -n "${argc_top:-}" ]; then
+    printf '%s\n' "${ancestors[-1]}"
+  else
+    printf '%s\n' "${ancestors[0]}"
+  fi
+}
+
+# @cmd Report whether a Claude Code session pid is alive (and still a claude process)
+# @flag  --loose  Skip the claude-identity guard — plain liveness for any pid
+# @arg   pid      Pid to check (default: this session)
+alive() {
+  local p="${argc_pid:-}"
+  [ -n "$p" ] || p=$(_own_pid) || {
+    echo "cci alive: not inside a Claude Code session and no pid given" >&2
+    return 1
+  }
+  if ! _is_alive "$p"; then
+    echo dead
+    return 1
+  fi
+  if [ -z "${argc_loose:-}" ] && ! _is_claude "$p"; then
+    echo "dead (pid $p alive but not a claude session)"
+    return 1
+  fi
+  echo alive
+}
+
+# @cmd Print the tmux pane (session:window.pane) hosting a Claude Code session
+# @flag  --id   Print the stable tmux pane id (%N) instead of session:window.pane
+# @arg   pid    Pid to resolve (default: this session)
+pane() {
+  local p="${argc_pid:-}"
+  [ -n "$p" ] || p=$(_own_pid) || {
+    echo "cci pane: not inside a Claude Code session and no pid given" >&2
+    return 1
+  }
+  tmux list-sessions >/dev/null 2>&1 || {
+    echo "cci pane: no tmux server running" >&2
+    return 1
+  }
+  declare -A target id
+  while IFS=$'\t' read -r pp tgt pane_id; do
+    target["$pp"]="$tgt"
+    id["$pp"]="$pane_id"
+  done < <(tmux list-panes -a \
+    -F '#{pane_pid}'$'\t''#{session_name}:#{window_index}.#{pane_index}'$'\t''#{pane_id}' 2>/dev/null)
+  local cur="$p"
+  while [ -n "${cur:-}" ] && [ "$cur" -gt 1 ] 2>/dev/null; do
+    if [ -n "${target[$cur]:-}" ]; then
+      [ -n "${argc_id:-}" ] && echo "${id[$cur]}" || echo "${target[$cur]}"
+      return 0
+    fi
+    cur=$(_ppid "$cur")
+  done
+  echo "cci pane: pid $p is not inside any tmux pane (headless or detached?)" >&2
+  return 1
+}
+
+eval "$(argc --argc-eval "$0" "$@")"
