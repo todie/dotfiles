@@ -1,0 +1,17 @@
+[Unit]
+Description=freeze-monitor — WSL clock-step / VM-stall watchdog
+Documentation=https://github.com/todie/dotfiles/blob/main/docs/wsl-clock-remediation.md
+After=default.target
+
+[Service]
+Type=simple
+# StateDirectory creates+owns ~/.local/state/freeze-monitor (survives reboot,
+# unlike /tmp). %S = $XDG_STATE_HOME.
+StateDirectory=freeze-monitor
+ExecStart=%h/.local/bin/freeze-monitor %S/freeze-monitor/monitor.log
+Restart=on-failure
+RestartSec=5
+Nice=10
+
+[Install]
+WantedBy=default.target
