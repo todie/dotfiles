@@ -35,6 +35,7 @@ typeset -gA _COMPLETION_GEN=(
   _uv                 'uv generate-shell-completion zsh'
   _rclone             'rclone completion zsh -'
   _flyctl             'flyctl completion zsh'
+  _ant                'ant @completion zsh'   # Claude Platform CLI; @-prefixed meta-cmd emits #compdef ant
   _rustup             'rustup completions zsh'
   _cargo              'rustup completions zsh cargo'
   # reverie mesh CLIs — emit real #compdef scripts under their own names
