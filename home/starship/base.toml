@@ -1,10 +1,11 @@
 # ═══════════════════════════════════════════════════════════════════════════
-#  ~/.config/starship.toml — A I R Y
+#  ~/.config/starship.toml — A I R Y  (framed)
 #
 #  Minimalist, contextual prompt. No solid powerline blocks — foreground color
-#  on the bare terminal background. Two lines: context on the first (path + git
-#  left, language/duration/time right-aligned via $fill), a clean `❯` on the
-#  second. Modules load only when they're relevant.
+#  on the bare terminal background. A ╭─ … ╰─ connector frames two lines:
+#  context on the first (os badge + path + git + insert/delete metrics left,
+#  language/duration/time right-aligned via $fill), a gradient triple-chevron
+#  `❯❯❯` (pink→purple→cyan) on the second. Modules load only when relevant.
 #
 #  Theme is composable — see ~/projects/dotfiles/starship/themes/ for variants
 #  and `theme list` / `theme set <name>` to switch. The base file (this one)
@@ -25,13 +26,19 @@ command_timeout = 500
 scan_timeout = 30
 palette = "neon_dreams"
 
-# ── Format — airy two-line, context right-aligned ─────────────────────────
+# ── Format — framed airy two-line, context right-aligned ──────────────────
+# A ╭─ … ╰─ connector frames the two lines (still no solid powerline blocks —
+# foreground-only, true to the airy direction). Leading $os badge; git
+# insert/delete metrics ride next to git_status.
 format = """
+[╭─ ](fg:neon_purple)\
+$os\
 $username\
 $hostname\
 $directory\
 $git_branch\
 $git_status\
+$git_metrics\
 $fill\
 $rust\
 $nodejs\
@@ -46,6 +53,7 @@ $cmd_duration\
 ${custom.claude_code}\
 $time\
 $line_break\
+[╰─](fg:neon_purple)\
 $jobs\
 $status\
 $character"""
@@ -66,8 +74,21 @@ ssh_only = true
 style = "fg:neon_purple"
 format = "[@$hostname]($style) "
 
+# ── OS badge — leading distro glyph, sits just inside the frame ───────────
 [os]
-disabled = true
+disabled = false
+style = "fg:neon_purple"
+format = "[$symbol]($style)"
+
+[os.symbols]
+Ubuntu = "󰕈 "
+Debian = " "
+Arch = " "
+Fedora = " "
+Alpine = " "
+Linux = " "
+Macos = " "
+Windows = " "
 
 # ── Directory ─────────────────────────────────────────────────────────────
 [directory]
@@ -107,6 +128,13 @@ modified = ""
 staged = '[++\($count\)](fg:neon_green)'
 renamed = "󰟕"
 deleted = ""
+
+# ── Git metrics — insertions / deletions, only in a dirty repo ─────────────
+[git_metrics]
+disabled = false
+added_style = "fg:neon_green"
+deleted_style = "fg:neon_red"
+format = '([+$added]($added_style) )([-$deleted]($deleted_style) )'
 
 # ── Languages — contextual (only with relevant files), subtle green ───────
 [rust]
@@ -209,10 +237,11 @@ format = "[$symbol$status]($style) "
 map_symbol = true
 recognize_signal_code = true
 
-# ── Character — the prompt cursor (plain ❯, renders in any font) ──────────
+# ── Character — gradient triple-chevron (pink→purple→cyan). Pure ❯, so it
+#   renders in any font; the gradient is what makes it pop. Error fades to red.
 [character]
-success_symbol = "[❯](bold fg:neon_pink)"
-error_symbol   = "[❯](bold fg:neon_red)"
+success_symbol = "[❯](bold fg:neon_pink)[❯](bold fg:neon_purple)[❯](bold fg:neon_cyan)"
+error_symbol   = "[❯](bold fg:neon_dim)[❯](bold fg:neon_red)[❯](bold fg:neon_red)"
 vimcmd_symbol  = "[❮](bold fg:neon_yellow)"
 vimcmd_replace_one_symbol = "[❮](bold fg:neon_purple)"
 vimcmd_replace_symbol = "[❮](bold fg:neon_purple)"
