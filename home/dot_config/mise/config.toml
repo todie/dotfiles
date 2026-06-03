@@ -42,6 +42,7 @@ btop     = "1.4.7"
 rclone   = "1.74.2"
 flyctl   = "0.4.57"
 starship = "1.25.1"
+gum      = "0.17.0"   # charmbracelet — interactive TUI primitives for shell scripts
 
 # ── language runtimes (global defaults; per-repo overrides via proto) ────────
 node = "24.16.0"
