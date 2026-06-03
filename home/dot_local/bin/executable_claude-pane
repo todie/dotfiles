@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# claude-pane — deprecated alias for `cci pane`. cci is the canonical CLI now
+# (see docs/shell-script-tooling-research.md). Kept for back-compat.
+exec cci pane "$@"
