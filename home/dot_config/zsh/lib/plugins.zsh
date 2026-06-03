@@ -124,6 +124,15 @@ if (( $+functions[fzf-tab] )); then
   zstyle ':fzf-tab:*' continuous-trigger '/'
 fi
 
+# ── zsh-autosuggestions color ───────────────────────────────────────────────
+# The inline-suggestion highlight. The plugin's built-in default is fg=8 (ANSI
+# bright-black), which on a dark theme renders ≈ the background → suggestions are
+# present but INVISIBLE (the recurring "autocomplete borked after theme change").
+# Drive it from the active palette (THEME_AUTOSUGGEST, set in theme.zsh) with a
+# visible 256-colour grey fallback for before any theme has been generated.
+# Set BEFORE the deferred plugin init reads it (sourcing runs pre-first-precmd).
+ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="${THEME_AUTOSUGGEST:-fg=242}"
+
 # ── zsh-history-substring-search bindings ───────────────────────────────────
 # These OVERRIDE the up-line-or-beginning-search bindings from options.zsh when
 # the plugin is present: ↑/↓/^P/^N do substring history search (type any text,

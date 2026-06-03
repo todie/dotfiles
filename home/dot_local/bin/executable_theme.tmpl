@@ -123,6 +123,10 @@ export THEME_FZFTAB_COLORS="fg:$text,bg:-1,hl:$pink,fg+:$text,bg+:$panel,hl+:$pi
 # history-substring-search highlight (plugins.zsh)
 export THEME_HSS_FOUND="bg=$pink,fg=$void,bold"
 export THEME_HSS_NOTFOUND="bg=$red,fg=#ffffff"
+# zsh-autosuggestions inline-suggestion color (plugins.zsh). Palette \$dim is a
+# muted-but-VISIBLE tone — deliberately NOT the plugin default fg=8, which
+# collapses into a dark terminal bg and makes suggestions vanish on theme change.
+export THEME_AUTOSUGGEST="fg=$dim"
 EOF
 }
 
