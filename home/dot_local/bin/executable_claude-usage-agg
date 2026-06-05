@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# claude-usage-agg — reduce per-session claude-hud usage snapshots into a tmux
+# status suffix for tmux-claude-glanced. Reads <sid>.json files written by
+# claude-hud-usage-wrap, SUMS cost + lines across the LIVE sessions, collapses
+# the account-global rate-limits to their MAX, formats a colored tmux-markup
+# segment, and prunes snapshots whose session is no longer live.
+#
+# Usage: claude-usage-agg <snap-dir> [live-sid ...]
+#   Extra live sids may also be passed one-per-line on stdin.
+# Output: tmux-markup string, segments joined by two spaces; empty if no data.
+# Env: CLAUDE_USAGE_NOCOLOR=1 → plain text (tests); CLAUDE_USAGE_NOPRUNE=1 → keep
+# all files (tests). Colors come from the @t_* tmux palette (defaults off-tmux).
+set -uo pipefail
+
+command -v jq >/dev/null 2>&1 || exit 0
+dir="${1:-}"; [ -n "$dir" ] || exit 0; shift || true
+[ -d "$dir" ] || exit 0
+
+live=("$@")
+if [ ! -t 0 ]; then
+  while IFS= read -r s; do [ -n "$s" ] && live+=("$s"); done
+fi
+
+# palette + markup
+pal() { local v; v="$(tmux show -gv "$1" 2>/dev/null)"; printf '%s' "${v:-$2}"; }
+if [ -n "${CLAUDE_USAGE_NOCOLOR:-}" ]; then
+  D=""; G=""; Y=""; R=""
+  mk() { printf '%s' "$2"; }                       # mk <hex> <text> → text
+else
+  D="$(pal @t_dim white)"; G="$(pal @t_green green)"
+  Y="$(pal @t_yellow yellow)"; R="$(pal @t_red red)"
+  mk() { printf '#[fg=%s]%s#[default]' "$1" "$2"; }
+fi
+rl_color() { local p="${1%%.*}"; if   [ "${p:-0}" -ge 85 ] 2>/dev/null; then printf '%s' "$R"
+             elif [ "${p:-0}" -ge 60 ] 2>/dev/null; then printf '%s' "$Y"
+             else printf '%s' "$G"; fi; }
+fmt_eta() { local r="${1:-}" now d h m; [ -n "$r" ] && [ "$r" != null ] || { printf ''; return; }
+  now="$(date +%s)"; d=$(( r - now )); [ "$d" -gt 0 ] || { printf ''; return; }
+  h=$(( d/3600 )); m=$(( (d%3600)/60 ))
+  if [ "$h" -gt 0 ]; then printf '%dh%02dm' "$h" "$m"; else printf '%dm' "$m"; fi; }
+
+# live sids → JSON array for jq selection
+if [ "${#live[@]}" -gt 0 ]; then
+  live_json="$(printf '%s\n' "${live[@]}" | jq -R . | jq -sc .)"
+else
+  live_json='[]'
+fi
+
+# Reduce across live snapshots in one jq slurp (handles floats + nulls).
+# Use pipe separator (not tab) to avoid IFS-whitespace collapsing empty fields.
+read_ok=0
+IFS='|' read -r cost five seven five_r seven_r la lr < <(
+  jq -rs --argjson live "$live_json" '
+    (map(select(.session as $s | ($live|index($s)) != null))) as $L
+    | [ ([$L[].cost_usd            | select(.!=null)] | add  // "")
+      , ([$L[].five_hour_pct       | select(.!=null)] | max  // "")
+      , ([$L[].seven_day_pct       | select(.!=null)] | max  // "")
+      , ([$L[].five_hour_resets_at | select(.!=null)] | max  // "")
+      , ([$L[].seven_day_resets_at | select(.!=null)] | max  // "")
+      , ([$L[].lines_added         | select(.!=null)] | add  // "")
+      , ([$L[].lines_removed       | select(.!=null)] | add  // "")
+      ] | map(tostring) | join("|")' "$dir"/*.json 2>/dev/null
+) && read_ok=1
+
+# Prune dead snapshots (unless disabled), only when we have a live set.
+if [ -z "${CLAUDE_USAGE_NOPRUNE:-}" ] && [ "${#live[@]}" -gt 0 ]; then
+  for f in "$dir"/*.json; do
+    [ -e "$f" ] || continue
+    sid="$(basename "$f" .json)"
+    case " ${live[*]} " in *" $sid "*) ;; *) rm -f "$f" 2>/dev/null ;; esac
+  done
+fi
+
+[ "$read_ok" = 1 ] || exit 0
+
+segs=()
+[ -n "$cost" ] && segs+=("$(mk "$D" "$(awk -v c="$cost" 'BEGIN{printf "$%.2f", c}')")")
+if [ -n "$five" ]; then
+  txt="5h ${five%%.*}%"
+  [ "${five%%.*}" -ge 60 ] 2>/dev/null && { e="$(fmt_eta "$five_r")"; [ -n "$e" ] && txt="$txt ($e)"; }
+  segs+=("$(mk "$(rl_color "$five")" "$txt")")
+fi
+if [ -n "$seven" ]; then
+  txt="7d ${seven%%.*}%"
+  [ "${seven%%.*}" -ge 60 ] 2>/dev/null && { e="$(fmt_eta "$seven_r")"; [ -n "$e" ] && txt="$txt ($e)"; }
+  segs+=("$(mk "$(rl_color "$seven")" "$txt")")
+fi
+{ [ -n "$la" ] || [ -n "$lr" ]; } && segs+=("$(mk "$D" "+${la:-0}/-${lr:-0}")")
+
+out=""
+for s in "${segs[@]:-}"; do [ -n "$s" ] || continue; [ -n "$out" ] && out="$out  "; out="$out$s"; done
+printf '%s' "$out"
