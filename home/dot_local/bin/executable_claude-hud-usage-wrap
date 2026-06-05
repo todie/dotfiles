@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# claude-hud-usage-wrap — Claude Code statusLine wrapper. Renders the per-pane
+# claude-hud statusline UNCHANGED (tees stdin to the version-resolved plugin and
+# forwards its stdout), and in the background writes a throttled, atomic
+# per-session usage snapshot that tmux-claude-glanced consolidates across panes.
+#
+# cost.total_cost_usd + rate_limits.{five_hour,seven_day} + total_lines_* exist
+# ONLY in this stdin JSON (never in the transcript), so this wrapper is the sole
+# channel by which the tmux glance can learn them.
+#
+# Modes:
+#   (default)            render claude-hud + bg snapshot
+#   --emit-snapshot DIR  snapshot ONLY (no render) — used by tests
+#   --no-throttle        always write (ignore the ~2s throttle) — used by tests
+#
+# Degrades silently: missing jq, invalid JSON, or absent fields never break the
+# render. Snapshot fields absent from stdin are emitted as null (never 0).
+set -uo pipefail
+
+SNAP_DIR_DEFAULT="${XDG_RUNTIME_DIR:-/tmp}/claude-hud-usage"
+THROTTLE=2
+
+mode=render
+snap_dir="$SNAP_DIR_DEFAULT"
+throttle=1
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --emit-snapshot) mode=emit; snap_dir="${2:-$SNAP_DIR_DEFAULT}"; shift 2 ;;
+    --no-throttle)   throttle=0; shift ;;
+    *) shift ;;
+  esac
+done
+
+# emit_snapshot <json> <dir> — derive session key, throttle, atomic write.
+emit_snapshot() {
+  local input="$1" dir="$2" session file age tmp now
+  command -v jq >/dev/null 2>&1 || return 0
+  session="$(printf '%s' "$input" \
+    | jq -r '(.transcript_path // "") | split("/") | last | sub("\\.jsonl$";"")' 2>/dev/null)"
+  [ -n "$session" ] && [ "$session" != "null" ] || return 0
+  mkdir -p "$dir" 2>/dev/null || return 0
+  file="$dir/$session.json"
+  now="$(date +%s)"
+  if [ "$throttle" = 1 ] && [ -f "$file" ]; then
+    age=$(( now - $(stat -c %Y "$file" 2>/dev/null || echo 0) ))
+    [ "$age" -lt "$THROTTLE" ] && return 0
+  fi
+  tmp="$file.tmp.$$"
+  if printf '%s' "$input" | jq -c \
+      --arg pane "${TMUX_PANE:-}" --argjson ts "$now" '
+      {
+        session: ((.transcript_path // "") | split("/") | last | sub("\\.jsonl$";"")),
+        pane: $pane,
+        ts: $ts,
+        cost_usd:            (.cost.total_cost_usd            // null),
+        five_hour_pct:       (.rate_limits.five_hour.used_percentage  // null),
+        five_hour_resets_at: (.rate_limits.five_hour.resets_at        // null),
+        seven_day_pct:       (.rate_limits.seven_day.used_percentage  // null),
+        seven_day_resets_at: (.rate_limits.seven_day.resets_at        // null),
+        lines_added:         (.cost.total_lines_added         // null),
+        lines_removed:       (.cost.total_lines_removed       // null)
+      }' >"$tmp" 2>/dev/null; then
+    mv -f "$tmp" "$file" 2>/dev/null || rm -f "$tmp" 2>/dev/null
+  else
+    rm -f "$tmp" 2>/dev/null
+  fi
+}
+
+if [ "$mode" = emit ]; then
+  emit_snapshot "$(cat)" "$snap_dir"
+  exit 0
+fi
+
+# --- render mode added in Task 2 ---
+exit 0
