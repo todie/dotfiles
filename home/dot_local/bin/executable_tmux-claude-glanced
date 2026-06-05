@@ -30,6 +30,8 @@ command -v tmux >/dev/null 2>&1 || exit 0
 projects="$HOME/.claude/projects"
 runtime="${XDG_RUNTIME_DIR:-/tmp}"
 lock="$runtime/claude-glance.lock"
+snap_dir="${XDG_RUNTIME_DIR:-/tmp}/claude-hud-usage"   # written by claude-hud-usage-wrap
+agg="$(command -v claude-usage-agg || printf '%s' "$HOME/.local/bin/claude-usage-agg")"
 poll=1            # seconds between ticks
 work_window=8     # transcript written within Ns ⇒ working, else waiting
 rescan_every=15   # force a full proc rescan every N ticks (safety net)
@@ -87,7 +89,7 @@ derive_ctx() {
 }
 
 # ── in-memory state (keyed by pane id, e.g. %3) ─────────────────────────────
-declare -A tr_of win_of proj_of   # pane → transcript / window / project
+declare -A tr_of win_of proj_of sid_of   # pane → transcript / window / project / session-id
 declare -A mt_of ctx_of act_of since_of   # pane → last-mtime / ctx% / activity / since
 declare -A pushed                 # window → last pushed glyph string (push-if-changed)
 last_glance=""                    # last pushed @claude_glance aggregate
@@ -99,7 +101,7 @@ fingerprint=""                    # claude-pane set signature (rescan trigger)
 rescan() {
   local pid env sid pane t p w cp
   read_ctx_limit
-  local -A ntr=() nwin=() nproj=() seen=()
+  local -A ntr=() nwin=() nproj=() nsid=() seen=()
   for pid in $(pgrep -u "$(id -u)" -f 'claude' 2>/dev/null); do
     [ "$pid" = "$$" ] && continue
     env="$(cat "/proc/$pid/environ" 2>/dev/null | tr '\0' '\n')"
@@ -110,7 +112,7 @@ rescan() {
     [ -n "${seen[$pane]:-}" ] && continue
     seen[$pane]=1
     t="$(find "$projects" -maxdepth 2 -name "$sid.jsonl" 2>/dev/null | head -1)"
-    [ -n "$t" ] && [ -f "$t" ] && ntr[$pane]="$t"
+    [ -n "$t" ] && [ -f "$t" ] && { ntr[$pane]="$t"; nsid[$pane]="$sid"; }
   done
   # window + project for each live pane, in one tmux call
   while IFS=$'\t' read -r p w cp; do
@@ -120,7 +122,7 @@ rescan() {
   # forget panes that vanished (and clear their window option)
   for pane in "${!tr_of[@]}"; do
     if [ -z "${nwin[$pane]:-}" ]; then
-      unset 'tr_of[$pane]' 'win_of[$pane]' 'proj_of[$pane]' \
+      unset 'tr_of[$pane]' 'win_of[$pane]' 'proj_of[$pane]' 'sid_of[$pane]' \
             'mt_of[$pane]' 'ctx_of[$pane]' 'act_of[$pane]' 'since_of[$pane]'
     fi
   done
@@ -128,7 +130,7 @@ rescan() {
   for pane in "${!ntr[@]}"; do
     [ -n "${nwin[$pane]:-}" ] || continue
     tr_of[$pane]="${ntr[$pane]}"; win_of[$pane]="${nwin[$pane]}"
-    proj_of[$pane]="${nproj[$pane]:-?}"
+    proj_of[$pane]="${nproj[$pane]:-?}"; sid_of[$pane]="${nsid[$pane]:-}"
     : "${mt_of[$pane]:=0}"
   done
 }
@@ -215,6 +217,13 @@ tick() {
     [ "$waiting" -gt 0 ] && glance="#[fg=${R},bold]◉${waiting}#[default] "
     glance="${glance}#[fg=${D}]●${active}#[default]"
     [ "$max" -ge 0 ] && glance="${glance} #[fg=$(ctx_color "$max")]⤒${max}%#[default]"
+  fi
+  # Fold in claude-hud usage (cost / rate-limits / lines), gated by @claude_usage.
+  if [ "$active" -gt 0 ] && [ "$(pal @claude_usage 1)" != 0 ] && [ -x "$agg" ]; then
+    local live_sids=() p usage
+    for p in "${!tr_of[@]}"; do [ -n "${sid_of[$p]:-}" ] && live_sids+=("${sid_of[$p]}"); done
+    usage="$("$agg" "$snap_dir" "${live_sids[@]}" 2>/dev/null)"
+    [ -n "$usage" ] && glance="${glance}  #[fg=${D}]·#[default]  ${usage}"
   fi
   if [ "$glance" != "$last_glance" ]; then
     tmux set -g @claude_glance "$glance" 2>/dev/null
