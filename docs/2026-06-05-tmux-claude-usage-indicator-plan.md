@@ -405,8 +405,11 @@ else
 fi
 
 # Reduce across live snapshots in one jq slurp (handles floats + nulls).
+# Use pipe separator (not tab): tab is IFS-whitespace, so `read` collapses
+# consecutive tabs and would swallow empty fields (null resets_at), shifting
+# columns. `|` is non-whitespace, so empty fields are preserved.
 read_ok=0
-IFS=$'\t' read -r cost five seven five_r seven_r la lr < <(
+IFS='|' read -r cost five seven five_r seven_r la lr < <(
   jq -rs --argjson live "$live_json" '
     (map(select(.session as $s | ($live|index($s)) != null))) as $L
     | [ ([$L[].cost_usd            | select(.!=null)] | add  // "")
@@ -416,7 +419,7 @@ IFS=$'\t' read -r cost five seven five_r seven_r la lr < <(
       , ([$L[].seven_day_resets_at | select(.!=null)] | max  // "")
       , ([$L[].lines_added         | select(.!=null)] | add  // "")
       , ([$L[].lines_removed       | select(.!=null)] | add  // "")
-      ] | @tsv' "$dir"/*.json 2>/dev/null
+      ] | map(tostring) | join("|")' "$dir"/*.json 2>/dev/null
 ) && read_ok=1
 
 # Prune dead snapshots (unless disabled), only when we have a live set.
@@ -452,7 +455,7 @@ printf '%s' "$out"
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `bash claude/hooks/tests/claude-usage-agg.test.sh`
-Expected: `11 passed, 0 failed`.
+Expected: `10 passed, 0 failed`.
 
 - [ ] **Step 5: Commit**
 
