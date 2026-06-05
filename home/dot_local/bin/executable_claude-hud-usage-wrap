@@ -71,5 +71,27 @@ if [ "$mode" = emit ]; then
   exit 0
 fi
 
-# --- render mode added in Task 2 ---
-exit 0
+# --- render mode ---
+# Resolve the latest claude-hud plugin (same logic as the original statusLine
+# command), overridable via env for tests.
+resolve_index() {
+  if [ -n "${CLAUDE_HUD_INDEX:-}" ]; then printf '%s' "$CLAUDE_HUD_INDEX"; return; fi
+  local base d
+  base="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+  d="$(ls -d "$base"/plugins/cache/claude-hud/claude-hud/*/ 2>/dev/null \
+        | awk -F/ '{ print $(NF-1) "\t" $0 }' \
+        | sort -t. -k1,1n -k2,2n -k3,3n -k4,4n | tail -1 | cut -f2-)"
+  printf '%s' "${d}src/index.ts"
+}
+resolve_bun() {
+  if [ -n "${CLAUDE_HUD_BUN:-}" ]; then printf '%s' "$CLAUDE_HUD_BUN"; return; fi
+  if [ -x "$HOME/.local/bin/bun" ]; then printf '%s' "$HOME/.local/bin/bun"
+  else command -v bun 2>/dev/null || printf 'bun'; fi
+}
+
+input="$(cat)"
+# Snapshot in the background so it never delays the rendered bar; fds detached.
+( emit_snapshot "$input" "$snap_dir" ) >/dev/null 2>&1 &
+
+bun="$(resolve_bun)"; index="$(resolve_index)"
+printf '%s' "$input" | "$bun" --env-file /dev/null "$index"

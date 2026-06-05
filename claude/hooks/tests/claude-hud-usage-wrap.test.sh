@@ -37,5 +37,25 @@ printf '%s' '{"cost":{"total_cost_usd":1}}' | bash "$WRAP" --emit-snapshot "$SNA
 after="$(ls "$SNAP" | wc -l)"
 [ "$before" = "$after" ] && ok || bad no-session "wrote a snapshot without a session key"
 
+# 5. render passthrough: stub claude-hud, assert stdout forwarded + snapshot side-written
+stub="$tmp/fakehud"; mkdir -p "$stub/src"
+cat >"$stub/src/index.ts" <<'EOS'
+// stub: echo a fixed bar, ignore stdin
+EOS
+fakebun="$tmp/bun"; cat >"$fakebun" <<'EOB'
+#!/usr/bin/env bash
+cat >/dev/null   # drain stdin
+printf 'BAR-OK'
+EOB
+chmod +x "$fakebun"
+out="$(TMUX_PANE='%9' printf '%s' "$FULL" \
+  | CLAUDE_HUD_BUN="$fakebun" CLAUDE_HUD_INDEX="$stub/src/index.ts" \
+    XDG_RUNTIME_DIR="$tmp/run" bash "$WRAP")"
+[ "$out" = "BAR-OK" ] && ok || bad passthrough "stdout=[$out]"
+# snapshot also landed in the default dir under the overridden XDG_RUNTIME_DIR
+sleep 0.3
+[ -f "$tmp/run/claude-hud-usage/05e66184-4aec-47f8-a41b-e66fd178275b.json" ] && ok \
+  || bad passthrough-snap "no bg snapshot written"
+
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]
