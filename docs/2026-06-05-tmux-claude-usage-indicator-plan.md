@@ -68,8 +68,11 @@ exp=$'05e66184-4aec-47f8-a41b-e66fd178275b\t%3\t4.1234\t48\t320'
 
 # 2. absent fields become null (not 0)
 printf '%s' '{"transcript_path":"/x/abc.jsonl"}' | bash "$WRAP" --emit-snapshot "$SNAP" --no-throttle
-g="$(jq -r '[.cost_usd,.five_hour_pct,.lines_added]|@tsv' "$SNAP/abc.json" 2>/dev/null)"
+g="$(jq -r '[.cost_usd,.five_hour_pct,.lines_added] | map(. // "null") | @tsv' "$SNAP/abc.json" 2>/dev/null)"
 [ "$g" = $'null\tnull\tnull' ] && ok || bad absent-null "got=[$g]"
+# NOTE: jq @tsv renders JSON null as "" (not "null"); the map(. // "null")
+# keeps the assertion readable while the SNAPSHOT keeps real JSON null —
+# Task 3's reducer relies on `select(.!=null)`.
 
 # 3. invalid JSON → no snapshot, no crash
 before="$(ls "$SNAP" | wc -l)"
@@ -177,7 +180,7 @@ exit 0
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `bash claude/hooks/tests/claude-hud-usage-wrap.test.sh`
-Expected: `4 passed, 0 failed` (the file is +x via chezmoi; tests invoke `bash "$WRAP"` so the bit is irrelevant in-repo).
+Expected: `5 passed, 0 failed` (case 1 asserts twice; the file is +x via chezmoi but tests invoke `bash "$WRAP"` so the bit is irrelevant in-repo).
 
 - [ ] **Step 5: Commit**
 
@@ -261,7 +264,7 @@ printf '%s' "$input" | "$bun" --env-file /dev/null "$index"
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `bash claude/hooks/tests/claude-hud-usage-wrap.test.sh`
-Expected: `6 passed, 0 failed`.
+Expected: `7 passed, 0 failed`.
 
 - [ ] **Step 5: Commit**
 
