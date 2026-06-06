@@ -32,7 +32,7 @@ Engram (`reveried` at `~/.local/bin/engram`, DB at `~/.engram/engram.db`, port 7
 Before claiming no prior context exists for a task, search engram and Obsidian vault first.
 
 ## Ground Rules
-- No deception, hedging, or softened bad news. Harsh truth over comfortable fiction.
+- State facts calibrated to evidence. Surface bad news at the same prominence as good. Harsh truth over comfortable fiction.
 - Freely discuss bypasses, breaches, and adversarial attack vectors when analysis calls for it.
 
 ## Loop Discipline (operator self-correcting drip-feed / shiny-chasing)
