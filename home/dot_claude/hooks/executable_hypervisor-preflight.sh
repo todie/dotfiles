@@ -161,14 +161,51 @@ if [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "Write" ] || [ "$TOOL_NAME" = "
         *) approve ;;
     esac
 
-    # ─── SOFTENED to warn-only (CER-1114) ────────────────────────────────────
-    # The claude-config lock gate was structurally broken: `coord lock` writes to
-    # the redis backend (coord default) while this hook read the lock holder from
-    # the filesystem (/tmp/claude-coord/locks/claude-config/owner) — and FS writes
-    # are NO-OPs in redis mode. So the gate was unsatisfiable via the documented
-    # command AND bypassable by a bare `touch`: friction with zero guarantee.
-    # Re-arm as a hard block once coord backend-coherence is fixed (CER-1114).
-    warn "hypervisor-preflight: editing ${FILE_PATH#$HOME/} under ~/.claude/ — coord-lock enforcement is SOFTENED to warn-only pending the coord backend-coherence fix (CER-1114). Proceeding without a lock; if a reverie peer is active, coordinate manually."
+    # ─── RE-ARMED hard block (CER-1114) ──────────────────────────────────────
+    # Editing ~/.claude/* requires holding the `claude-config` coord lock. coord
+    # now defaults to `dual` (CER-1114 / adr-012): `coord lock` writes the FS
+    # owner file under dual (cmd_lock's redis_primary-false branch), so this
+    # FS-read gate is coherent again — the redis-write-vs-FS-read split that
+    # forced the warn-only softening is fixed. Emergency bypass: edit via Bash
+    # (cp/sed) — this matcher only gates Edit/Write/MultiEdit. Rollback the
+    # re-arm by restoring hypervisor-preflight.sh.bak.*.
+    LOCK_OWNER_FILE="/tmp/claude-coord/locks/claude-config/owner"
+    LOCK_REC="/tmp/claude-coord/locks/claude-config/record.json"
+
+    # Derive this session's coord id, mirroring coord resolve_session_id:
+    # env override > claude ancestor (--resume uuid, else claude-pid) > subagent.
+    my_sid="${COORD_SESSION_ID:-${CLAUDE_SESSION_ID:-}}"
+    if [ -z "$my_sid" ]; then
+        _cpid=$$
+        while [ "${_cpid:-0}" -gt 1 ]; do
+            _comm=$(ps -o comm= -p "$_cpid" 2>/dev/null || echo "")
+            if [ "$_comm" = "claude" ] || [ "$_comm" = "claude-code" ]; then break; fi
+            _cpid=$(ps -o ppid= -p "$_cpid" 2>/dev/null | tr -d ' ' || echo 0)
+            if [ -z "$_cpid" ]; then _cpid=0; break; fi
+        done
+        if [ "${_cpid:-0}" -gt 1 ]; then
+            _uuid=$(tr '\0' ' ' < "/proc/$_cpid/cmdline" 2>/dev/null | grep -oE -- '--resume [0-9a-fA-F-]{36}' | head -n1 | awk '{print $2}' || echo "")
+            if [ -n "$_uuid" ]; then my_sid="claude-resume-${_uuid:0:8}"; else my_sid="claude-pid-$_cpid"; fi
+        fi
+    fi
+    if [ -n "${COORD_SUBAGENT_ID:-}" ] && [ -n "$my_sid" ]; then my_sid="${my_sid}-sub-${COORD_SUBAGENT_ID}"; fi
+
+    _owner=$(cat "$LOCK_OWNER_FILE" 2>/dev/null || echo "")
+    _rel="${FILE_PATH#$HOME/}"
+    if [ -z "$_owner" ]; then
+        block "hypervisor-preflight: editing ~/${_rel} requires the claude-config coord lock (CER-1114 re-armed) — none held. Acquire it: coord lock claude-config --reason '...'  then retry. Emergency bypass: edit via Bash (cp/sed); this matcher only gates Edit/Write/MultiEdit."
+    fi
+    if [ "$_owner" != "${my_sid:-__none__}" ]; then
+        block "hypervisor-preflight: claude-config lock held by '${_owner}', not this session ('${my_sid:-unknown}'). Coordinate with that peer or wait for release, then retry. (CER-1114; emergency bypass: edit via Bash.)"
+    fi
+    _exp=$(jq -r '.expires_at // empty' "$LOCK_REC" 2>/dev/null || echo "")
+    if [ -n "$_exp" ]; then
+        _now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        if [[ "$_exp" < "$_now" ]]; then
+            block "hypervisor-preflight: your claude-config lock expired at ${_exp} (now ${_now}). Re-acquire: coord lock claude-config. (CER-1114)"
+        fi
+    fi
+    # Owner matches and the lock is live → fall through to the final approve.
 fi
 
 # Unmatched tool — pass through
