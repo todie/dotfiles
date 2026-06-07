@@ -44,7 +44,11 @@ specs=(
   "_cortex|cortex completions zsh|cortex"
   "_engram|engram completions zsh|engram"
   "_sops|sops completion zsh|sops"
-  "_kubecolor|kubecolor completion zsh|kubecolor"
+  # NOTE: kubecolor is intentionally absent. `kubecolor completion zsh` emits
+  # kubectl's script, whose self-invoke guard ([[ $funcstack[1] == _kubectl ]])
+  # never matches once saved as _kubecolor — a dead stub. completions.zsh binds
+  # `compdef kubecolor=kubectl` at shell init instead. Keep this map in
+  # lock-step with that file's _COMPLETION_GEN.
 )
 
 gen_one() {
