@@ -47,7 +47,13 @@ typeset -gA _COMPLETION_GEN=(
   _cortex             'cortex completions zsh|||cortex'   # emits stale #compdef meshctl
   _engram             'engram completions zsh|||engram'   # emits stale #compdef reveried
   _sops               'sops completion zsh|||sops'         # emits no #compdef tag at all
-  _kubecolor          'kubecolor completion zsh|||kubecolor' # emits stale #compdef kubectl (it proxies kubectl)
+  # NOTE: kubecolor is intentionally NOT generated here. `kubecolor completion
+  # zsh` emits kubectl's own script, whose self-invoke guard
+  # (`[[ $funcstack[1] == _kubectl ]]`) never matches once saved as _kubecolor —
+  # so the file defines completion but never runs it (dead stub). Worse, since
+  # `kubectl` is aliased to `kubecolor` (aliases.zsh) and COMPLETE_ALIASES is
+  # unset, every `kubectl`/`k`/`kgp …` TAB expands to kubecolor and routes into
+  # that dead stub. We bind `compdef kubecolor=kubectl` after compinit instead.
 )
 
 _gen_one() {
@@ -96,3 +102,13 @@ for f in ${(k)_COMPLETION_GEN}; do
 done
 (( _added )) && { autoload -Uz compinit && compinit -u -d "${ZCOMPDUMP:-${DOTFILES_ZSH_CACHE}/.zcompdump}"; }
 unset f _added
+
+# kubecolor proxies kubectl, so complete it via _kubectl directly (see the NOTE
+# in the generator map above for why generating a _kubecolor file fails). This
+# also fixes the `kubectl`→kubecolor alias and the whole `k*` alias family:
+# with COMPLETE_ALIASES unset they expand to `kubecolor …` at completion time,
+# so binding kubecolor here is what makes `kgp <TAB>` complete pods/flags.
+# compdef is provided by compinit (run above / in .zshrc); guard just in case.
+if command -v kubecolor &>/dev/null && (( $+functions[compdef] )); then
+  compdef kubecolor=kubectl 2>/dev/null
+fi
