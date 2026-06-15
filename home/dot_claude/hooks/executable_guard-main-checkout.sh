@@ -58,11 +58,21 @@ Override (rare): out of band, or set GUARD_MAIN_CHECKOUT_BYPASS=1."
     [ -z "$CMD" ] && approve
     printf '%s' "$CMD" | grep -q '# *allow-main-checkout' && approve
 
-    # Effective cwd: honor a leading `cd <abspath>` (first one wins; multi-cd
+    # Effective cwd: honor a leading `cd <path>` (first one wins; multi-cd
     # commands are rare and fall back to fail-open via the per-segment check).
+    # Handles absolute (/x), home (~ or ~/x) AND relative (x/y) targets — a
+    # ~-relative cd previously fell through to $CWD and false-blocked commits run
+    # in another repo via `cd ~/projects/<other>` (2026-06-15).
     ecwd="$CWD"
-    cd_target=$(printf '%s' "$CMD" | grep -oE 'cd[[:space:]]+["'"'"']?(/[^[:space:]"'"'"';|&]+)' | head -1 | sed -E 's/^cd[[:space:]]+["'"'"']?//' || true)
-    [ -n "$cd_target" ] && ecwd="$cd_target"
+    cd_target=$(printf '%s' "$CMD" | grep -oE 'cd[[:space:]]+["'"'"']?[^[:space:]"'"'"';|&]+' | head -1 | sed -E 's/^cd[[:space:]]+["'"'"']?//' || true)
+    if [ -n "$cd_target" ]; then
+      case "$cd_target" in
+        '~')    ecwd="$HOME" ;;
+        '~/'*)  ecwd="$HOME/${cd_target#'~/'}" ;;
+        /*)     ecwd="$cd_target" ;;
+        *)      ecwd="${CWD:+$CWD/}$cd_target" ;;
+      esac
+    fi
 
     # Scan each ;/|/&&/|| segment. Block only a real `git <mutating-verb>`
     # invocation whose target tree is the MAIN checkout.

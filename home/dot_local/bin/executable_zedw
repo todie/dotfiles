@@ -8,8 +8,10 @@
 # Because it's a real executable (not a shell function), it works as $EDITOR /
 # $GIT_EDITOR for external tools — pass --wait so the caller blocks.
 #
-# Reuses the RUNNING Zed window BY DEFAULT (injects --existing), so $EDITOR opens
-# never spawn a separate workspace. Force a fresh window with -n/--new.
+# Reuses the RUNNING Zed window BY DEFAULT (injects --add — verified 2026-06-15
+# to land files as tabs in the current window). NOTE: --existing does NOT reuse
+# over WSL remoting (it spawns a fresh workspace), so --add is the correct flag.
+# Force a new window with -n/--new.
 #
 #     export EDITOR="zedw --wait"
 #     git commit            # opens COMMIT_EDITMSG in the running Zed window, waits for close
@@ -39,7 +41,7 @@ wsluser="${USER:-$(id -un)}"
 args=()
 for a in "$@"; do
   if [[ "$a" == -* ]]; then
-    args+=("$a")                      # flag — pass through (-w/--wait, -e, -n, -a, …)
+    args+=("$a")                      # flag — pass through (-w/--wait, -a, -n, …)
   elif [[ "$a" == /* ]]; then
     args+=("$a")                      # already absolute
   else
@@ -47,11 +49,13 @@ for a in "$@"; do
   fi
 done
 
-# Default to reusing the running Zed window — Zed otherwise spawns a separate
-# workspace per invocation (the annoyance). Opt out with -n/--new (or -a/--add);
-# an explicit -e/--existing is honored and not duplicated.
+# Default to reusing the running Zed window by ADDING the path(s) to the current
+# workspace (--add). Opt out with -n/--new; an explicit window-mode flag
+# (-a/--add/-n/--new/-e/--existing) is respected and not double-added.
 mode=0
-for a in "$@"; do case "$a" in -n|--new|-a|--add|-e|--existing) mode=1 ;; esac; done
-(( mode )) || args=(--existing "${args[@]}")
+for a in "$@"; do
+  case "$a" in -n|--new|-a|--add|-e|--existing) mode=1 ;; esac
+done
+(( mode )) || args=(--add "${args[@]}")
 
 exec "$ZEXE" --wsl "${wsluser}@${distro}" "${args[@]}"
