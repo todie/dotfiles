@@ -6,17 +6,17 @@
 # is the Zed analogue of the `code` command reaching host VS Code.
 #
 # Because it's a real executable (not a shell function), it works as $EDITOR /
-# $GIT_EDITOR for external tools — pass --wait so the caller blocks. Add
-# --existing (-e) to force the file into the running Zed window instead of
-# letting Zed spawn a separate workspace:
+# $GIT_EDITOR for external tools — pass --wait so the caller blocks.
 #
-#     export EDITOR="zedw --wait --existing"
+# Reuses the RUNNING Zed window BY DEFAULT (injects --existing), so $EDITOR opens
+# never spawn a separate workspace. Force a fresh window with -n/--new.
+#
+#     export EDITOR="zedw --wait"
 #     git commit            # opens COMMIT_EDITMSG in the running Zed window, waits for close
 #
 # Interactive use:
-#     zedw .                open cwd          zedw -w notes.md   wait until closed
-#     zedw foo.rs bar.rs    open files        zedw -e notes.md   reuse existing window
-#                                             zedw -n bar.rs     force new window
+#     zedw .                open cwd (reuse)  zedw -w notes.md   wait until closed
+#     zedw foo.rs bar.rs    open (reuse win)  zedw -n bar.rs     force NEW window
 set -euo pipefail
 
 # Locate host zed.exe (first match wins; no hardcoded Windows username).
@@ -46,5 +46,12 @@ for a in "$@"; do
     args+=("$PWD/$a")                 # make cwd-relative paths absolute for Zed
   fi
 done
+
+# Default to reusing the running Zed window — Zed otherwise spawns a separate
+# workspace per invocation (the annoyance). Opt out with -n/--new (or -a/--add);
+# an explicit -e/--existing is honored and not duplicated.
+mode=0
+for a in "$@"; do case "$a" in -n|--new|-a|--add|-e|--existing) mode=1 ;; esac; done
+(( mode )) || args=(--existing "${args[@]}")
 
 exec "$ZEXE" --wsl "${wsluser}@${distro}" "${args[@]}"
