@@ -45,7 +45,7 @@ log_block() {
 # boundaries, so kubectl jsonpath like `containers[0].env[*]` matched `.env[`
 # and false-blocked `kubectl get ... | grep`. Quotes stay IN the class so
 # quoted secret paths (`cat '.env'`, `cat ".env"`) are still caught.
-SECRET_PATHS_REGEX='(\.secrets(\.[A-Za-z0-9_-]+)?|\.aws/credentials|\.ssh/id_(rsa|ed25519|ecdsa|dsa)(\.[A-Za-z0-9_-]+)?|\.gnupg/(private-keys|pubring|secring)|\.docker/config\.json|\.config/gcloud/application_default_credentials\.json|\.config/gcloud/legacy_credentials|\.config/google-drive-mcp/[^[:space:]]*\.json|\.config/google-workspace-admin/[^[:space:]]*\.json|\.config/op(/[^[:space:]]*)?|service-account[^[:space:]]*\.json|[^[:space:]]*_credentials\.json|\.env(\.(local|production|staging|test))?|\.npmrc|\.pypirc|\.netrc)([[:space:]"'\''`;:|&<>(){}]|$)'
+SECRET_PATHS_REGEX='(\.secrets(\.[A-Za-z0-9_-]+)?|\.aws/credentials|\.ssh/id_(rsa|ed25519|ecdsa|dsa)(\.[A-Za-z0-9_-]+)?|\.gnupg/(private-keys|pubring|secring)|\.docker/config\.json|\.config/gcloud/application_default_credentials\.json|\.config/gcloud/legacy_credentials|\.config/google-drive-mcp/[^[:space:]]*\.json|\.config/google-workspace-admin/[^[:space:]]*\.json|\.config/op(/[^[:space:]]*)?|service-account[^[:space:]]*\.json|[^[:space:]]*_credentials\.json|\.env(\.(local|production|staging|test))?|\.npmrc|\.pypirc|\.netrc|backend\.hcl)([[:space:]"'\''`;:|&<>(){}]|$)'
 
 # Commands that emit file content — pairing one with a secret path is suspect.
 # Includes editors and line tools that were previously missing (strings/vi/cut/
