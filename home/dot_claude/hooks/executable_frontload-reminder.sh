@@ -11,5 +11,7 @@ loop-discipline ▸ before substantive work, get the brief: landscape · constra
               ▸ irreversible / outward actions (merge, apply, rotate, external send) = operator approves
 interview      ▸ open decisions (any fork that changes what you do next) = AskUserQuestion, not a wall of prose
               ▸ long-form to judge (>~40 lines: plans, RFCs, proposals) = write to file + $EDITOR; chat gets a short orientation
+research-team  ▸ fanning out research agents? batch MCP/Linear reads ONCE → shared read-surfaces (/tmp/research-surfaces/) → forbid per-agent re-fetch
+              ▸ see ~/.claude/rules/research-team-discipline.md
 EOF
 exit 0

@@ -4,6 +4,7 @@
 set -u
 source "${BASH_SOURCE[0]%/*}/lib.sh"
 hook_name "prompt-capture"
+trap 'hook_trap_fail "$LINENO" "$BASH_COMMAND"' ERR
 
 INPUT="$(safe_read_stdin)"
 

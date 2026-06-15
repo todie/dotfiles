@@ -15,6 +15,8 @@ set -euo pipefail
 source "${BASH_SOURCE[0]%/*}/lib.sh"
 hook_name "capture"
 log_init "$HOME/.local/state/reveried/auto-capture.log"
+# Alert fires before the log redirect below so it reaches Claude's context.
+trap 'hook_trap_fail "$LINENO" "$BASH_COMMAND"' ERR
 
 REJECT_LOG="$HOME/.local/state/reveried/gate-rejects.jsonl"
 REVERIED_BIN="${REVERIED_BIN:-$HOME/.local/bin/engram}"

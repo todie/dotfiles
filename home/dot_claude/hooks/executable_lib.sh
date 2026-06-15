@@ -165,6 +165,42 @@ hook_error() {
   echo "$(_hook_prefix) | ERROR: $*" >&2
 }
 
+# --- Reverie-repo detection ---
+#
+# True when the current working directory is inside the reverie monorepo.
+# Used to gate loud stderr complaints: only emit when the operator can act.
+is_reverie_repo() {
+  local root; root=$(git -C "${PWD:-.}" rev-parse --show-toplevel 2>/dev/null || echo "")
+  [[ "$root" == *"/projects/reverie" ]] || [[ "$root" == *"/projects/reverie-wt-"* ]]
+}
+
+# hook_alert: surface a failure into Claude's prompt context (stdout) so the
+# model can see and act on it. Stdout is injected as a system-reminder for
+# non-PreToolUse hooks (UserPromptSubmit, SessionStart, SubagentStop, Stop).
+#
+# Only fires inside the reverie repo — elsewhere the model can't fix hooks
+# anyway, so we log silently instead.
+#
+# DO NOT use from PreToolUse hooks: their stdout is the JSON allow/deny
+# channel. Use hook_error (stderr → UI only) there instead.
+hook_alert() {
+  local msg="$(_hook_prefix) | ALERT: $*"
+  if is_reverie_repo; then
+    echo "$msg"        # stdout → injected into model's prompt context
+    echo "$msg" >&2   # stderr → also visible in the UI
+  else
+    log "ALERT: $*"
+  fi
+}
+
+# hook_trap_fail: install as a trap ERR handler so unexpected script failures
+# surface into Claude's context instead of disappearing. Usage at top of hook:
+#   trap 'hook_trap_fail "$LINENO" "$BASH_COMMAND"' ERR
+hook_trap_fail() {
+  local line="${1:-?}" cmd="${2:-?}"
+  hook_alert "unexpected failure at line $line: $cmd"
+}
+
 # Print a skip: hook: bootstrap | SKIP: no session_id
 hook_skip() {
   echo "$(_hook_prefix) | SKIP: $*"

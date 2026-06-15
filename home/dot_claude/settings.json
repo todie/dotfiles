@@ -1,37 +1,5 @@
 {
   "cleanupPeriodDays": 999999,
-  "deniedMcpServers": [
-    { "serverName": "claude_ai_Slack" },
-    { "serverName": "claude.ai Slack" },
-    { "serverName": "claude_ai_Google_Drive" },
-    { "serverName": "claude.ai Google Drive" },
-    { "serverName": "claude_ai_Docusign" },
-    { "serverName": "claude.ai Docusign" },
-    { "serverName": "claude_ai_Notion" },
-    { "serverName": "claude.ai Notion" },
-    { "serverName": "claude_ai_Fathom" },
-    { "serverName": "claude.ai Fathom" },
-    { "serverName": "claude_ai_Stripe" },
-    { "serverName": "claude.ai Stripe" },
-    { "serverName": "claude_ai_Taskrabbit_Booking_Assistance" },
-    { "serverName": "claude.ai Taskrabbit Booking Assistance" },
-    { "serverName": "claude_ai_Hugging_Face" },
-    { "serverName": "claude.ai Hugging Face" },
-    { "serverName": "claude_ai_Calendly" },
-    { "serverName": "claude.ai Calendly" },
-    { "serverName": "claude_ai_Mercury" },
-    { "serverName": "claude.ai Mercury" },
-    { "serverName": "claude_ai_Cloudflare_Developer_Platform" },
-    { "serverName": "claude.ai Cloudflare Developer Platform" },
-    { "serverName": "claude_ai_Booking_com" },
-    { "serverName": "claude.ai Booking.com" },
-    { "serverName": "claude_ai_Vercel" },
-    { "serverName": "claude.ai Vercel" },
-    { "serverName": "claude_ai_CourtListener" },
-    { "serverName": "claude.ai CourtListener" },
-    { "serverName": "claude_ai_Interactive_Brokers_IBKR" },
-    { "serverName": "claude.ai Interactive Brokers IBKR" }
-  ],
   "env": {
     "NO_COLOR": "1",
     "CLICOLOR": "0",
@@ -40,7 +8,8 @@
     "REVERIE_SKIP_CI_GATE": "1",
     "RUSTC_WRAPPER": "sccache",
     "SCCACHE_DIR": "/home/ctodie/.cache/sccache",
-    "SCCACHE_CACHE_SIZE": "20G"
+    "SCCACHE_CACHE_SIZE": "20G",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "permissions": {
     "allow": [
@@ -721,7 +690,11 @@
       "Write",
       "Write(/tmp/**)",
       "Write(~/**)",
-      "mcp__*",
+      "mcp__claude_ai_Slack__*",
+      "mcp__claude_ai_Docusign__*",
+      "mcp__claude_ai_Cloudflare_Developer_Platform__*",
+      "mcp__cloudflare-docs__*",
+      "mcp__desktop-control__*",
       "mcp__claude_ai_Gmail__*",
       "mcp__claude_ai_Google_Calendar__*",
       "mcp__claude_ai_Linear__*",
@@ -745,7 +718,12 @@
       "mcp__claude_ai_Linear__list_projects",
       "mcp__claude_ai_Linear__list_teams",
       "mcp__claude_ai_Linear__list_users",
-      "mcp__engram__*"
+      "mcp__context7__query-docs",
+      "mcp__context7__resolve-library-id",
+      "mcp__engram__*",
+      "mcp__plugin_context-mode_context-mode__ctx_execute",
+      "mcp__plugin_context-mode_context-mode__ctx_fetch_and_index",
+      "mcp__plugin_context-mode_context-mode__ctx_search"
     ],
     "deny": [
       "Bash(rm -rf /)",
@@ -790,6 +768,7 @@
       "Edit(~/.aws/**)",
       "Edit(~/.kube/**)"
     ],
+    "defaultMode": "acceptEdits",
     "additionalDirectories": [
       "/tmp",
       "/tmp/gestalt-snapshots",
@@ -798,6 +777,53 @@
       "/home/ctodie/projects/reverie/.claude"
     ]
   },
+  "deniedMcpServers": [
+    {
+      "serverName": "claude_ai_Slack"
+    },
+    {
+      "serverName": "claude_ai_Google_Drive"
+    },
+    {
+      "serverName": "claude_ai_Docusign"
+    },
+    {
+      "serverName": "claude_ai_Notion"
+    },
+    {
+      "serverName": "claude_ai_Fathom"
+    },
+    {
+      "serverName": "claude_ai_Stripe"
+    },
+    {
+      "serverName": "claude_ai_Taskrabbit_Booking_Assistance"
+    },
+    {
+      "serverName": "claude_ai_Hugging_Face"
+    },
+    {
+      "serverName": "claude_ai_Calendly"
+    },
+    {
+      "serverName": "claude_ai_Mercury"
+    },
+    {
+      "serverName": "claude_ai_Cloudflare_Developer_Platform"
+    },
+    {
+      "serverName": "claude_ai_Booking_com"
+    },
+    {
+      "serverName": "claude_ai_Vercel"
+    },
+    {
+      "serverName": "claude_ai_CourtListener"
+    },
+    {
+      "serverName": "claude_ai_Interactive_Brokers_IBKR"
+    }
+  ],
   "hooks": {
     "Notification": [
       {
@@ -811,6 +837,21 @@
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/ctodie/.claude/hooks/guard-engram-protect.sh",
+            "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "/home/ctodie/.claude/hooks/guard-coord-ownership.sh",
+            "timeout": 5
+          }
+        ]
+      },
       {
         "matcher": "Edit",
         "hooks": [
@@ -857,6 +898,11 @@
           {
             "type": "command",
             "command": "/home/ctodie/.claude/hooks/guard-dangerous-commands.sh",
+            "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "/home/ctodie/.claude/hooks/guard-merge-to-main.sh",
             "timeout": 3
           }
         ]
@@ -960,6 +1006,27 @@
             "timeout": 3
           }
         ]
+      },
+      {
+        "matcher": "Bash|Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/ctodie/.claude/hooks/guard-main-checkout.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/ctodie/.claude/hooks/subagent-stop-capture.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [
@@ -1016,46 +1083,6 @@
         ]
       },
       {
-        "matcher": "resume",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/ctodie/.claude/hooks/session-resume.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "clear",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/ctodie/.claude/hooks/session-save-context.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/ctodie/.claude/hooks/session-resume.sh",
-            "timeout": 5
-          }
-        ]
-      },
-      {
-        "matcher": "startup",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/ctodie/.claude/hooks/session-bootstrap-engram-drift.sh",
-            "timeout": 8
-          }
-        ]
-      },
-      {
         "hooks": [
           {
             "type": "command",
@@ -1063,18 +1090,10 @@
           }
         ]
       }
-    ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/ctodie/.claude/hooks/session-save-context.sh",
-            "timeout": 5
-          }
-        ]
-      }
     ]
+  },
+  "worktree": {
+    "baseRef": "fresh"
   },
   "statusLine": {
     "type": "command",
@@ -1146,7 +1165,6 @@
     }
   },
   "effortLevel": "high",
-  "advisorModel": "opus",
   "tui": "fullscreen",
   "voice": {
     "enabled": true,
@@ -1154,7 +1172,13 @@
   },
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
-  "theme": "dark",
+  "theme": "auto",
+  "editorMode": "normal",
+  "verbose": true,
+  "preferredNotifChannel": "auto",
+  "autoCompactEnabled": true,
+  "showTurnDuration": true,
+  "teammateMode": "auto",
   "inputNeededNotifEnabled": true,
   "agentPushNotifEnabled": true,
   "voiceEnabled": true,

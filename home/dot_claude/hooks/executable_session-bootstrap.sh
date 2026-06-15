@@ -10,6 +10,7 @@
 set -euo pipefail
 source "${BASH_SOURCE[0]%/*}/lib.sh"
 hook_name "bootstrap"
+trap 'hook_trap_fail "$LINENO" "$BASH_COMMAND"' ERR
 
 IFS='|' read -r PROJECT PROJ_HASH REPO_ROOT <<< "$(project_info "$PWD")"
 MEMORY_DIR="$HOME/.claude/projects/-${PROJ_HASH}/memory"
