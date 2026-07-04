@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# agents-glance — tmux-independent fleet view of live Claude/agent sessions.
+#
+# Replaces the retired tmux-claude-state (which mapped panes→sessions via
+# TMUX_PANE). This one needs no tmux: it lists live agent processes with their
+# working directory and last-activity, derived from /proc and the Claude
+# transcript directory. Runnable from any terminal (incl. a Zed terminal) and
+# reused as the reveried harness-audit fleet probe.
+#
+# States:  ● working  (transcript touched in the last 20s)
+#          ◉ idle     (alive, quiet — may be waiting on you)
+# Kinds:   session (claude TUI) · zed-acp (Zed ACP thread) · mcp-agent (engram)
+set -uo pipefail
+
+projects="$HOME/.claude/projects"
+now="$(date +%s 2>/dev/null || printf 0)"
+
+# newest transcript mtime under a project dir slug (activity signal)
+last_activity() {
+  local slug="$1" newest=0 t
+  [ -d "$projects/$slug" ] || { printf 0; return; }
+  while IFS= read -r t; do [ "$t" -gt "$newest" ] && newest="$t"; done < <(
+    find "$projects/$slug" -name '*.jsonl' -printf '%T@\n' 2>/dev/null | cut -d. -f1)
+  printf '%s' "$newest"
+}
+
+# map an absolute cwd to the Claude project slug (dashes for slashes)
+slug_for() { printf '%s' "$1" | sed 's:/:-:g'; }
+
+printf '%-3s %-26s %-10s %-8s %s\n' "ST" "PROJECT" "KIND" "PID" "LAST"
+printf '%.0s─' {1..66}; printf '\n'
+
+found=0
+for pid in $(pgrep -x claude 2>/dev/null; pgrep -f 'claude-agent-acp' 2>/dev/null; pgrep -f 'reveried mcp' 2>/dev/null); do
+  [ -r "/proc/$pid/cwd" ] || continue
+  cwd="$(readlink "/proc/$pid/cwd" 2>/dev/null)" || continue
+  case "$(tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null)" in
+    *claude-agent-acp*) kind="zed-acp" ;;
+    *reveried\ mcp*)    kind="mcp-agent" ;;
+    *)                  kind="session" ;;
+  esac
+  proj="$(basename "$cwd")"
+  act="$(last_activity "$(slug_for "$cwd")")"
+  if [ "$act" -gt 0 ] && [ "$((now - act))" -lt 20 ]; then st="●"; else st="◉"; fi
+  if [ "$act" -gt 0 ]; then last="$(date -d "@$act" +%H:%M:%S 2>/dev/null || printf '%s' "$act")"; else last="—"; fi
+  printf '%-3s %-26.26s %-10s %-8s %s\n' "$st" "$proj" "$kind" "$pid" "$last"
+  found=1
+done
+[ "$found" -eq 0 ] && printf '(no live agent processes)\n'
+exit 0
