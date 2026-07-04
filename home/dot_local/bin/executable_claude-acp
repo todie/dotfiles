@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# ACP stdio bridge: runs the Claude Code ACP adapter INSIDE WSL for the
+# Windows-host Zed agent panel (invoked via `wsl.exe --exec`, so there is no
+# login shell and no profile — PATH must be explicit).
+#
+# CONTRACT: stdout/stdin ARE the ACP JSON-RPC stream. Nothing may print to
+# stdout except the adapter itself; all diagnostics go to the bridge log.
+# Zed-side config: %APPDATA%\Zed\settings.json agent_servers →
+#   "Claude Worker (WSL · bypass)" / "Claude Cockpit (WSL · prompted)".
+set -euo pipefail
+
+MISE_NODE_BIN="$(ls -d "$HOME"/.local/share/mise/installs/node/*/bin 2>/dev/null | sort -V | tail -1)"
+export PATH="${MISE_NODE_BIN:+$MISE_NODE_BIN:}$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
+
+LOG_DIR="$HOME/.local/state/claude-acp"
+mkdir -p "$LOG_DIR"
+
+exec claude-agent-acp "$@" 2>>"$LOG_DIR/bridge.log"
