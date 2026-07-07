@@ -29,10 +29,11 @@ starship/themes/*.toml
 # ── runtime-generated secrets cache (legacy; superseded by rendered .env) ────
 .cache/zsh-secrets.env
 
-# ── operator-managed (chezmoi does NOT own ~/.secrets — token bootstrap) ─────
-# ~/.secrets holds OP_SERVICE_ACCOUNT_TOKEN and is managed by hand; the app keys
-# it used to also hold are rendered to ~/.config/zsh/secrets.env at apply time.
-.secrets
+# ── ~/.secrets (2026-07-07): chezmoi-managed as an age-ENCRYPTED source ──────
+# (encrypted_private_dot_secrets.age). Holds the OP_SERVICE_ACCOUNT_TOKEN
+# bootstrap; a fresh machine needs only ~/.config/chezmoi/key.txt to decrypt,
+# then 1P rendering works. After editing the live file, re-capture with:
+#   chezmoi add --encrypt <the live file>
 
 # ── ~/.claude — persist CONFIG only (CLAUDE.md, RTK.md, rules, hooks, skills,
 #    agents, mcp). Everything below is state/secret/external and must NOT be
@@ -85,3 +86,6 @@ starship/themes/*.toml
 .claude/downloads
 .claude/stats-cache.json
 .claude/mcp-needs-auth-cache.json
+
+# ── gh: config.yml IS managed; hosts.yml holds OAuth tokens — never manage ───
+.config/gh/hosts.yml

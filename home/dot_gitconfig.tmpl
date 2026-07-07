@@ -1,0 +1,45 @@
+[user]
+	email = {{ .identity.email }}
+	name = {{ .identity.name }}
+	signingkey = {{ .chezmoi.homeDir }}/.ssh/id_ed25519.pub
+[commit]
+	gpgsign = true
+[tag]
+	gpgsign = true
+[core]
+	pager = delta
+[interactive]
+	diffFilter = delta --color-only
+[delta]
+	navigate = true
+	side-by-side = true
+	line-numbers = true
+[merge]
+	conflictStyle = zdiff3
+[alias]
+	st = status -sb
+	co = checkout
+	sw = switch
+	lg = log --oneline --graph --decorate -20
+	unstage = reset HEAD --
+	amend = commit --amend --no-edit
+	wt = worktree
+	last = log -1 HEAD --stat
+[diff]
+	colorMoved = default
+[init]
+	defaultBranch = main
+[pull]
+	rebase = true
+[fetch]
+	prune = true
+[gpg]
+	format = ssh
+[gpg "ssh"]
+	allowedsignersfile = {{ .chezmoi.homeDir }}/.config/git/allowed_signers
+[credential "https://github.com"]
+	helper =
+	helper = !{{ .chezmoi.homeDir }}/.local/share/mise/shims/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper =
+	helper = !{{ .chezmoi.homeDir }}/.local/share/mise/shims/gh auth git-credential

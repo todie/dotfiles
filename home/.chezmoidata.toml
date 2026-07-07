@@ -1,0 +1,9 @@
+# Machine-independent data for templates. Referenced as {{ .identity.email }} etc.
+# Machine-SPECIFIC facts (paths, hostnames) come from the built-ins
+# ({{ .chezmoi.homeDir }}, {{ .chezmoi.sourceDir }}) — never hardcode them.
+
+[identity]
+name = "Christian M. Todie"
+email = "chris@todie.io"
+emailWork = "ctodie@cerebral.work"
+github = "todie"

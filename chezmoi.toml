@@ -22,8 +22,17 @@
 # source tree /home/ctodie/projects/todie/dotfiles/home.
 sourceDir = "/home/ctodie/projects/todie/dotfiles"
 
+# age fallback (2026-07-07): encrypted_ sources decrypt with the identity below.
+# Private key ~/.config/chezmoi/key.txt (0600, NOT in repo — back up to 1P).
+# Must be TOP-LEVEL (before any [table]) or TOML scopes it into that table.
+encryption = "age"
+
 [onepassword]
     # Service-account mode: reads OP_SERVICE_ACCOUNT_TOKEN from the environment
     # at apply time (the token must already be exported when `chezmoi apply`
     # runs — it is the bootstrap for onepasswordRead). No interactive `op signin`.
     mode = "service"
+
+[age]
+    identity = "~/.config/chezmoi/key.txt"
+    recipient = "age1qyp6shdvaqgx9whayzz67zfme85wrvzc6qk6rrqsyj3estfdzvcs006ywp"

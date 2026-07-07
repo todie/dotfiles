@@ -1,0 +1,31 @@
+# Global gitignore — XDG location (git default when core.excludesfile is unset).
+# Consolidated from ~/.gitignore_global 2026-07-07; that file is retired.
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editors
+*.swp
+*.swo
+*~
+.vscode/settings.json
+.idea/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Build artifacts
+target/
+node_modules/
+__pycache__/
+*.pyc
+dist/
+.next/
+
+**/.claude/settings.local.json

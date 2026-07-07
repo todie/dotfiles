@@ -75,3 +75,11 @@ chezmoi init --apply todie     # clone repo + apply to ~
 ```
 Requires the 1Password CLI signed in (or `OP_SERVICE_ACCOUNT_TOKEN` set) for secret
 rendering. CI (`.github/workflows/ci.yml`) runs shellcheck + `zsh -n` + tmux parse.
+
+## Skill stores (single authority, 2026-07-07)
+
+`home/dot_agents/skills/` is THE skill library — chezmoi deploys it to
+`~/.agents/skills` as real files (the old repo-root `agents/skills/` +
+skill-manager symlink layer is retired). `home/dot_claude/skills/` holds
+claude-only skills; `~/.claude/skills` may symlink INTO `~/.agents/skills`
+for shared ones. New shared skills go in `home/dot_agents/skills/`.

@@ -1,27 +1,21 @@
 #!/usr/bin/env bash
 # run_once_after_25-k8s-tools.sh.tmpl
 #
-# Fresh-machine bootstrap for kubernetes CLI tools that live as plain binaries in
-# ~/.local/bin (same manual-binary pattern as helm/k9s — dotfiles has no general
-# tool installer). Two jobs:
+# Generates kubectl plugin-completion delegation shims (kubectl_complete-<p>)
+# for any installed krew plugin that speaks cobra's `__complete`, so
+# `kubectl <plugin> <TAB>` completes. Plugins that aren't cobra (kubectx/
+# kubens — legacy bash — and view-utilization) are skipped: kubectl has no
+# completion path for them, and synthesizing one would be a fake.
 #
-#   1. Install the PINNED, checksum-verified kubecolor release binary. kubecolor
-#      has no mise/aqua registry entry, so it stays on this explicit installer;
-#      stern + kustomize moved to the mise manifest (the machine layer).
-#   2. Generate kubectl plugin-completion delegation shims (kubectl_complete-<p>)
-#      for any installed krew plugin that speaks cobra's `__complete`, so
-#      `kubectl <plugin> <TAB>` completes. Plugins that aren't cobra (kubectx/
-#      kubens — legacy bash — and view-utilization) are skipped: kubectl has no
-#      completion path for them, and synthesizing one would be a fake.
+# NOTE (2026-07-07): the kubecolor binary install moved to .chezmoiexternal.toml.tmpl
+# (chezmoi-native pinned fetch + sha256 verification). stern + kustomize live in
+# the mise manifest. This script's only remaining job is shim generation.
 #
-# run_once — pinned + idempotent; bump a *_VER below to retrigger (content hash).
-# _after_  — runs after ~/.local/bin scripts are deployed; _25 lands BEFORE the
-#            _30 completion pre-warmer so the binaries exist when it generates
-#            _stern / _kustomize / _kubecolor.
+# run_once — idempotent; edit to retrigger (content hash).
+# _after_  — runs after ~/.local/bin is deployed; _25 lands BEFORE the _30
+#            completion pre-warmer so binaries exist when it generates shims.
 #
-# NOTE: deliberately NOT `set -e` — a transient download failure must not abort
-# `chezmoi apply`. Tools are `has`-guarded in zsh, so a miss degrades cleanly;
-# re-run with `chezmoi state delete-bucket --bucket=scriptState && chezmoi apply`.
+# Deliberately NOT `set -e` — a shim failure must not abort `chezmoi apply`.
 
 set -uo pipefail
 
@@ -29,54 +23,6 @@ set -uo pipefail
 # at a throwaway dir). Do NOT clobber it — clobbering let a test's `rm -rf $BIN`
 # resolve to ~/.local/bin and wipe it.
 BIN="${BIN:-$HOME/.local/bin}"; mkdir -p "$BIN"
-
-# ── arch detection ───────────────────────────────────────────────────────────
-case "$(uname -m)" in
-  x86_64|amd64)  ARCH=amd64 ;;
-  aarch64|arm64) ARCH=arm64 ;;
-  *) echo "k8s-tools: unsupported arch $(uname -m) — skipping binary install" >&2; ARCH="" ;;
-esac
-
-# ── pinned versions ──────────────────────────────────────────────────────────
-KUBECOLOR_VER=0.6.0
-
-# _fetch_verify_install <name> <tarball-url> <checksums-url> <member-in-tarball>
-# Downloads tarball + checksums, verifies sha256, extracts <member> to ~/.local/bin.
-_fetch_verify_install() {
-  local name=$1 url=$2 sums=$3 member=$4
-  local tmp; tmp=$(mktemp -d) || return 1
-  local fname=${url##*/}
-  if ! curl -fsSL "$url" -o "$tmp/$fname"; then
-    echo "k8s-tools: download failed for $name ($url) — skipping" >&2; rm -rf "$tmp"; return 1
-  fi
-  curl -fsSL "$sums" -o "$tmp/sums.txt" || { echo "k8s-tools: checksums fetch failed for $name" >&2; rm -rf "$tmp"; return 1; }
-  local want got
-  want=$(grep -E "  ?$fname\$" "$tmp/sums.txt" | awk '{print $1}' | head -1)
-  got=$(sha256sum "$tmp/$fname" | awk '{print $1}')
-  if [[ -z "$want" || "$want" != "$got" ]]; then
-    echo "k8s-tools: CHECKSUM MISMATCH for $name (want=$want got=$got) — NOT installing" >&2
-    rm -rf "$tmp"; return 1
-  fi
-  if ! tar -xzf "$tmp/$fname" -C "$tmp" "$member" 2>/dev/null; then
-    # some tarballs nest the binary; fall back to extract-all then locate
-    tar -xzf "$tmp/$fname" -C "$tmp" 2>/dev/null
-  fi
-  local src; src=$(find "$tmp" -type f -name "$member" | head -1)
-  [[ -n "$src" ]] || { echo "k8s-tools: $member not found in $fname" >&2; rm -rf "$tmp"; return 1; }
-  install -m755 "$src" "$BIN/$name" && echo "k8s-tools: installed $name → $BIN/$name"
-  rm -rf "$tmp"
-}
-
-_install_binaries() {
-  [[ -n "$ARCH" ]] || return 0
-  # kubecolor — asset/checksum names carry NO leading v.
-  if ! { command -v kubecolor >/dev/null 2>&1 && kubecolor --kubecolor-version 2>/dev/null | grep -q "$KUBECOLOR_VER"; }; then
-    _fetch_verify_install kubecolor \
-      "https://github.com/kubecolor/kubecolor/releases/download/v${KUBECOLOR_VER}/kubecolor_${KUBECOLOR_VER}_linux_${ARCH}.tar.gz" \
-      "https://github.com/kubecolor/kubecolor/releases/download/v${KUBECOLOR_VER}/checksums.txt" \
-      kubecolor
-  else echo "k8s-tools: kubecolor $KUBECOLOR_VER already present"; fi
-}
 
 # ── kubectl plugin-completion delegation shims ───────────────────────────────
 # kubectl completes `kubectl <plugin> …` by exec'ing `kubectl_complete-<plugin>`
@@ -106,6 +52,5 @@ SHIM
 # Sourced as a library by test/k8s-tools-test.sh (K8S_TOOLS_SOURCE_ONLY=1) →
 # define functions only, run nothing. Normal apply → do the work.
 if [[ "${K8S_TOOLS_SOURCE_ONLY:-}" != 1 ]]; then
-  _install_binaries
   _gen_completion_shims
 fi

@@ -1,17 +1,14 @@
 #!/usr/bin/env bash
 # k8s-tools-test.sh — offline, deterministic regression tests for the k8s-tools
-# bootstrap (home/run_once_after_25-k8s-tools.sh.tmpl). No network: the
-# download+verify+extract+install path is driven through `file://` URLs against
-# locally-built fixtures, so it runs in CI and never hits GitHub.
-#
-# Covers exactly the branches the manual smoke test could NOT (binaries were
-# already present, so the install path was skipped):
-#   1. happy path     — correct checksum → binary installed + executable
-#   2. checksum reject — wrong checksum → returns non-zero AND installs nothing
-#   3. missing member  — requested binary absent from tarball → non-zero
-#   4. lock-step       — completions.zsh _COMPLETION_GEN tool set == the
-#                        run_once_after_30 pre-warmer spec set (the documented
-#                        "keep in lock-step" invariant)
+# surface. The binary install path moved to .chezmoiexternal.toml.tmpl
+# (chezmoi-native pinned fetch + sha256); what remains testable offline:
+#   1. external render — .chezmoiexternal.toml.tmpl renders with a pinned
+#      version in the URL and a 64-hex sha256 (the pin-everything invariant)
+#   2. shim library     — the run_once script still sources as a library and
+#      exposes _gen_completion_shims
+#   3. lock-step        — completions.zsh _COMPLETION_GEN tool set == the
+#                         run_once_after_30 pre-warmer spec set (the documented
+#                         "keep in lock-step" invariant)
 #
 # Run:  bash test/k8s-tools-test.sh    (exit code = number of failed checks)
 
@@ -24,51 +21,31 @@ fail=0
 ok()  { echo "${GRN}✓${NC} $1"; }
 bad() { echo "${RED}✗${NC} $1"; fail=$((fail+1)); }
 
-BOOT="home/run_once_after_25-k8s-tools.sh.tmpl"
+command -v chezmoi >/dev/null 2>&1 || { echo "SKIP: chezmoi absent"; exit 0; }
 
-# ── source the bootstrap as a library (functions only) ───────────────────────
+# 1. external render: pinned URL + sha256 present and well-formed
+EXT="home/.chezmoiexternal.toml.tmpl"
 render=$(mktemp)
-if grep -q '{{' "$BOOT"; then
-  if command -v chezmoi >/dev/null 2>&1; then chezmoi execute-template < "$BOOT" > "$render"
-  else echo "SKIP: $BOOT has template directives and chezmoi is absent"; exit 0; fi
-else
-  cp "$BOOT" "$render"
-fi
+chezmoi execute-template < "$EXT" > "$render" 2>/dev/null
+if grep -qE 'url = "https://github\.com/kubecolor/kubecolor/releases/download/v[0-9]+\.[0-9]+\.[0-9]+/' "$render"; then
+  ok "external: kubecolor URL carries a pinned version"
+else bad "external: no pinned version in kubecolor URL"; fi
+if grep -qE 'checksum\.sha256 = "[0-9a-f]{64}"' "$render"; then
+  ok "external: sha256 checksum present (64-hex)"
+else bad "external: checksum missing or malformed"; fi
+rm -f "$render"
+
+# 2. shim library sources cleanly
+BOOT="home/run_once_after_25-k8s-tools.sh.tmpl"
+render=$(mktemp)
+if grep -q '{{' "$BOOT"; then chezmoi execute-template < "$BOOT" > "$render"; else cp "$BOOT" "$render"; fi
+_srcbin=$(mktemp -d)
 # shellcheck disable=SC1090
-_srcbin=$(mktemp -d)   # throwaway; each test below resets BIN anyway
-ARCH=amd64 BIN="$_srcbin" K8S_TOOLS_SOURCE_ONLY=1 source "$render"
-if declare -F _fetch_verify_install >/dev/null; then ok "sourced _fetch_verify_install"; else bad "could not source _fetch_verify_install"; echo "fatal"; exit 1; fi
+BIN="$_srcbin" K8S_TOOLS_SOURCE_ONLY=1 source "$render"
+if declare -F _gen_completion_shims >/dev/null; then ok "sourced _gen_completion_shims"; else bad "could not source _gen_completion_shims"; fi
+rm -rf "$render" "$_srcbin"
 
-# ── build offline fixtures ───────────────────────────────────────────────────
-fix=$(mktemp -d)
-printf '#!/bin/sh\necho faketool 1.0\n' > "$fix/faketool"; chmod +x "$fix/faketool"
-( cd "$fix" && tar -czf faketool.tgz faketool )
-good_sum=$(sha256sum "$fix/faketool.tgz" | awk '{print $1}')
-printf '%s  faketool.tgz\n' "$good_sum"                         > "$fix/good.txt"
-printf '%s  faketool.tgz\n' "0000000000000000000000000000000000000000000000000000000000000000" > "$fix/bad.txt"
-
-# 1. happy path
-BIN=$(mktemp -d)
-_fetch_verify_install faketool "file://$fix/faketool.tgz" "file://$fix/good.txt" faketool >/dev/null 2>&1
-if [[ -x "$BIN/faketool" ]]; then ok "happy path: binary installed + executable"; else bad "happy path: binary not installed"; fi
-rm -rf "$BIN"
-
-# 2. checksum mismatch → must reject and install nothing
-BIN=$(mktemp -d)
-if _fetch_verify_install faketool "file://$fix/faketool.tgz" "file://$fix/bad.txt" faketool >/dev/null 2>&1; then
-  bad "checksum reject: returned success on bad sum"
-else ok "checksum reject: returned non-zero on bad sum"; fi
-if [[ -e "$BIN/faketool" ]]; then bad "checksum reject: installed despite bad sum"; else ok "checksum reject: installed nothing"; fi
-rm -rf "$BIN"
-
-# 3. requested member absent from tarball → non-zero
-BIN=$(mktemp -d)
-if _fetch_verify_install faketool "file://$fix/faketool.tgz" "file://$fix/good.txt" not-in-tarball >/dev/null 2>&1; then
-  bad "missing member: returned success"
-else ok "missing member: returned non-zero"; fi
-rm -rf "$BIN"
-
-# 4. lock-step: completions.zsh _COMPLETION_GEN  ==  run_once_after_30 specs.
+# 3. lock-step: completions.zsh _COMPLETION_GEN  ==  run_once_after_30 specs.
 # Parse ONLY inside each array block (…=( … )) so function calls/comments
 # elsewhere in the files don't leak in.
 gen=$(awk '/_COMPLETION_GEN=\(/{f=1;next} f&&/^\)/{f=0} f' home/dot_config/zsh/lib/completions.zsh \
@@ -82,6 +59,5 @@ else
   diff <(echo "$gen") <(echo "$pre") | sed 's/^/    /'
 fi
 
-rm -rf "$fix" "$render" "$_srcbin"
 echo "── k8s-tools tests: $fail failed ──"
 exit "$fail"

@@ -1,6 +1,6 @@
 ---
 name: reveried-swap
-description: Rebuild reveried from a git ref, pause-world the running daemon, swap the binary at ~/.local/bin/engram, verify, and unpause. Handles the coord engram-serve lock, rollback on smoke failure, and optional cleanup of stale coord orphans. Use when the user wants to update the running reveried binary to pick up new fixes or features on main (or any other branch). Args — optional `<ref>` (default `origin/main`) and optional `--force` to skip the pre-swap diff audit.
+description: Rebuild reveried from a git ref, pause-world the running daemon, swap the binary at ~/.local/bin/engram, verify, and unpause. Serializes concurrent swaps via a kernel flock (auto-released on process death) and rolls back on smoke failure. Use when the user wants to update the running reveried binary to pick up new fixes or features on main (or any other branch). Args — optional `<ref>` (default `origin/main`) and optional `--force` to skip the pre-swap diff audit.
 ---
 
 # reveried-swap — safe daemon binary swap
@@ -16,7 +16,6 @@ Rebuild reveried from a git ref, pause the running daemon, swap the binary at `~
 
 **Don't** use this when:
 - The change is config-only — swap wastes time. Use `reveried reload` (TOD-429) once it lands, or edit `~/.config/reveried/config.toml` if it's already config-backed
-- The change is bash-only in `~/.claude/bin/coord` — that's not in the binary; just edit the script
 - The change is in a crate that isn't linked into reveried (e.g. `reverie-bench` is a separate binary)
 - You're mid-PR work — build + test in a worktree first, don't swap experimental binaries into `~/.local/bin/engram`
 - The user hasn't reviewed the diff (unless `--force`)
@@ -48,22 +47,20 @@ Bucket commits into:
 
 - **🔴 Requires swap** — touches `crates/reveried/`, `crates/reverie-store/`, `crates/reverie-gate/`, `crates/reverie-dream/`, `crates/reverie-sync/`, or `crates/reverie-chunk/`
 - **🟠 CLI/client only** — touches `crates/reveried/src/main.rs` or `client.rs` (daemon runtime unchanged but user-facing commands differ)
-- **🟢 No swap needed** — `docs/`, `scripts/coord/`, `.github/`, `README.md`, bench-only crates
+- **🟢 No swap needed** — `docs/`, `.github/`, `README.md`, bench-only crates
 
 Print the table and pause for confirmation unless `--force` is set. If there are zero 🔴 commits, warn and ask if the swap is still wanted.
 
-### 3. Acquire the coord lock
+### 3. Serialization — kernel flock (taken around the critical section)
 
-Per `~/.claude/CLAUDE.md`, kill-or-swap of `~/.local/bin/engram` requires the `engram-serve` lock:
-
-```bash
-coord lock engram-serve --reason "reveried swap to <ref>" --ttl 600
-```
-
-If acquisition fails because an orphan lock is held:
-1. Check if the owner pid is alive: `ps -p $(jq -r .owner_pid /tmp/claude-coord/locks/engram-serve/record.json)`
-2. If dead, overwrite the lock `record.json` + `owner` files with current session (see the claude-config orphan steal pattern used in this repo's coord protocol)
-3. If alive, ABORT — do not swap while another session is doing anything with the daemon
+Concurrent swaps are serialized with a kernel `flock` on
+`/var/lock/reverie-engram-serve.lock`. The lock is acquired by wrapping the
+**critical section (steps 7–9)** in a single flock'd shell block — see step 7.
+Properties that make this strictly better than TTL locks: the kernel releases
+it automatically when the holding process exits or crashes (no orphan locks,
+no steal protocol), and a second session attempting a swap blocks up to 600s
+then aborts cleanly. A breadcrumb line (`pid`, timestamp, target ref) is
+written into the lock file purely for observability — it is NOT the lock.
 
 ### 4. Build
 
@@ -106,7 +103,19 @@ cp "$BIN" "$BACKUP"
 
 Never skip this step. A swap that goes wrong without a backup is unrecoverable.
 
-### 7. Pause the running daemon
+### 7. Critical section — pause, swap, restart, verify (under flock)
+
+Steps 7–9 run as ONE flock'd shell block so the lock is held for the whole
+mutation and vanishes with the process no matter how it exits:
+
+```bash
+flock -w 600 /var/lock/reverie-engram-serve.lock bash -euo pipefail -c '
+  echo "$$ $(date -Is) swap-to-<ref>" > /var/lock/reverie-engram-serve.lock.info
+  # --- steps 7-9 body goes here (pause → install → restart → verify) ---
+' || { echo "another swap holds the lock (waited 600s) — ABORT"; exit 1; }
+```
+
+Pause the running daemon (inside the block):
 
 ```bash
 ~/.local/bin/engram pause --reason "reveried swap to <ref>" || true
@@ -130,8 +139,7 @@ install -m 755 "$NEWBIN" "$BIN"
 ~/.local/bin/engram --help >/dev/null || {
   echo "POST-SWAP FAIL — new binary at $BIN not executable; rolling back"
   cp "$BACKUP" "$BIN"
-  coord unlock engram-serve
-  exit 1
+  exit 1   # flock releases automatically on exit
 }
 ```
 
@@ -155,8 +163,7 @@ curl -sf http://127.0.0.1:7438/health | jq -e '.status=="ok"' || {
   cp "$BACKUP" "$BIN"
   nohup "$BIN" serve >/dev/null 2>&1 &
   disown
-  coord unlock engram-serve
-  exit 1
+  exit 1   # flock releases automatically on exit
 }
 ```
 
@@ -168,11 +175,10 @@ Only reach here if `/health` is green post-restart:
 ~/.local/bin/engram unpause || true
 ```
 
-### 11. Release the lock
+### 11. Lock release
 
-```bash
-coord unlock engram-serve
-```
+Nothing to do — the flock died with the critical-section shell. If you want
+proof: `flock -n /var/lock/reverie-engram-serve.lock true && echo free`.
 
 ### 12. Clean up the temp worktree (optional)
 
@@ -191,7 +197,7 @@ Print a summary:
 - Duration: `<seconds>`
 - New binary size: `<bytes>`
 - `/health` response: OK
-- Coord lock: released
+- Swap lock: auto-released (flock)
 
 ## Rollback procedure (manual)
 
@@ -202,7 +208,7 @@ pgrep -f "engram serve" | xargs -r kill -TERM
 cp ~/backups/engram/engram-<timestamp>.bak ~/.local/bin/engram
 nohup ~/.local/bin/engram serve >/dev/null 2>&1 &
 disown
-~/.claude/bin/coord unlock engram-serve  # if still held
+# No lock cleanup needed — the flock died with whatever process held it.
 ```
 
 The MVP-A cutover rollback binary (`~/backups/engram/engram-go-binary-20260407.bak`) is the nuclear option — it's the last-known-good Go engram from before the Rust cutover. Only use if every Rust build is broken.
@@ -211,7 +217,7 @@ The MVP-A cutover rollback binary (`~/backups/engram/engram-go-binary-20260407.b
 
 - **Never** `cp` (non-atomic). Always `install -m 755` (atomic rename).
 - **Never** skip the backup. No exceptions.
-- **Never** skip the coord `engram-serve` lock unless `--force` AND the user has typed "i know what im doing".
+- **Never** run the critical section outside the flock unless `--force` AND the user has typed "i know what im doing".
 - **Never** swap while a long-running MCP call is in flight without pausing first.
 - **Never** overwrite `~/backups/engram/engram-go-binary-20260407.bak` — that's the MVP-A rollback capsule.
 - **Always** smoke-test the new binary on a temp port + temp DB before touching the production binary.
