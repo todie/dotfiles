@@ -82,4 +82,7 @@ rendering. CI (`.github/workflows/ci.yml`) runs shellcheck + `zsh -n` + tmux par
 `~/.agents/skills` as real files (the old repo-root `agents/skills/` +
 skill-manager symlink layer is retired). `home/dot_claude/skills/` holds
 claude-only skills; `~/.claude/skills` may symlink INTO `~/.agents/skills`
-for shared ones. New shared skills go in `home/dot_agents/skills/`.
+for shared ones. New shared skills go in `home/dot_agents/skills/`. EXCEPTION: skills whose
+canon lives in another repo (e.g. agentic `packages/skills/`) are live-symlinked
+into `~/.agents/skills` by that repo's installer — never copied into dotfiles
+(a raw symlink in the source tree gets DEREFERENCED at apply into a stale copy).
