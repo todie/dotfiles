@@ -17,21 +17,18 @@ set -euo pipefail
 OUT="${1:-$HOME/.local/state/tmux-layout/restore.sh}"
 mkdir -p "$(dirname "$OUT")"
 
-tmux list-sessions >/dev/null 2>&1 || {
-  echo "tmux-save-layout: no tmux server running" >&2
-  exit 1
-}
+tmux list-sessions >/dev/null 2>&1 || { echo "tmux-save-layout: no tmux server running" >&2; exit 1; }
 
 # Foreground command -> command to relaunch on restore. Only auto-relaunch things
 # that are safe to re-run blind; everything else gets a plain shell at the cwd.
 relaunch_for() {
   case "$1" in
     claude) printf 'claude' ;;
-    *) printf '' ;;
+    *)      printf '' ;;
   esac
 }
 
-q() { printf '%q' "$1"; } # shell-safe single arg
+q() { printf '%q' "$1"; }   # shell-safe single arg
 
 {
   echo '#!/usr/bin/env bash'
@@ -51,14 +48,14 @@ q() { printf '%q' "$1"; } # shell-safe single arg
       IFS=$'\t' read -r cwd0 cmd0 <<<"${plines[0]}"
 
       echo "# --- session $(q "$sess") · window ${widx} $(q "$wname") ---"
-      if ((first_win)); then
+      if (( first_win )); then
         echo "tmux new-session -d -s $(q "$sess") -n $(q "$wname") -c $(q "$cwd0")"
         first_win=0
       else
         echo "tmux new-window -t $(q "$sess"): -n $(q "$wname") -c $(q "$cwd0")"
       fi
       # Extra panes (split; geometry is fixed up by select-layout below).
-      for ((i = 1; i < ${#plines[@]}; i++)); do
+      for ((i=1; i<${#plines[@]}; i++)); do
         IFS=$'\t' read -r cwd cmd <<<"${plines[i]}"
         echo "tmux split-window -t $(q "${sess}:${widx}") -c $(q "$cwd")"
       done
@@ -89,7 +86,7 @@ RELAUNCH
   done < <(tmux list-sessions -F '#{session_name}')
 
   echo 'echo "tmux layout restored. attach with: tmux attach"'
-} >"$OUT"
+} > "$OUT"
 
 chmod +x "$OUT"
 echo "saved layout -> $OUT"

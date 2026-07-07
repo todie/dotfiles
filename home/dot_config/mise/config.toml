@@ -81,6 +81,10 @@ deno = "2.8.1"
 #    bare registry, so the full aqua:owner/repo locator is required) ──────────
 "aqua:moonrepo/proto" = "0.57.3"
 "aqua:moonrepo/moon"  = "2.2.6"
+"aqua:go-task/task" = "latest"
+"aqua:rhysd/actionlint" = "latest"
+"github:cerebral-work/linearctl" = "latest"
+age = "latest"
 
 [settings]
 # Don't auto-install on cd; installs are explicit (`mise install`) — keeps the

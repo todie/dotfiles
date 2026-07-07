@@ -10,22 +10,20 @@
 - **GitHub:** `todie` (SSH + GPG, key `29234C4D7EE749F2`). Email: `chris@todie.io`.
 - **All commits signed** — never `--no-gpg-sign`.
 
-## Local LLM Offload — DISABLED
-Offload is off per standing user directive — Claude handles all work directly; do **not** run `anchor-offload` / `maybe-offload` before spawning `Agent`. The three-tier chain (Ollama → OpenRouter → Claude) and its hooks are retired. (Was: route non-critical work to local models.)
-
 ## Tool Priority
 1. **LSP first for symbol work** — use the `LSP` tool for go-to-definition, find-references, hover types, rename, and diagnostics. More accurate than Grep for symbols and cheaper than re-reading whole files. Grep only for free text, comments, strings, or languages with no LSP.
 2. Built-in tools (Read/Write/Edit/Glob/Grep/Agent/Skills) and MCP servers
 3. CLI tools (`gh`, `git`, `docker`, `curl`, `npm`)
 4. Manual workarounds last
 
+**Concurrency:** prefer subagents (Agent tool / background tasks) over spawning new tmux panes/windows for parallel or long-running work. tmux only when the operator asks for an attachable interactive surface.
+**Agent shape — single-agent default (2026-07-04):** multi-agent generation is a trap — spawned workers lose uncommitted work at turn end, re-spawns start cold, coordination overhead compounds. One long-running Fable/Opus agent (or the main session inline) carries the work end-to-end with commit-as-you-go. Subagent spawns are reserved for read-only recon and mechanical critic/validation gates ("builders fabricate, critics catch" still holds). Multi-agent orchestration only on explicit operator request.
+
 ## MCP servers
 Cloud (managed by claude.ai): Linear (tickets), GCal, Gmail, Vercel. Local (`~/.claude/mcp/`): Engram (memory), GDrive, Obsidian (vault at `~/vault`).
 
-## Multi-session Coordination
-At session start: `coord register --task "..."` then `coord peers`.
-Locks: `main-branch`, `pr-merge-queue`, `cargo-build`, `claude-config`, `engram-serve`. File locks: `file-lock acquire reverie <path>`.
-Release after use. On end: `coord dereg`. Protocol: `~/projects/reverie/docs/coord/protocol-v0.md`.
+## Retired systems (do not use)
+Local-LLM offload (`anchor-offload`/`maybe-offload`) is retired — never offload. For shared-resource safety: check `git status`/`ps` directly, prefer worktrees for parallel edits, surface conflicts to the operator.
 
 ## Memory
 Engram (`reveried` at `~/.local/bin/engram`, DB at `~/.engram/engram.db`, port 7437). Reads: `mem raw "/search?q=..."`. Writes: `mem_save`/`mem_update` MCP. Protocol: `engram:memory` skill. Context: `/context/smart?project=X&limit=15`.
@@ -38,8 +36,14 @@ Before claiming no prior context exists for a task, search engram and Obsidian v
 ## Loop Discipline (operator self-correcting drip-feed / shiny-chasing)
 Full rule: `~/.claude/rules/loop-discipline.md`. In short: **front-load context** (ask for landscape · constraints · goal before substantive work); **one thread to done-done** before the next, park deferred work to Linear/memory don't drop it; **build guardrails before using new power** (name blast radius first); **operator approves** all irreversible/outward actions (merge, apply, rotate, external send) — agent prepares, operator signs off.
 
+## Attention Discipline (parking recursively-sourced work)
+Full rule (canonical): `~/projects/reverie/docs/attention-discipline.md`. In short: **sourced work parks to the tracker Backlog by default** (never the foreground); only **security · data-loss · prod-break · blocks-active-ticket** may interrupt (one line each); **report findings as a count, NEVER an inline dump**; the backlog is swept on a **schedule** (triage-only), not reactively. Foreground = critical tickets only. Per-project Backlog + sweep bindings live in each project's memory.
+
 ## Presentation & Decisions
 Full rule: `~/.claude/rules/presentation-and-decisions.md`. In short: **open decisions** — any fork where the operator's choice changes what you do next — go through **`AskUserQuestion` (interview mode)**, never enumerated as prose bullets for a free-form reply; **long-form to judge** (>~40 lines: plans, RFCs, proposals, migration docs) gets **written to a file + opened in `$EDITOR`**, with only a short orientation (what/where/decisions) in chat.
+
+## Output Quality Gate
+Full rule: `~/.claude/rules/output-quality-gate.md`. In short: **engineer register always** (no invented names, no metaphors in technical content); **never present a render you haven't inspected** — snapshot + one critique pass BEFORE the operator sees it; **creative asks get one fast draft + checkpoint**, two rejections force an interview, no >15-min aesthetic bakes without an explicit go.
 
 ## Clarification Rules
 When asked to "connect to", "check", or "open" a service, default to **status/health** (e.g. `docker ps`) unless context clearly implies attach/open or configure.
@@ -53,10 +57,7 @@ When asked to "connect to", "check", or "open" a service, default to **status/he
 - Never commit API keys, tokens, or secrets in plaintext. If accidentally exposed in a commit, flag it immediately for rotation — treat it as already compromised.
 
 ## Session Bootstrap
-On session start:
-1. Inject engram context: `curl -sf http://127.0.0.1:7437/context/smart?project=<project>&limit=15`
-2. Check services: `cortex health --json` (or fallback: curl health + redis-cli PING)
-3. Ensure auto-memory exists: if `memory/MEMORY.md` is missing for this project, create it with at least a user profile entry
+The `session-bootstrap.sh` SessionStart hook handles engram context injection, service health, and the auto-memory check. Don't repeat those manually — only act on its warnings (e.g. create `memory/MEMORY.md` if it says one is missing).
 
 ## Capacity
 **CLAUDE.md files must stay under 200 lines.** Adherence drops past that threshold. Before adding content to any CLAUDE.md, check `wc -l` and move low-priority items to engram or rules/ if near capacity.

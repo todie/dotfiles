@@ -82,3 +82,9 @@ alias cy="claude --dangerously-skip-permissions"
 # terraform shell completion (terraform now resolves via the mise shim / PATH,
 # not a hardcoded ~/.local/bin path). bashcompinit is set up in lib/env.zsh.
 command -v terraform >/dev/null 2>&1 && complete -o nospace -C "$(command -v terraform)" terraform
+
+# opencode
+export PATH=/home/ctodie/.opencode/bin:$PATH
+
+# OpenBao (unsigned-paas-dev, via tailnet LB — bao.dev.unsigned.gg ingress is dead)
+export BAO_ADDR=http://bao.tail769bd2.ts.net

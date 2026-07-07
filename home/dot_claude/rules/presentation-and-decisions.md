@@ -24,6 +24,11 @@ decisions as prose bullets and ask for a free-form reply.
   options; recommend one (first, marked "Recommended") when you have a lean.
 - Batch related decisions into a single `AskUserQuestion` call (up to 4) rather
   than scattering them across messages.
+- **No exceptions for "small" or closing forks.** A binary or end-of-turn
+  "want me to X, or Y?" is still an open decision — pose it via `AskUserQuestion`,
+  never as a trailing prose question. Default to interview mode for *every*
+  multipart/decision questionnaire. The only prose-question case is a single
+  genuinely open-ended clarification with no enumerable options.
 - A document's "Open decisions" section is a **prompt to interview**, not a place
   to park questions and move on.
 

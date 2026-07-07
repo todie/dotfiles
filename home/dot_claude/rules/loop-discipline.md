@@ -48,8 +48,9 @@ operate within it, don't reinvent it. Full compact: engram `operating/trust-enfo
   agent prepares and surfaces; the operator approves. No auto-merge / no
   auto-apply unless the operator opts in per-action.
 - **Never direct-push to main/master — use a PR.** Only exception: ci-config / fmt
-  fixes via an explicit, SURFACED `# allow-direct-push` override (state that you
-  used it, and why). Enforced by `guard-main-push.sh` (project hook) + repo branch
+  fixes via an explicit, SURFACED `# allow-merge` override (state that you used
+  it, and why). Enforced by `~/.claude/hooks/guard-merge-to-main.sh` (user hook;
+  honors only `# allow-merge`) + `guard-main-checkout.sh` + repo branch
   protection where the plan allows it. This is the enforced replacement for the
   advisory "merge needs sign-off" habit, which eroded under autonomy.
 - Prefer reversible + observable: dry-run/plan first, log what was dropped or
