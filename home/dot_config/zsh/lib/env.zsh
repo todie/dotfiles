@@ -24,6 +24,8 @@ path+=("$BIN_DIR")
 [[ -d "$HOME/.cargo/bin" ]] && path+=("$HOME/.cargo/bin")
 [[ -d "$HOME/gopath/bin" ]] && path+=("$HOME/gopath/bin")
 [[ -d "$HOME/.claude/bin" ]] && path+=("$HOME/.claude/bin")
+# bun — global package bin (omp etc.); bun keeps it under XDG cache here
+[[ -d "$HOME/.cache/.bun/bin" ]] && path+=("$HOME/.cache/.bun/bin")
 # krew — kubectl plugin manager. Plugins install as kubectl-<name> binaries
 # here and run as `kubectl <name>` (ctx, ns, stern, tree, neat, popeye, …).
 [[ -d "${KREW_ROOT:-$HOME/.krew}/bin" ]] && path+=("${KREW_ROOT:-$HOME/.krew}/bin")
