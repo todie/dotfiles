@@ -41,6 +41,10 @@ export HISTSIZE=10000
 export SAVEHIST=10000
 export HISTFILE="${XDG_CACHE_HOME}/zsh-history"
 
+# keep stray tool histories out of ~ (XDG hygiene, 2026-07-07)
+export LESSHISTFILE="${XDG_CACHE_HOME}/lesshst"
+export NODE_REPL_HISTORY=""   # off — never useful, always clutter
+
 # ── editor — prefer host Zed on WSL, then Linux Zed, fall back gracefully ────
 if [[ -n ${WSL_DISTRO_NAME:-} ]] && has zedw; then
   # Windows-host Zed via WSL remoting (bin/zedw). EDITOR is NON-blocking so a

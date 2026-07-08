@@ -1,5 +1,5 @@
 # ${HOME}/.zshrc: user profile for zsh (zsh(1))
-# Author: Christian M. Todie <ctodie@coreweave.com>
+# Author: Christian M. Todie <chris@todie.io>
 
 export GPG_TTY=$TTY
 export DOTFILES_ZSH_DEBUG="${DOTFILES_ZSH_DEBUG:-0}"
@@ -60,8 +60,6 @@ unset _module
 # User-local overrides — not tracked in dotfiles.
 [[ -f "${HOME}/.zshrc-${USER}" ]] && source "${HOME}/.zshrc-${USER}"
 
-# Added by Pilot installer
-export PATH="$HOME/.local/bin:$PATH"
 
 # --- ssh-agent ---
 # Removed: SSH now routed through 1Password via ~/.zshrc-ctodie (aliases
