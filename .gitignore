@@ -20,3 +20,4 @@
 .zshrc-*
 /.skill-lock.json
 Thumbs.db
+chezmoistate.boltdb
