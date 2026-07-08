@@ -43,5 +43,31 @@ if [ -n "${SESSION_ID}" ] && [ -n "${USER_PROMPT}" ]; then
   [ -n "${PROMPT_BODY}" ] && http_post "$ENGRAM_URL/prompts" "$PROMPT_BODY" 1
 fi
 
+# Ambient Recall (CER-1369 slice 1 / CER-1420): surface cross-session memory
+# relevant to THIS prompt as additionalContext. Server owns relevance floor +
+# per-session dedupe (items empty on a silent turn). Hard 1s budget inside the
+# 2s hook ceiling; endpoint absent (pre-0.10.x daemon) or down → clean no-op.
+if [ -n "${SESSION_ID}" ] && [ -n "${USER_PROMPT}" ]; then
+  AMBIENT_REQ="$(jq -n \
+    --arg session_id "$SESSION_ID" \
+    --arg project "${PROJECT:-default}" \
+    --arg text "$USER_PROMPT" \
+    '{session_id: $session_id, project: $project, text: $text}' 2>/dev/null)"
+  AMBIENT_RESP="$(curl -sf -m 1 -X POST "$ENGRAM_URL/context/ambient" \
+    -H 'Content-Type: application/json' -d "$AMBIENT_REQ" 2>/dev/null || true)"
+  if [ -n "$AMBIENT_RESP" ]; then
+    CONTEXT="$(echo "$AMBIENT_RESP" | jq -r '
+      select((.items | length) > 0) |
+      "## Ambient memory (relevant past context)\n" +
+      ([.items[] | "- [\(.project)] **\(.title)**: \(.snippet)"] | join("\n"))
+    ' 2>/dev/null)"
+    if [ -n "$CONTEXT" ]; then
+      jq -n --arg ctx "$CONTEXT" \
+        '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $ctx}}'
+      exit 0
+    fi
+  fi
+fi
+
 echo '{}'
 exit 0

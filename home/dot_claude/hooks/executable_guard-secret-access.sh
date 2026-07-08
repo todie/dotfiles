@@ -68,6 +68,13 @@ if [ "$TOOL" = "Bash" ]; then
   # carry no reader verb, so they bypassed the verb-only check.)
   # Strip safe references (*.pub / *.example / *.sample / *.template) first.
   CMD_STRIPPED=$(echo "$COMMAND" | sed -E 's/[^[:space:]]+\.(pub|example|sample|template)([[:space:]]|$)/ /g')
+  # Also strip jq/yq PROGRAM strings (the single-quoted filter argument):
+  # `.env` there is a JSON/YAML field access, not a file read — e.g.
+  # `jq '.env // {}' settings.json` false-blocked (2026-07-02). Only the quoted
+  # program is removed; file args after it survive, so `jq '.x' .env` still
+  # trips S1, and non-jq readers (`cat '.env'`) are untouched.
+  CMD_STRIPPED=$(echo "$CMD_STRIPPED" | sed -E "s/(^|[^a-zA-Z0-9_/-])(jq|yq)(([[:space:]]+-[A-Za-z@-]+)*)[[:space:]]+'[^']*'/\1\2\3/g" \
+                                      | sed -E 's/(^|[^a-zA-Z0-9_\/-])(jq|yq)(([[:space:]]+-[A-Za-z@-]+)*)[[:space:]]+"[^"]*"/\1\2\3/g')
   if echo "$CMD_STRIPPED" | grep -qE "$SECRET_PATHS_REGEX" \
      && { echo "$COMMAND" | grep -qE "(^|[^a-zA-Z0-9_/-])(${READ_CMDS})([[:space:]]|\$)" \
           || echo "$CMD_STRIPPED" | grep -qE "<[[:space:]]*[\"']?[^[:space:]\"'<>;|&]*${SECRET_PATHS_REGEX}" \

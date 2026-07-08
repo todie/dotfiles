@@ -98,6 +98,17 @@ project_info() {
   # Returns: PROJECT|PROJ_HASH|REPO_ROOT
   local root; root=$(git -C "${1:-.}" rev-parse --show-toplevel 2>/dev/null || echo "${1:-.}")
   local name; name=$(basename "$root")
+  # 2026-07-04 ~/projects reorg: dirs renamed into org buckets, but engram
+  # project keys must stay canonical (history continuity). Map renamed
+  # basenames back; manifest: ~/projects/_reorg-manifest-2026-07-04.tsv
+  case "$root" in
+    */projects/unsigned/paas)        name=unsigned-paas ;;
+    */projects/unsigned/gg)          name=unsigned-gg ;;
+    */projects/cerebral/site)        name=cerebral-work-site ;;
+    */projects/cerebral/voicenotes)  name=cerebral-voicenotes ;;
+    */projects/cerebral/models)      name=cerebral-models ;;
+    */projects/templates/*)          name="template-$name" ;;
+  esac
   local hash; hash=$(echo "$root" | sed 's|/|-|g; s|^-||')
   printf '%s|%s|%s' "$name" "$hash" "$root"
 }
@@ -255,5 +266,4 @@ cb_reset() {
 # --- Constants ---
 
 ENGRAM_URL="http://127.0.0.1:7437"
-COORD="${HOME}/.claude/bin/coord"
 REVERIED="${HOME}/.local/bin/reveried"

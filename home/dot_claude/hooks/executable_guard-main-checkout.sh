@@ -33,7 +33,7 @@ main_worktree_of_unsigned() {
   [ -e "$p" ] || p=$(dirname "$p")
   [ -d "$p" ] || return 0
   common=$(git -C "$p" rev-parse --path-format=absolute --git-common-dir 2>/dev/null) || return 0
-  case "$common" in */unsigned-paas/.git*) ;; *) return 0 ;; esac
+  case "$common" in */unsigned-paas/.git*|*/unsigned/paas/.git*) ;; *) return 0 ;; esac
   gdir=$(git -C "$p" rev-parse --path-format=absolute --git-dir 2>/dev/null) || return 0
   [ "$gdir" = "$common" ] && echo MAIN
 }

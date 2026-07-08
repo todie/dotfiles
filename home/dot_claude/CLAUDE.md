@@ -22,6 +22,9 @@
 ## MCP servers
 Cloud (managed by claude.ai): Linear (tickets), GCal, Gmail, Vercel. Local (`~/.claude/mcp/`): Engram (memory), GDrive, Obsidian (vault at `~/vault`).
 
+## LLM gateway (cluster)
+Non-Claude model access goes through **`https://llm.unsigned.gg/v1`** — OpenAI-compatible LiteLLM gateway on the unsigned-paas cluster (NOT local ollama, NOT vendor APIs directly). Key: `op read "op://cloud/unsigned-llm/credential"` — resolve per-call, never echo. Models incl. `zai/GLM-5.2`, DeepSeek-V4-Pro, Qwen3-235B, Kimi-K2.6/2.7, gpt-5.5, gemini-3.5-flash, devstral (list via `GET /v1/models`). Quirk: transient 401 "cached plan must not change result type" = gateway DB hiccup — retry, don't rotate the key.
+
 ## Retired systems (do not use)
 Local-LLM offload (`anchor-offload`/`maybe-offload`) is retired — never offload. For shared-resource safety: check `git status`/`ps` directly, prefer worktrees for parallel edits, surface conflicts to the operator.
 

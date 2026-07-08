@@ -13,15 +13,6 @@
 #   2           Deny rule matched → pass through (Claude Code native deny handles it)
 #   3 + stdout  Ask rule matched → rewrite but let Claude Code prompt the user
 
-# Campaign kill-switch (added 2026-06-08): if this flag file exists, bypass RTK
-# rewriting entirely and pass every command through untouched. Reason: RTK
-# mangled grep/rg output on .rs files (rewrote `memsys`->`ln`) during the reverie
-# v0.10.x domain-normalization sweep, whose acceptance gates are grep assertions.
-# Re-enable RTK with:  rm ~/.claude/.rtk-disabled
-if [ -f "$HOME/.claude/.rtk-disabled" ]; then
-  exit 0
-fi
-
 if ! command -v jq &>/dev/null; then
   echo "[rtk] WARNING: jq is not installed. Hook cannot rewrite commands. Install jq: https://jqlang.github.io/jq/download/" >&2
   exit 0

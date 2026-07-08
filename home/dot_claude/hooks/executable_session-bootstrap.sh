@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # session-bootstrap.sh — Full bootstrap on new session (matcher: startup)
-# 1. Check mesh health
+# 1. Check core services health (reveried/redis/memcache via cortex)
 # 2. Ensure auto-memory dir exists for this project
 #
 # 3. Inject engram memory context (reveried /context/smart) for this project.
@@ -15,7 +15,7 @@ trap 'hook_trap_fail "$LINENO" "$BASH_COMMAND"' ERR
 IFS='|' read -r PROJECT PROJ_HASH REPO_ROOT <<< "$(project_info "$PWD")"
 MEMORY_DIR="$HOME/.claude/projects/-${PROJ_HASH}/memory"
 
-# 1. Mesh health
+# 1. Services health
 HEALTH=""
 if require_cmd cortex; then
   HEALTH=$(cortex health --json 2>/dev/null || true)
@@ -29,7 +29,7 @@ fi
 
 # Output
 if [ -n "$HEALTH" ]; then
-  hook_kv "mesh=$(echo "$HEALTH" | jq -r 'if .ok then "ok" else "degraded" end' 2>/dev/null)"
+  hook_kv "services=$(echo "$HEALTH" | jq -r 'if .ok then "ok" else "degraded" end' 2>/dev/null)"
 else
   hook_warn "cortex unavailable"
 fi

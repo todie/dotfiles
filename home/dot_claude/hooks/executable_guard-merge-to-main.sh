@@ -36,7 +36,7 @@ block() {
   {
     echo "BLOCKED: merge/push to a protected branch (main/master) without operator sign-off."
     echo "  Command: $cmd"
-    echo "  Spawned agents are PRODUCERS — open a PR + announce via coord; do NOT merge to main."
+    echo "  Spawned agents are PRODUCERS — open a PR and report it to the lead session; do NOT merge to main."
     echo "  If you are the operator/integrator and this merge is authorized, re-run with a"
     echo "  trailing  # allow-merge  marker."
   } >&2
