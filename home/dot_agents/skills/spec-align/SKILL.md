@@ -195,7 +195,7 @@ Gaps:
 | # | Section        | Spec lines  | Preview                                                           |
 |---|----------------|-------------|-------------------------------------------------------------------|
 | 4 | server runtime | 168–224     | The server runtime is responsible for accepting capability...     |
-| 5 | client SDK     | 226–280     | The client SDK exposes a Capabilities trait that mesh peers...    |
+| 5 | client SDK     | 226–280     | The client SDK exposes a Capabilities trait that peer sessions...|
 
 Re-run with --file to stage the 2 gaps as a linear-file-spec dry-run.
 ```

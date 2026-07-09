@@ -86,8 +86,8 @@ For `--to`:
 
 | # | ID | Title | State | Current milestone |
 |---|----|-------|-------|-------------------|
-| 1 | TOD-491 | Wire mesh telemetry | In Progress | Phase 5 |
-| 2 | TOD-492 | Wire mesh metrics | Todo | Phase 5 |
+| 1 | TOD-491 | Wire observability telemetry | In Progress | Phase 5 |
+| 2 | TOD-492 | Wire observability metrics | Todo | Phase 5 |
 
 For `--shift` / `--set-date`:
 
@@ -194,9 +194,9 @@ Preflight: team=TOD (ok) · project=Reverie (ok) · from="Phase 5: Auto-Capture 
 Before:
 | # | ID      | Title                   | State       | Current milestone                     |
 |---|---------|-------------------------|-------------|---------------------------------------|
-| 1 | TOD-491 | Wire mesh telemetry     | In Progress | Phase 5: Auto-Capture & Write-Gate    |
-| 2 | TOD-492 | Wire mesh metrics       | Todo        | Phase 5: Auto-Capture & Write-Gate    |
-| 3 | TOD-493 | Wire mesh dashboards    | Backlog     | Phase 5: Auto-Capture & Write-Gate    |
+| 1 | TOD-491 | Wire observability telemetry     | In Progress | Phase 5: Auto-Capture & Write-Gate    |
+| 2 | TOD-492 | Wire observability metrics       | Todo        | Phase 5: Auto-Capture & Write-Gate    |
+| 3 | TOD-493 | Wire observability dashboards    | Backlog     | Phase 5: Auto-Capture & Write-Gate    |
 
 Plan: move 3 issues from "Phase 5: Auto-Capture & Write-Gate" → "Phase 6: Auto-Capture Phase 2". Re-run with --apply to write.
 ```

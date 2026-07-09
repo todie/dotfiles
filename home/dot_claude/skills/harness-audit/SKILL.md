@@ -2,7 +2,7 @@
 name: harness-audit
 description: >
   Full-spectrum situational audit across the reverie project and the local machine.
-  Uses cortex as the primary probe layer for mesh health, peers, and services.
+  Uses cortex as the primary probe layer for peer health and services.
   Falls back to raw commands only for probes cortex doesn't cover. Reports in
   Silver Surfer register (cosmic, spare, factual). Use when the user asks for a
   harness audit, herald scan, situational report, "what's going on", or on
@@ -29,7 +29,7 @@ is one organ among many. Its mandate is to verify, end to end, every constituent
 
 1. **Reverie** — the daemon (`reveried`), its crates, repo state, worktrees, PRs, the
    roadmap (Linear milestones + urgent backlog).
-2. **Cortex** — the mesh CLI and the coord substrate (peers, locks, heartbeats, the
+2. **Cortex** — the peer CLI (peers, locks, heartbeats, the
    redis/memcache/postgres services it fronts).
 3. **The vendor harness** — Claude Code itself: model + session parameters, `settings.json`
    / `settings.local.json`, registered hooks, loaded plugins, connected MCP servers, the
@@ -37,10 +37,10 @@ is one organ among many. Its mandate is to verify, end to end, every constituent
 4. **Memory + context layers** — engram (write-liveness via WAL), context-mode KB, the
    file-based auto-memory (`MEMORY.md`), Obsidian vault, and the 5-layer hierarchy that
    binds them. Validate each layer is reachable and not silently degraded.
-5. **The load sequence** — SessionStart bootstrap order and success (mesh register,
+5. **The load sequence** — SessionStart bootstrap order and success (peer register,
    auto-memory ensure, engram context injection, CLAUDE.md chain under capacity, rule
    files). A broken bootstrap is invisible until something downstream starves.
-6. **Agent session parameters** — `$REVERIE_MESH_ROLE`, coord registration, env
+6. **Agent session parameters** — `$REVERIE_MESH_ROLE`, env
    invariants, worktree isolation, background-job dir, fast-mode/model.
 7. **tmux + machine** — session fleet, background Claude processes, containers, disk/mem.
 8. **Any other constituent part** — the checklist grows as new organs are added. The
@@ -58,17 +58,16 @@ Concrete numbers. One metaphor at most per report.
 
 ## Primary probe layer: cortex
 
-cortex is the unified mesh CLI. Binary at `~/.local/bin/cortex` (or built from
+cortex is the unified CLI. Binary at `~/.local/bin/cortex` (or built from
 `~/projects/reverie/crates/cortex`). Use it as the **first tool** for any probe
 it covers. Fall back to raw commands only when cortex doesn't have the subcommand.
 
 | cortex command | Replaces | What it returns |
 |---|---|---|
 | `cortex health --json` | curl health + redis-cli PING + nc memcache | `{"ok":bool,"reveried":bool,"redis":bool,"memcache":bool}` |
-| `cortex peers --json` | `coord peers --live` | JSON array of peers with role, session_id, last_heartbeat |
-| `cortex status --once --json` | manual assembly of peers + services + locks | Full mesh snapshot: services, peers, lock count, timestamp |
+| `cortex peers --json` | live peer roster | JSON array of peers with role, session_id, last_heartbeat |
+| `cortex status --once --json` | manual assembly of peers + services + locks | Full snapshot: services, peers, lock count, timestamp |
 | `cortex status --once` | — | Pretty-printed box-drawing status panel (human-readable) |
-| `cortex coord <args>` | `~/.claude/bin/coord <args>` | Passthrough to coord binary |
 | `cortex logs <service> -n 50` | `journalctl --user -u reveried` | Journal tail for reveried/eventmanager/engram |
 | `cortex poke [role]` | tmux send-keys boilerplate | Wake idle peer sessions |
 
@@ -80,7 +79,7 @@ header: `cortex: MISSING (fallback mode)`.
 
 ## Checklist (run all, in parallel where possible)
 
-### 1. Mesh health + peers (cortex)
+### 1. Peer health + services (cortex)
 ```bash
 cortex health --json        # services up/down
 cortex status --once --json # full snapshot: peers, services, locks
@@ -88,7 +87,7 @@ cortex status --once --json # full snapshot: peers, services, locks
 - Parse JSON output. Surface dead/stale peers (heartbeat age >60s), service
   outages, lock count.
 - **Fallback**: `curl -sf http://127.0.0.1:7437/health`, `redis-cli PING`,
-  `coord peers --live`, `coord status`
+  `cortex peers`, `cortex status`
 
 ### 2. Reverie repo state
 - Anchor: `~/projects/reverie` (main worktree)
@@ -149,13 +148,13 @@ gh pr list --limit 30 --json number,title,author,isDraft,mergeable,reviewDecisio
 - `rust-toolchain.toml` vs installed rustc; flag drift
 - `cargo audit` advisories
 - `target/criterion/` benchmark baselines for regression
-- `docs/coord/protocol-v0.md` diff vs last shipped version
+- `docs/protocol/protocol-v0.md` diff vs last shipped version
 
 ### 9. Engram / memory layer
 - `~/.engram/engram.db` size delta, fragmentation, last VACUUM timestamp
 - Observation backlog (unprocessed captures)
-- `cortex coord recv --drain` — unread inbox messages for this session
-- Orphan locks in `/tmp/claude-coord/locks/` with dead owner PIDs
+- `cortex recv --drain` — unread inbox messages for this session
+- Orphan locks with dead owner PIDs
 - `cortex logs reveried -n 20` — recent ERROR lines
 
 ### 10. GitHub surface
@@ -256,7 +255,7 @@ The harness is itself an organ. Validate the layer the agent runs *inside*:
 
 A broken bootstrap is invisible until something downstream starves. Validate the
 SessionStart chain ran clean:
-- **Bootstrap success markers**: the SessionStart output should show `mesh=ok` and
+- **Bootstrap success markers**: the SessionStart output should show `peers=ok` and
   `auto-memory=ok`, engram smart-context injected, and the engram session registered.
   A missing marker = a layer that didn't initialize.
 - **CLAUDE.md chain under capacity**: global `~/.claude/CLAUDE.md` + project
@@ -309,7 +308,7 @@ the context-mode hook redirects bare `curl`):
   completed** — a standing finding worth surfacing.)
 - `GET /dream/last-report` — phase counts + durations; 404 until first cycle completes (expected,
   not a route-missing error).
-- `GET /v1/workers` + `GET /agents` — active mesh workers / registered canonical agents with
+- `GET /v1/workers` + `GET /agents` — active workers / registered canonical agents with
   heartbeat age. FLAG: empty when workers expected; agent heartbeat >5m.
 - `GET /events/recent` — recent `events:all` entries. FLAG: HTTP 503 = redis down.
 - `GET /checkpoints/by-role/:role` — sleep-rebound checkpoint; 404 = no checkpoint (expected).
@@ -380,18 +379,18 @@ Verified supervisor here = systemd-user (not tmux). State the mode as a line eit
   candidate); `~/.engram` total (live 5.1G — DB+WAL+backups); `~/.claude` (live 553M, FLAG >1G);
   `~/.claude/settings.json.bak*` count (FLAG >5).
 - **Binary presence — resolve via `command -v`, NOT a fixed dir**: `cortex` (`~/.local/bin`),
-  `engram` (`~/.local/bin`), `coord` (`~/.claude/bin`), `rtk` (`~/.cargo/bin`), `anchor-offload`.
-  FLAG: any not resolvable on PATH. (Don't hardcode `~/.local/bin` — coord+rtk live elsewhere.)
+  `engram` (`~/.local/bin`), `rtk` (`~/.cargo/bin`), `anchor-offload`.
+  FLAG: any not resolvable on PATH. (Don't hardcode `~/.local/bin` — rtk lives elsewhere.)
 - **Reachability**: engram `:7437`, prometheus `:9090/-/healthy`, Ollama + OpenRouter (offload
   chain — `cortex status --json` `.offload`), github, claude.ai. FLAG: offload tier down (forces
   Claude-only); github/claude.ai unreachable.
 - **Signing**: 1Password `op` agent reachable (mandatory for ED25519 commit signing); SSH keys present.
 
-### 26. Coord substrate internals (beyond locks)
+### 26. Peer substrate internals (beyond locks)
 
-- `/tmp/claude-coord/sessions/*.json` count + stalest age (>7d = orphan accumulation); session
+- Session record count + stalest age (>7d = orphan accumulation); session
   record schema-version drift.
-- `messages/inbox-*` dirs whose pid is no longer coord-registered → orphan sweep candidates.
+- `messages/inbox-*` dirs whose pid is no longer registered → orphan sweep candidates.
 - ALL-peer heartbeat freshness (not just self) — §1 reports live peers; surface *stale* peers
   explicitly. Note any `.preflight-skip-*` sentinel files left lying around (lock-bypass residue).
 
@@ -429,10 +428,10 @@ Verified supervisor here = systemd-user (not tmux). State the mode as a line eit
 
 ## Harness (vendor + load)
 - Model: <model> | role: <$REVERIE_MESH_ROLE or none> | cwd: <worktree|live>
-- Bootstrap: mesh <ok>, auto-memory <ok>, engram-ctx <injected> | settings parse <ok>
+- Bootstrap: peers <ok>, auto-memory <ok>, engram-ctx <injected> | settings parse <ok>
 - Hooks: <n live / m registered> | MCP: <connected list> | RTK: <ok|stall>
 
-## Mesh (via cortex)
+## Peers (via cortex)
 - reveried: OK/DOWN | redis: OK/DOWN | memcache: OK/DOWN
 - Peers: <n live>, locks: <n>
 - Stale peers: <list or "none">
@@ -499,9 +498,8 @@ to see more over time, not less.
 
 ## Known gotchas
 
-- `coord locks` is not a valid subcommand; use `cortex coord status` or
-  `ls /tmp/claude-coord/locks/` directly. The lock dir is under `/tmp/claude-coord/`,
-  NOT `~/.claude/coord/locks/`.
+- `cortex locks` is not a valid subcommand; use `cortex status` or
+  inspect lock files directly.
 - `cortex health --json` checks reveried + redis + memcache. It does NOT check
   engram WAL liveness — that requires the deep probe (stat the WAL file).
 - `cortex logs` wraps `journalctl --user`; if systemd user units aren't set up,

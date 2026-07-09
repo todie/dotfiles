@@ -58,7 +58,7 @@ Flags (pass after the skill name):
    ```bash
    curl -sf http://127.0.0.1:7437/health | jq -c '{status, version, db_healthy}'
    cortex --version                     # confirms binary swap worked
-   cortex health --json 2>/dev/null | jq -c '{daemon, redis, coord}' || true
+   cortex health --json 2>/dev/null | jq -c '{daemon, redis}' || true
    ```
 
 5. **Report** — one line: reveried version, cortex version, peer count,

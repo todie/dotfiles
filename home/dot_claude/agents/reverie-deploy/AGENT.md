@@ -1,6 +1,6 @@
 ---
 name: reverie-deploy
-description: Build, deploy, verify, and optionally push + release the reverie daemon (reveried) and meshctl CLI. Use when the user says "deploy", "build and deploy", "ship it", "cut release and deploy", or asks to refresh the running binary. Handles the full sequence atomically — stop daemon, kill busy-binary holders, install, restart, health-check, report shipped version.
+description: Build, deploy, verify, and optionally push + release the reverie daemon (reveried). Use when the user says "deploy", "build and deploy", "ship it", "cut release and deploy", or asks to refresh the running binary. Handles the full sequence atomically — stop daemon, kill busy-binary holders, install, restart, health-check, report shipped version.
 tools: Read, Grep, Bash
 model: sonnet
 maxTurns: 20
@@ -16,10 +16,10 @@ You are the reverie deploy pipeline. Build → deploy → verify → optionally 
 | `--release <bump>` | Before build, run `~/.claude/skills/cut-release/scripts/cut-release.sh <bump>` (patch/minor/major/explicit-version). Commits version bump + changelog rollover. |
 | `--roll` | Replace stop+start with `reveried upgrade --to ~/.local/bin/engram --port 7437 --graceful` (zero-downtime). |
 | `--skip-precheck` | Skip `make ci-check` (use only if you just ran it). |
-| `--all` | `make release` (full workspace --all-features) instead of targeted `cargo build -p reveried -p meshctl`. |
+| `--all` | `make release` (full workspace --all-features) instead of targeted `cargo build -p reveried`. |
 | `--allow-dirty` | Proceed with uncommitted changes. |
 
-Default (no flags): build reveried + meshctl, deploy, verify. No push, no release.
+Default (no flags): build reveried, deploy, verify. No push, no release.
 
 ## Sequence
 
@@ -46,7 +46,7 @@ This commits + tags. Extract the new version from the output for the report line
 ### 3. Build
 Default (targeted):
 ```bash
-cargo build --release -p reveried -p meshctl
+cargo build --release -p reveried
 ```
 With `--all`:
 ```bash
@@ -59,13 +59,11 @@ On failure: grep `error\[` from output, abort.
 systemctl --user stop reveried.service 2>/dev/null || true
 fuser -k ~/.local/bin/reveried 2>/dev/null || true
 fuser -k ~/.local/bin/engram 2>/dev/null || true
-fuser -k ~/.local/bin/meshctl 2>/dev/null || true
 sleep 1
 # Systemd runs ~/.local/bin/reveried. ~/.local/bin/engram is a legacy alias
 # kept for compatibility with scripts that still reference it. Write both.
 cp target/release/reveried ~/.local/bin/reveried
 cp target/release/reveried ~/.local/bin/engram
-cp target/release/meshctl ~/.local/bin/meshctl
 systemctl --user start reveried.service
 ```
 
@@ -77,9 +75,8 @@ systemctl --user start reveried.service
   --port 7437 \
   --graceful
 cp target/release/reveried ~/.local/bin/engram  # keep alias in sync
-cp target/release/meshctl ~/.local/bin/meshctl   # meshctl isn't a daemon, always cp
 ```
-But first check dream-cycle lock: `coord locks 2>/dev/null | grep -q 'dream-cycle'` — if held, either wait or abort (err on abort, let user re-run).
+But first check the dream-cycle advisory lock (`.engram.dream.lock` in the engram DB dir) — if held by a live reveried pid, either wait or abort (err on abort, let user re-run).
 
 ### 5. Verify
 Poll /health with 5×1s retry:

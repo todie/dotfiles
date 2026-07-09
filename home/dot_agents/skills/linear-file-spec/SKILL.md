@@ -154,7 +154,7 @@ Then a one-line summary: `Filed N tickets in <project> / <milestone>, wired M bl
 project: Reverie
 team: TOD
 milestone: Phase 5: Auto-Capture & Write-Gate
-labels: reverie/coord, reverie/protocol-design
+labels: reverie/protocol-design, reverie/observability
 ---
 
 # Spec Title
@@ -210,7 +210,7 @@ Frontmatter resolved:
   project:   Reverie
   team:      TOD
   milestone: Phase 5: Auto-Capture & Write-Gate
-  labels:    [reverie/coord, reverie/protocol-design]
+  labels:    [reverie/protocol-design, reverie/observability]
 
 Planned tickets:
 | # | Ref | Title                              | Priority | Blocked by | Body lines |

@@ -51,12 +51,8 @@ starship/themes/*.toml
 # ~/.agents: NOT ignored — skill-lock is managed (home/dot_agents); the skills/
 # symlink + skill-manager backups stay unmanaged but visible (they surface in
 # `chezmoi unmanaged`) so new skills/state can be tracked as they appear.
-.claude/skills/coord-drain
 .claude/skills/cut-release
 .claude/skills/file-bug
-.claude/skills/linear-file-spec
-.claude/skills/mesh-cleanup
-.claude/skills/orphan-lock-clean
 .claude/skills/reveried-swap
 .claude/skills/snapshot
 .claude/skills-disabled
@@ -80,8 +76,6 @@ starship/themes/*.toml
 .claude/plans
 .claude/paste-cache
 .claude/daemon
-.claude/daemon.log
-.claude/coord
 .claude/ide
 .claude/downloads
 .claude/stats-cache.json

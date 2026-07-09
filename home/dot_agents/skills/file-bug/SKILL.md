@@ -1,6 +1,6 @@
 ---
 name: file-bug
-description: Quick single-issue Linear filer for mid-session bug discoveries. Complement to `/linear-file-spec` — that one parses multi-section markdown specs, this one is "I just hit a bug, file it with evidence before I forget." Formats Repro / Evidence / Root cause / Fix direction / Acceptance into the house markdown template, creates a Linear issue in team=CER (Cerebral Work Institute) project=Reverie via the claude_ai_Linear MCP, and reports the new CER-ID. Use when the user says "file a bug", "ticket this", "open an issue for X", "log this in Linear", or when you discover a reproducible defect mid-debug. Args — `<title>` required, `--priority <1-4>` (default 3), `--related <CER-101,CER-102>` csv of related tickets, `--labels <bug,mesh>` csv of label names.
+description: Quick single-issue Linear filer for mid-session bug discoveries. Complement to `/linear-file-spec` — that one parses multi-section markdown specs, this one is "I just hit a bug, file it with evidence before I forget." Formats Repro / Evidence / Root cause / Fix direction / Acceptance into the house markdown template, creates a Linear issue in team=CER (Cerebral Work Institute) project=Reverie via the claude_ai_Linear MCP, and reports the new CER-ID. Use when the user says "file a bug", "ticket this", "open an issue for X", "log this in Linear", or when you discover a reproducible defect mid-debug. Args — `<title>` required, `--priority <1-4>` (default 3), `--related <CER-101,CER-102>` csv of related tickets, `--labels <bug,observability>` csv of label names.
 ---
 
 # file-bug — one-shot Linear bug filer with evidence template
@@ -108,16 +108,15 @@ No rehashing the body content — the user can click through.
 ## Examples
 
 ```
-/file-bug "meshctl dash loses heartbeat when terminal is resized" --priority 2 --labels bug,mesh --related TOD-725
+/file-bug "cortex dash loses heartbeat when terminal is resized" --priority 2 --labels bug,observability --related TOD-725
 ```
 
-Files a P2 bug with labels `bug,mesh`, a Related bullet linking TOD-725, and the standard evidence template populated from session context.
+Files a P2 bug with labels `bug,observability`, a Related bullet linking TOD-725, and the standard evidence template populated from session context.
 
 ```
-/file-bug "coord peers JSON output drops role on pre-TOD-430 records" --labels bug,coord
-```
+/file-bug "cortex status JSON output drops role on stale records" --labels bug,observability
 
-Files a P3 bug (default) with `bug,coord` labels and no related tickets.
+Files a P3 bug (default) with `bug,observability` labels and no related tickets.
 
 ## Safety invariants
 

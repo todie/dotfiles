@@ -11,13 +11,13 @@
 
 Two failure modes to prevent, simultaneously:
 1. **Hard no:** Claude terminating processes it does **not** own — other agent/operator Claude sessions, `reveried`/`engram` daemons, the operator's running work — **without explicit operator approval**. (This session twice *offered* to kill a peer's pid 70998 mid-task; that offer itself is the smell to kill.)
-2. **Don't over-correct:** a blanket `kill` ban is wrong — terminating processes is legitimate, frequent QA/test/cleanup behavior: `mesh-cleanup` kills stale workers, `reveried-swap` frees busy-binary holders, test harnesses kill spawned servers/children. Those must keep working.
+2. **Don't over-correct:** a blanket `kill` ban is wrong — terminating processes is legitimate, frequent QA/test/cleanup behavior: stale-worker cleanup, `reveried-swap` frees busy-binary holders, test harnesses kill spawned servers/children. Those must keep working.
 
 The needle: **block killing what I didn't spawn; allow killing what I did; let the operator explicitly authorize the exceptions.**
 
-## Why coord can't be the basis (proven 2026-06-02)
+## Why the peer registry can't be the basis (proven 2026-06-02)
 
-The existing `~/.claude/bin/coord` peer roster is unreliable — it reported a **dead pid (66035) as alive**, missed **6 live sessions**, and its `peers`/`status` presence is non-deterministic (logged as CER-1114). **Do not build the guard on coord.** The trustworthy liveness surface is `/proc` (kernel ground truth):
+The existing peer roster is unreliable — it reported a **dead pid (66035) as alive**, missed **6 live sessions**, and its presence is non-deterministic (logged as CER-1114). **Do not build the guard on the peer registry.** The trustworthy liveness surface is `/proc` (kernel ground truth):
 
 ```bash
 for p in $(pgrep -x claude); do echo "$p $(readlink /proc/$p/cwd)"; done
@@ -31,7 +31,7 @@ This is how the guard classifies a target pid as "another live session" vs "mine
 - **MINE → allow:** target pid is a descendant of the calling Claude session (walk `/proc/PID/stat` ppid chain to the session root). Covers spawned test servers, background jobs, `%job` specs.
 - **FOREIGN → block:** target pid is **not** my descendant — especially if its `comm` is `claude`/`reveried`/`engram`/`node` (another session or daemon). Conservative default: any non-descendant is foreign.
 
-**Override (the "explicit approval" gate):** an inline `# allow-kill-foreign` token, mirroring the existing `# allow-secret-print` / `# allow-direct-push` pattern. With it present, the guard allows + logs the bypass. Claude is instructed to add it **only on the operator's explicit request/approval**, and to surface that it did. This is what keeps the QA/test suite working: `mesh-cleanup` etc. run *with* the surfaced override.
+**Override (the "explicit approval" gate):** an inline `# allow-kill-foreign` token, mirroring the existing `# allow-secret-print` / `# allow-direct-push` pattern. With it present, the guard allows + logs the bypass. Claude is instructed to add it **only on the operator's explicit request/approval**, and to surface that it did. This is what keeps the QA/test suite working: the QA skills run *with* the surfaced override.
 
 **Enforcement, not advice** (per the trust-enforcement compact / [[feedback_trust_enforcement_northstar]]): hard block (exit 2), not a warn. The only bypass is the explicit operator-authorized token, and every bypass is logged.
 
@@ -95,9 +95,9 @@ exit 0
 1. **Own child allowed:** `sleep 300 &` then `kill %1` / `kill <child-pid>` → **allow**.
 2. **Foreign session blocked:** `kill <another-claude-pid>` (e.g. a peer session) → **block, exit 2**. (Use a throwaway `sleep` outside the session subtree to simulate.)
 3. **Daemon blocked:** `pkill -f reveried` → **block**.
-4. **Override works:** `kill <foreign-pid>  # allow-kill-foreign` → **allow + logged** (this is the path `mesh-cleanup` / `reveried-swap` take).
+4. **Override works:** `kill <foreign-pid>  # allow-kill-foreign` → **allow + logged** (this is the path `reveried-swap` takes).
 5. **No-target commands unaffected:** `git log`, `killall` in help text, etc. → allow.
-6. **mesh-cleanup / reveried-swap skills** still function when they carry the override.
+6. **QA skills** still function when they carry the override.
 
 ## Decisions (operator-approved 2026-06-03)
 

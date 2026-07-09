@@ -10,8 +10,6 @@
 #   cut-release.sh major     # 0.1.0 -> 1.0.0
 #   cut-release.sh 0.2.0     # explicit
 #   cut-release.sh patch --dry-run
-#   cut-release.sh patch --skip-security          # TOD-742 emergency bypass
-#   cut-release.sh patch --security-timeout=600   # TOD-742 custom wait (default 1800)
 
 set -euo pipefail
 
@@ -19,14 +17,10 @@ set -euo pipefail
 # Args
 # ---------------------------------------------------------------------------
 DRY_RUN=0
-SKIP_SECURITY=0
-SECURITY_TIMEOUT=1800
 BUMP=""
 for arg in "$@"; do
     case "$arg" in
         --dry-run) DRY_RUN=1 ;;
-        --skip-security) SKIP_SECURITY=1 ;;
-        --security-timeout=*) SECURITY_TIMEOUT="${arg#--security-timeout=}" ;;
         -h|--help)
             sed -n "2,14p" "$0" | sed 's/^# \?//'
             exit 0
@@ -218,31 +212,6 @@ for f in VERSION Cargo.toml Cargo.lock package.json package-lock.json pyproject.
 done
 run git add "${STAGE_FILES[@]}"
 run git commit -m "Release v$NEW"
-
-# ---------------------------------------------------------------------------
-# Security gate (TOD-742)
-# ---------------------------------------------------------------------------
-# Look for a coord-wait-security-ok helper in the current repo's scripts/
-# (ships with reverie). If present, block until security role sends
-# `security-ok v$NEW` or --skip-security was passed. Absent helper = skip
-# silently (non-reverie repos don't have the mesh).
-WAIT_HELPER="scripts/coord-wait-security-ok"
-if [ -x "$WAIT_HELPER" ]; then
-    if [ "$SKIP_SECURITY" = "1" ]; then
-        note "security gate SKIPPED (--skip-security) — audit trail written"
-        run "$WAIT_HELPER" "v$NEW" --skip-security
-    else
-        note "waiting for security-ok v$NEW (timeout ${SECURITY_TIMEOUT}s) — send from security role:"
-        note "  coord send \$(coord whoami | jq -r .session_id) security-ok v$NEW --body <scan-summary>"
-        if [ "$DRY_RUN" = "0" ]; then
-            "$WAIT_HELPER" "v$NEW" --timeout "$SECURITY_TIMEOUT" || {
-                echo "ERROR: security gate blocked — no security-ok v$NEW received" >&2
-                echo "  retry with --skip-security for emergency override (audit-logged)" >&2
-                exit 1
-            }
-        fi
-    fi
-fi
 
 note "tagging v$NEW"
 run git tag -a "v$NEW" -m "Release v$NEW"

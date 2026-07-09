@@ -14,7 +14,7 @@
   `1083 → 1084 → 1085 → 1086 → 1087 → 1088 → 1096 → 1097 → 1098`
   (contract → scaffold → tree-sitter parser → typed model → Cedar policy → secret-access migration → adversarial corpus → enforce cutover → provenance taint). Everything else parallelises around this.
 - **Phase 3 cannot fully start after Phase 2** — the enforce-flip gate (CER-1103) has hard Phase-2 prerequisites (1093, 1094, 1095). The phases overlap at the seam by design.
-- **Cross-milestone risk:** CER-1067/1068/1069 (Phase 2) and CER-1075 (Phase 3) are blocked by **CER-1057/1058/1059/1060, which live in `v0.10.0 — Audit-driven cleanup`, NOT this milestone.** The mesh/coord track is gated on work outside the milestone's control.
+- **Cross-milestone risk:** CER-1067/1068/1069 (Phase 2) and CER-1075 (Phase 3) are blocked by **CER-1057/1058/1059/1060, which live in `v0.10.0 — Audit-driven cleanup`, NOT this milestone.** The worker track is gated on work outside the milestone's control.
 
 ---
 
@@ -37,7 +37,7 @@ Each phase is a topological sort of its own tickets into **waves** — a wave is
 | Ticket | Sev | Eff | What | Blocked by |
 |---|---|---|---|---|
 | **CER-1061** | CRIT | S | Export `REVERIE_MESH_ROLE` (+ `REVERIE_WORKTREE_JAIL`, session id) in the worker launcher — arms the dead `role-boundary-gate.sh`. ✅ **DONE — PR #537 merged.** *Unblocks 1066.* | — |
-| **CER-1062** | CRIT | S | Arm `worktree-jail.sh` for the real `~/projects/reverie-wt-*` cwd + `REVERIE_WORKTREE_JAIL` key (jail currently no-ops for every mesh worker). Mirror into `file-lock-gate.sh`. *Blocks 1063, 1064, 1065.* | — |
+| **CER-1062** | CRIT | S | Arm `worktree-jail.sh` for the real `~/projects/reverie-wt-*` cwd + `REVERIE_WORKTREE_JAIL` key (jail currently no-ops for every worker). Mirror into `file-lock-gate.sh`. *Blocks 1063, 1064, 1065.* | — |
 | **CER-1053** | CRIT | S | Flip `guard-dangerous-commands.sh` + `guard-secret-access.sh` from fail-**open** to fail-**closed** on jq-missing / unparseable / timeout. Delete the `[ -z "$COMMAND" ] && exit 0` antipattern. | — |
 | **CER-1055** | HIGH | S | Remove `REVERIE_SKIP_CI_GATE=1` from global `settings.json` env (it permanently disables the pre-push gate). Per-command hatch stays. | — |
 | **CER-1056** | HIGH | S | Remove over-broad `permissions.allow` wildcards (`eval *`, `/bin/bash *`, `. /*`, `cd …reverie && *`). **Interactive-only** until containment lands. | — |
@@ -82,17 +82,17 @@ Each phase is a topological sort of its own tickets into **waves** — a wave is
 | **CER-1089** | HIGH | M | `reverie-guard check --jail-root --cwd` path-scope subcommand; `worktree-jail.sh` becomes a thin wrapper. *Blocks 1099, 1101 (P3).* | 1086 |
 | **CER-1093** | HIGH | M | Fail-closed error-injection test category against the redesigned guard. *Blocks 1103 (P3).* | 1087 |
 | **CER-1095** | HIGH | M | Shadow-mode harness + baseline diff (the metric the enforce gate consumes). *Blocks 1103 (P3).* | 1083 (P1) |
-| **CER-1094** | CRIT | **L** | Recursive-layer regression: prove guards actually fire **inside spawned mesh workers** (the audit's dominant defect). *Blocks 1103, 1105, 1106 (P3).* | 1083 (P1) |
+| **CER-1094** | CRIT | **L** | Recursive-layer regression: prove guards actually fire **inside spawned workers** (the audit's dominant defect). *Blocks 1103, 1105, 1106 (P3).* | 1083 (P1) |
 
 ### Wave 2.2 — Containment (shell, after Phase-1 jail arming)
 | Ticket | Sev | Eff | What | Blocked by |
 |---|---|---|---|---|
-| **CER-1091** | MED | M | Rust validator crate (`model/role/session-id/peer` + `record build`) for mesh-spawn + coord. **Pulled forward from Phase 3** (no dependencies; kills the model-RCE / JSON-injection class directly). Runnable any time from Wave 2.0 onward. | — |
+| **CER-1091** | MED | M | Rust validator crate (`model/role/session-id/peer` + `record build`) for worker spawning. **Pulled forward from Phase 3** (no dependencies; kills the model-RCE / JSON-injection class directly). Runnable any time from Wave 2.0 onward. | — |
 | **CER-1065** | CRIT | M | Close jail escapes: relative `cd`/`pushd`, `GIT_DIR`/`GIT_WORK_TREE`, effective-cwd tracking. Superseded later by 1089. | 1064, 1062 (P1) |
 | **CER-1066** | CRIT | M | Compensate for `--dangerously-skip-permissions` with a generated per-role `--settings` allow/deny file scoped to the worktree. | 1061 (P1) |
 | **CER-1090** | HIGH | M | Worker inherits main session's guard policy via a **signed policy handle** (`REVERIE_GUARD_POLICY` + sha); tamper → fail closed. *Blocks 1100 (P3).* | — |
 
-### Wave 2.3 — Mesh/coord  ⚠ blocked OUTSIDE this milestone
+### Wave 2.3 — Worker spawning  ⚠ blocked OUTSIDE this milestone
 | Ticket | Sev | Eff | What | Blocked by |
 |---|---|---|---|---|
 | **CER-1067** | HIGH | M | Atomic FS lock steal (rename-then-verify), close TOD-647 TOCTOU. | **CER-1058 (×v0.10.0)** |
@@ -139,7 +139,7 @@ Each phase is a topological sort of its own tickets into **waves** — a wave is
 | Ticket | Sev | Eff | What | Blocked by |
 |---|---|---|---|---|
 | **CER-1106** | HIGH | **L** | Adversarial containment suite: spawn real workers vs an attack corpus, assert every control fires; wire into ci-check. | 1094 (P2) |
-| **CER-1075** | MED | M | Adversarial harness for the mesh+coord fixes feeding the unified runner. ⚠ | **1067/1068/1069** (→ ×v0.10.0) |
+| **CER-1075** | MED | M | Adversarial harness for the worker-spawn fixes feeding the unified runner. ⚠ | **1067/1068/1069** (→ ×v0.10.0) |
 
 ---
 
@@ -158,14 +158,14 @@ sandbox pole            1086 ─► 1089 ─► 1099 ─► 1100 ; 1104 ─► 1
 **Longest chain:** `1083 → 1084 → 1085(L) → 1086 → 1087(L) → 1088 → 1096 → 1097(L) → 1098` — three L-effort tickets on one chain. This is the schedule driver; resourcing here moves the whole milestone.
 
 ## Cross-cutting risks / watch items
-1. **Cross-milestone gate.** CER-1067/1068/1069/1075 depend on CER-1057–1060 in `v0.10.0`. If that milestone stalls, the entire mesh/coord track stalls — independent of any work here.
+1. **Cross-milestone gate.** CER-1067/1068/1069/1075 depend on CER-1057–1060 in `v0.10.0`. If that milestone stalls, the entire worker-spawn track stalls — independent of any work here.
 2. **Two repos, one milestone.** Phase 1 is mostly dotfiles (`~/.claude/hooks/*.sh`, `settings.json`); Phases 2–3 add `crates/reverie-guard*` in the reverie repo. The "(dotfiles)" milestone name undersells the reverie-side weight.
 3. **RTK ordering invariant (CER-1097).** `reverie-guard` must run *after* the RTK rewrite hook so it sees the post-rewrite executed form; RTK files are sha256-locked (ordering is the only lever). Document and test this.
-4. **`settings.json` is shared, claude-config–locked.** Every matcher change (1063, 1072, 1097) touches it — take the `claude-config` coord lock; serialise those edits.
+4. **`settings.json` is shared, claude-config–locked.** Every matcher change (1063, 1072, 1097) touches it — take the `claude-config` lock; serialise those edits.
 5. **CER-1076 status drift** — shipped code filed as Backlog skews milestone progress and could trigger a duplicate attempt.
 
 ## Decisions (resolved 2026-06-08)
 - **CER-1076 drift** → mark **Done** in Linear. ✓
-- **Cross-milestone mesh/coord (1057–1060)** → **keep as external dependency**; track here, do not re-home. The mesh/coord track (1067/1068/1069/1075) waits on `v0.10.0`.
+- **Cross-milestone worker-spawn (1057–1060)** → **keep as external dependency**; track here, do not re-home. The worker-spawn track (1067/1068/1069/1075) waits on `v0.10.0`.
 - **CER-1091** → **pulled forward to Phase 2 / Wave 2.2** (no deps; kills model-RCE / JSON-injection class early).
 - **Linear sync** → **apply** phase labels (`phase-1/2/3`) + execution ordering to the milestone tickets, mirroring this roadmap. Roadmap remains the narrative source of truth; Linear carries the labels + sort.

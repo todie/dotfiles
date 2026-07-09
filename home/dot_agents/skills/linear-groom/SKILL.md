@@ -95,7 +95,7 @@ Print two markdown tables:
 **Auto-fixable**:
 | ID | Title | Signal | Proposed fix |
 |----|-------|--------|--------------|
-| TOD-501 | Wire mesh telemetry | project missing | attach to project "Reverie" |
+| TOD-501 | Wire observability telemetry | project missing | attach to project "Reverie" |
 
 **Manual review needed**:
 | ID | Title | Signals | Last updated |
@@ -111,7 +111,7 @@ Append a third table — **AI-proposed (review only — never auto-applied)**:
 
 | ID | Title | Field | Current | Proposed | Confidence |
 |----|-------|-------|---------|----------|------------|
-| TOD-487 | Investigate flaky e2e | labels | — | `[bug, e2e, mesh]` | high |
+| TOD-487 | Investigate flaky e2e | labels | — | `[bug, e2e, observability]` | high |
 | TOD-487 | Investigate flaky e2e | estimate | — | 3 | medium |
 
 How to generate: spawn one `general-purpose` Agent with the manual-review rows + the ticket bodies (fetched via `mcp__claude_ai_Linear__get_issue`), and ask it to propose values for empty fields based on the ticket text. Limit to ≤ 25 tickets per AI call to keep the prompt tight; if more rows exist, page through.
@@ -179,7 +179,7 @@ Preflight: team=TOD (ok) · project=Reverie (ok) · milestone=— · checks=all 
 Auto-fixable:
 | ID      | Title                    | Signal          | Proposed fix             |
 |---------|--------------------------|-----------------|--------------------------|
-| TOD-512 | Wire mesh telemetry hook | project missing | attach to "Reverie" (sole active project) |
+| TOD-512 | Wire observability telemetry hook | project missing | attach to "Reverie" (sole active project) |
 
 Manual review needed:
 | ID      | Title                       | Signals                              | Last updated |

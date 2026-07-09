@@ -146,4 +146,4 @@ The page is intentionally minimal but polished — it should look like a tool th
 - `~/.config/reverie/` — destination directory (mode 700, ctodie-owned)
 - engram `protocol/eventmanager-sudo-delegation` (#528) — the EventManager `read-secret` op that DOWNSTREAM consumers use to read secrets back without leaking them
 - engram `policy/anchor-loop` (#521) — anchor's hard rule "never log secret values"
-- Hexpurr mascot — same one used in the mesh-status TUI spec (#532)
+- Hexpurr mascot — same one used in the status TUI spec (#532)

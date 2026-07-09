@@ -15,7 +15,7 @@ ran 50 min and logged **~95 `CLOCK-JUMP` events, ZERO `STALL` events**:
 
 | Signal | Observation | Meaning |
 |--------|-------------|---------|
-| monotonic gap/tick | always **1.00s** | CPU/scheduler never stalls → NOT hooks, CPU, memory, or the mesh |
+| monotonic gap/tick | always **1.00s** | CPU/scheduler never stalls → NOT hooks, CPU, memory, or worker sessions |
 | wall-clock skew | discrete **+1.5–1.6s step every ~31s** | `CLOCK_REALTIME` is yanked forward on a fixed cadence |
 | `clocksource` | `tsc` | correct; not a clocksource-selection bug |
 | `timedatectl` | `NTP synchronized: yes` | clock stays *correct on average* — it's the *stepping* that hurts |
@@ -69,7 +69,7 @@ accumulated-drift stepping outright.
 4. Verify (§5).
 
 **Blast radius:** kills **all** WSL processes — every Claude session, tmux, the
-reverie mesh. Survives automatically:
+reverie daemon and its worker sessions. Survives automatically:
 - `reveried` — restarts via `systemctl --user` (lingering user unit).
 - Engram DB (`~/.engram/engram.db`) — on disk, untouched. **No memory loss.**
 - chezmoi-managed binaries/config — on disk.

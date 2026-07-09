@@ -9,7 +9,7 @@
 # After upgrading a tool, run `refresh-completions` to regenerate the cache.
 #
 # NOTE: some generators emit a stale #compdef binary name on line 1 (cortex
-# still says `meshctl`, engram still says `reveried`) or none at all (sops).
+# still says its old binary name, engram still says `reveried`) or none at all (sops).
 # We rewrite/prepend the tag to match the real command so compinit registers it
 # under the right name; non-#compdef output is rejected outright.
 
@@ -38,13 +38,13 @@ typeset -gA _COMPLETION_GEN=(
   _ant                'ant @completion zsh'   # Claude Platform CLI; @-prefixed meta-cmd emits #compdef ant
   _rustup             'rustup completions zsh'
   _cargo              'rustup completions zsh cargo'
-  # reverie mesh CLIs — emit real #compdef scripts under their own names
+  # reverie CLIs — emit real #compdef scripts under their own names
   _reveried           'reveried completions zsh'
   _reverie-bench      'reverie-bench completions zsh'
   _reverie-introspect 'reverie-introspect completions zsh'
   _reverie-tracee     'reverie-tracee completions zsh'
   # generators with a stale or missing tag — rewritten/prepended to the rhs
-  _cortex             'cortex completions zsh|||cortex'   # emits stale #compdef meshctl
+  _cortex             'cortex completions zsh|||cortex'   # emits stale #compdef tag (old name)
   _engram             'engram completions zsh|||engram'   # emits stale #compdef reveried
   _sops               'sops completion zsh|||sops'         # emits no #compdef tag at all
   # NOTE: kubecolor is intentionally NOT generated here. `kubecolor completion
@@ -69,7 +69,7 @@ _gen_one() {
   if [[ -n $tag ]]; then
     local -a lines=("${(@f)out}")
     if [[ ${lines[1]} == '#compdef '* ]]; then
-      lines[1]="#compdef $tag"          # rewrite stale tag (cortex→meshctl etc.)
+    lines[1]="#compdef $tag"          # rewrite stale tag (cortex etc.)
     elif [[ ${lines[1]} != '#compdef'* ]]; then
       lines=("#compdef $tag" $lines)    # prepend missing tag (sops emits none)
     fi
