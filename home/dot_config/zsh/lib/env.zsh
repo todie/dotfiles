@@ -45,6 +45,18 @@ export HISTFILE="${XDG_CACHE_HOME}/zsh-history"
 export LESSHISTFILE="${XDG_CACHE_HOME}/lesshst"
 export NODE_REPL_HISTORY=""   # off — never useful, always clutter
 
+# ── browser — route WSL URL opens to the Windows default browser ────────────
+# wslview (from wslu) is the standard tool: it calls the Windows shell default
+# browser handler via WSL interop, no X11/Wayland involved. Tools that respect
+# $BROWSER (xdg-open, gsutil, poetry, etc.) get this; xdg-open itself is also
+# overridden to wslview so hard-coded `xdg-open` callers go the right way.
+if [[ -n ${WSL_DISTRO_NAME:-} ]] && has wslview; then
+  export BROWSER="wslview"
+  # xdg-open → wslview shim: many tools hard-code xdg-open instead of $BROWSER.
+  # Shadow it with a function so those callers also reach the Windows browser.
+  xdg-open() { wslview "$@"; }
+fi
+
 # ── editor — prefer host Zed on WSL, then Linux Zed, fall back gracefully ────
 if [[ -n ${WSL_DISTRO_NAME:-} ]] && has zedw; then
   # Windows-host Zed via WSL remoting (bin/zedw). EDITOR is NON-blocking so a
