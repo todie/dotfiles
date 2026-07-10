@@ -66,3 +66,34 @@ unpack() {
       ;;
   esac
 }
+
+# ── unsigned-llm per-workspace gateway keys ─────────────────────────────────
+# Maps the cwd to a ws-* virtual key on llm.unsigned.gg (unsigned-paas PR
+# #1016) for per-project spend attribution. Outside mapped estates the shared
+# key from secrets.env is restored. Most-specific prefix wins; the cerebral
+# catch-all must stay last.
+_unsigned_llm_ws_key() {
+  local key=""
+  case $PWD in
+    $HOME/projects/unsigned/paas*)            key=$UNSIGNED_LLM_KEY_WS_PAAS ;;
+    $HOME/projects/mission-control*)          key=$UNSIGNED_LLM_KEY_WS_MISSION_CONTROL ;;
+    $HOME/projects/unsigned/gg*)              key=$UNSIGNED_LLM_KEY_WS_GG ;;
+    $HOME/projects/cerebral/reverie*)         key=$UNSIGNED_LLM_KEY_WS_REVERIE ;;
+    $HOME/projects/usewire*)                  key=$UNSIGNED_LLM_KEY_WS_USEWIRE ;;
+    $HOME/projects/cerebral/terrarium*)       key=$UNSIGNED_LLM_KEY_WS_TERRARIUM ;;
+    $HOME/projects/cerebral/cerebral-design*) key=$UNSIGNED_LLM_KEY_WS_CEREBRAL_DESIGN ;;
+    $HOME/projects/cerebral*)                 key=$UNSIGNED_LLM_KEY_WS_CEREBRAL_HQ ;;
+  esac
+  if [[ -n $key ]]; then
+    export UNSIGNED_LLM_API_KEY=$key
+  elif [[ -n ${UNSIGNED_LLM_SHARED_KEY-} ]]; then
+    export UNSIGNED_LLM_API_KEY=$UNSIGNED_LLM_SHARED_KEY
+  fi
+}
+if [[ -n ${UNSIGNED_LLM_API_KEY-} ]]; then
+  : ${UNSIGNED_LLM_SHARED_KEY:=$UNSIGNED_LLM_API_KEY}
+  export UNSIGNED_LLM_SHARED_KEY
+  autoload -Uz add-zsh-hook
+  add-zsh-hook chpwd _unsigned_llm_ws_key
+  _unsigned_llm_ws_key
+fi
