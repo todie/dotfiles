@@ -1,0 +1,98 @@
+onboarding = false
+
+[ui]
+show_agent_labels_on_pane_borders = false
+
+agent_panel_sort = "priority"
+[ui.toast]
+delivery = "terminal"
+
+[theme]
+name = "kanagawa-lotus"
+auto_switch = false
+
+# ── Keys — emulate ~/.tmux.conf (backtick prefix, vim panes) ──────────────
+[keys]
+prefix = "backtick"
+
+# tmux: r = reload config, R = rename window (tab)
+reload_config = "prefix+r"
+rename_tab = "prefix+shift+r"
+resize_mode = "prefix+alt+r" # displaced from prefix+r by reload
+
+# tmux: d = detach
+detach = "prefix+d"
+
+# tmux: | = side-by-side split, - = stacked split (keep current path is herdr default)
+split_vertical = "prefix+|"
+split_horizontal = "prefix+minus"
+
+# tmux: c = new window
+new_tab = "prefix+c"
+
+# tmux: Tab = toggle to last; frees prefix+tab from pane cycling
+last_pane = "prefix+tab"
+cycle_pane_next = ""
+
+# tmux: h/j/k/l pane navigation (herdr defaults, pinned explicitly)
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+
+# tmux: x = kill pane, X = kill window, z = zoom (herdr defaults, pinned)
+close_pane = "prefix+x"
+close_tab = "prefix+shift+x"
+zoom = "prefix+z"
+
+# tmux: Alt+1..9 jump to window N without prefix
+[keys.indexed]
+tabs = "alt"
+
+# tmux: C-g = lazygit fullscreen popup
+[[keys.command]]
+key = "ctrl+g"
+type = "pane"
+command = "lazygit"
+
+# ── Plugins (installed 2026-07-05) ────────────────────────────────────────
+[[keys.command]]
+key = "prefix+p"
+type = "plugin_action"
+command = "jt.command-palette.open"
+description = "Command palette (all plugin actions)"
+
+[[keys.command]]
+key = "prefix+o"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.projects"
+description = "Herdr Plus: open project template"
+
+[[keys.command]]
+key = "prefix+a"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.quick-actions"
+description = "Herdr Plus: quick actions"
+
+[[keys.command]]
+key = "prefix+e"
+type = "plugin_action"
+command = "herdr-file-viewer.open-file-viewer"
+description = "Git-aware file viewer (split)"
+
+[[keys.command]]
+key = "prefix+v"
+type = "plugin_action"
+command = "persiyanov.reviewr.toggle"
+description = "reviewr: toggle code-review sidebar"
+
+# tmux-fingers style copy hints
+[[keys.command]]
+key = "prefix+f"
+type = "plugin_action"
+command = "rmarganti.herdr-pluck.pluck"
+description = "Pluck visible token to clipboard"
+
+[experimental]
+pane_history = true
+switch_ascii_input_source_in_prefix = false

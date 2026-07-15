@@ -12,6 +12,15 @@
 #   cc new [dir]  open a window named after dir (default $PWD), launch claude
 #   cc <dir>      shorthand for `cc new <dir>`
 
+# Account profiles: ~/.claude = ctodie@cerebral.work (default), ~/.claude-personal
+# = chris@todie.io. The personal dir holds only its own .credentials.json +
+# .claude.json; everything else is symlinked back to ~/.claude, so config/skills/
+# memory stay single-sourced. Swap = env var, no re-login.
+# env -u scrubs API-key auth so the profile's claude.ai OAuth (and its
+# connectors) always wins regardless of what secrets.env exports.
+claude-personal() { CLAUDE_CONFIG_DIR="$HOME/.claude-personal" command env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude "$@"; }
+alias ccp="claude-personal"
+
 _cc_need_tmux() { [[ -n "$TMUX" ]] || { print -u2 "cc: not inside tmux"; return 1; }; }
 
 _cc_new() {
