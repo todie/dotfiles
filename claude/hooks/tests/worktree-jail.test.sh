@@ -5,7 +5,11 @@
 # Run: bash claude/hooks/tests/worktree-jail.test.sh
 set -uo pipefail
 
-HOOK="${BASH_SOURCE[0]%/*}/../worktree-jail.sh"
+# Hooks live under the chezmoi source tree (.chezmoiroot=home), so the test
+# targets the source file, not a deployed copy. Resolve from the repo root so
+# this works from any cwd and in CI.
+_REPO="$(cd "${BASH_SOURCE[0]%/*}/../../.." && pwd)"
+HOOK="${HOOK_OVERRIDE:-$_REPO/home/dot_claude/hooks/executable_worktree-jail.sh}"
 JAIL="/home/ctodie/projects/reverie/.claude/worktrees/agent-test"
 PARENT="/home/ctodie/projects/reverie"
 pass=0 fail=0
