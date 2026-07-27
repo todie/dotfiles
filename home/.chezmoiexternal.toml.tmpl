@@ -9,14 +9,20 @@
 # kubecolor is here because it has no mise/aqua registry entry.
 
 {{ $kubecolorVer := "0.6.0" -}}
-{{ $kubecolorSha := "ded167eb2d94145cc46e4ccb52db24e85a865858353014514a85cb59c649d2fe" -}}
-{{ if eq .chezmoi.arch "arm64" -}}
-{{ $kubecolorSha = "aa56015817bdfe8a8944169e5b18108235fb5bca671f89fa52613b4379bf1f66" -}}
-{{ end -}}
+{{/* Checksums from the release's checksums.txt, keyed os_arch. The OS must be
+     templated too — a linux-only URL silently installs an ELF on darwin, which
+     fails at exec time (europa, 2026-07-27). */ -}}
+{{ $kubecolorSums := dict
+     "linux_amd64"  "ded167eb2d94145cc46e4ccb52db24e85a865858353014514a85cb59c649d2fe"
+     "linux_arm64"  "aa56015817bdfe8a8944169e5b18108235fb5bca671f89fa52613b4379bf1f66"
+     "darwin_amd64" "8edea5adc6bdb121ec907014790ca780c97aac3766e0c27327227ccc0748c7e4"
+     "darwin_arm64" "22f08853f8925613f1792dd5acaaf0661284bb647d69ff50ad9552027b0d456a" -}}
+{{ $kubecolorPlat := printf "%s_%s" .chezmoi.os .chezmoi.arch -}}
+{{ $kubecolorSha := get $kubecolorSums $kubecolorPlat -}}
 
 [".local/bin/kubecolor"]
     type = "archive-file"
-    url = "https://github.com/kubecolor/kubecolor/releases/download/v{{ $kubecolorVer }}/kubecolor_{{ $kubecolorVer }}_linux_{{ .chezmoi.arch }}.tar.gz"
+    url = "https://github.com/kubecolor/kubecolor/releases/download/v{{ $kubecolorVer }}/kubecolor_{{ $kubecolorVer }}_{{ $kubecolorPlat }}.tar.gz"
     path = "kubecolor"
     executable = true
     checksum.sha256 = "{{ $kubecolorSha }}"
