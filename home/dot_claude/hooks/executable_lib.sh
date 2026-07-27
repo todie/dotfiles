@@ -333,10 +333,17 @@ reveried_jwt() {
   [ -n "$tok" ] || return 0
 
   # 0700 dir, 0600 file — the token is bearer credential material.
+  #
+  # Write to a temp file and rename. Truncating the live cache first meant a
+  # short or failed write left a partial token that still satisfies the
+  # `[ -s "$cache" ]` freshness gate above, so the corrupt value would be
+  # served for the rest of the TTL. rename(2) is atomic within a directory, so
+  # a reader sees either the old token or the new one.
   ( umask 077
     mkdir -p "$cache_dir" 2>/dev/null || exit 0
-    rm -f "$cache" 2>/dev/null
-    printf '%s' "$tok" > "$cache" 2>/dev/null
+    tmp="${cache}.$$"
+    printf '%s' "$tok" > "$tmp" 2>/dev/null || { rm -f "$tmp" 2>/dev/null; exit 0; }
+    mv -f "$tmp" "$cache" 2>/dev/null || rm -f "$tmp" 2>/dev/null
   ) || true
   printf '%s' "$tok"
 }
@@ -358,16 +365,23 @@ reverie_post_turn() {
 
   local tok; tok="$(reveried_jwt "$project")"
 
-  # Built as an array because a bare ${tok:+-H "..."} word-splits on the space
-  # inside the header value. The ${auth[@]+...} guard is required: under
-  # `set -u`, expanding an empty array as "${auth[@]}" is a fatal unbound
-  # variable error on bash 3.2 — the /bin/bash shipped on macOS.
-  local -a auth=()
-  [ -n "$tok" ] && auth=(-H "Authorization: Bearer $tok")
-
+  # --noproxy '*' is load-bearing, not hygiene. curl honours http_proxy even
+  # for a 127.0.0.1 URL (verified on curl 8.7.1: with the variable exported the
+  # request never reaches the daemon). This body carries a bearer token and a
+  # 200-char excerpt of the command that was just run, so a single exported
+  # http_proxy — corporate config, an mitmproxy session, a poisoned direnv —
+  # would silently ship the operator's credentials and a rolling excerpt of
+  # their shell activity to a third party, with no error and no log line.
+  #
+  # The token goes in via a -K config on stdin rather than argv, so it is not
+  # readable from /proc/<pid>/cmdline or ps by other uids while the request is
+  # in flight. Empty stdin is a valid (no-op) config, which is what an
+  # unauthenticated call sends.
   curl -s -o /dev/null -m 2 -X POST \
+    --noproxy '*' \
+    -K - \
     -H 'Content-Type: application/json' \
-    ${auth[@]+"${auth[@]}"} \
     -d "$body" \
-    "$ENGRAM_URL/v1/turns" 2>/dev/null || true
+    "$ENGRAM_URL/v1/turns" \
+    <<<"${tok:+header = \"Authorization: Bearer ${tok}\"}" 2>/dev/null || true
 }
