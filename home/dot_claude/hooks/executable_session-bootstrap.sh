@@ -40,6 +40,29 @@ else
   hook_warn "auto-memory missing — create memory/MEMORY.md for this project"
 fi
 
+# Hook drift. Guards are the only thing binding agents that run with
+# --dangerously-skip-permissions, and a hook edited live and never committed is
+# invisible until something goes wrong. The CER-1097 cutover rewrote three
+# guards on a host and removed recursive-delete and force-push coverage; nobody
+# noticed for weeks because nothing ever looked.
+#
+# Deliberately a warning, not a block: failing session start over a hook edit
+# turns a small problem into an unbootable harness, which is how someone ends
+# up disabling the whole mechanism. Bounded by `timeout` so a slow or wedged
+# chezmoi cannot stall the prompt, and silent when chezmoi is absent.
+# The path argument is not optional. An unscoped `chezmoi status` walks the
+# whole source tree and measured 24.2s here; scoped to the hooks dir it is
+# 0.05s. Unscoped it would also have blown the timeout below and reported zero
+# drift — a false all-clear, which is worse than not checking at all.
+_CHEZMOI="$(command -v chezmoi || echo "$HOME/.local/bin/chezmoi")"
+if [ -x "$_CHEZMOI" ] && command -v timeout >/dev/null 2>&1; then
+  _drift="$(timeout 5 "$_CHEZMOI" status "$HOME/.claude/hooks" 2>/dev/null | grep -c 'claude/hooks' || true)"
+  case "$_drift" in
+    ''|0) ;;
+    *) hook_warn "$_drift hook file(s) differ from the dotfiles repo — run 'chezmoi diff ~/.claude/hooks' and commit or revert (CER-1741)" ;;
+  esac
+fi
+
 # 3. Engram context inject — reveried /context/smart for this project (graceful
 #    skip if the daemon is down/wedged; never blocks session start).
 if [ -n "${PROJECT:-}" ]; then
