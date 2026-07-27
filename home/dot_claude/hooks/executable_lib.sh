@@ -267,3 +267,107 @@ cb_reset() {
 
 ENGRAM_URL="http://127.0.0.1:7437"
 REVERIED="${HOME}/.local/bin/reveried"
+
+# --- reverie capture auth (CER-1741) ---
+#
+# The two reverie capture hooks call these. Without them both hooks hit an
+# undefined function, trip their ERR trap, and no-op silently — which is how
+# capture was dead on every host provisioned from this repo.
+
+# File mtime in epoch seconds, or empty if it cannot be determined.
+#
+# GNU and BSD stat disagree, and the disagreement is not symmetric: BSD wants
+# `-f %m`, but on GNU `-f` means --file-system and SUCCEEDS, printing
+# non-numeric filesystem info. So `stat -f %m || stat -c %Y` silently "works"
+# on Linux while yielding garbage. Try GNU first, and validate that whatever
+# came back is actually a number before trusting it.
+_file_mtime() {
+  local f="$1" mt=""
+  mt="$(stat -c %Y "$f" 2>/dev/null)" || mt=""
+  case "$mt" in (*[!0-9]*|"") mt="" ;; esac
+  if [ -z "$mt" ]; then
+    mt="$(stat -f %m "$f" 2>/dev/null)" || mt=""
+    case "$mt" in (*[!0-9]*|"") mt="" ;; esac
+  fi
+  printf '%s' "$mt"
+}
+
+# Mint (and cache) an Ed25519 JWT for reveried's authenticated routes.
+#
+#   reveried_jwt [project]
+#
+# Prints the token, or nothing. Every failure path returns empty rather than
+# non-zero: these run on the hot prompt/tool path, where a missing token must
+# degrade to unauthenticated capture, never block a tool call.
+#
+# Cached per-project for 50min of the 1h TTL. The cache lives under
+# ~/.cache/reveried (created 0700) rather than /tmp: /tmp is world-writable and
+# the filename is predictable from the project, so a pre-created file or
+# symlink there could capture or redirect a bearer token.
+reveried_jwt() {
+  local project="${1:-${PROJECT:-default}}"
+  local safe_project="${project//[^A-Za-z0-9_.-]/_}"
+  local cache_dir="${HOME}/.cache/reveried"
+  local cache="${cache_dir}/hook-jwt-${safe_project}"
+
+  if [ -s "$cache" ] && [ ! -L "$cache" ]; then
+    local now mt
+    now="$(date +%s 2>/dev/null || echo 0)"
+    mt="$(_file_mtime "$cache")"
+    if [ -n "$mt" ] && [ "$now" -gt 0 ] && [ $((now - mt)) -lt 3000 ]; then
+      cat "$cache" 2>/dev/null || true
+      return 0
+    fi
+  fi
+
+  # No binary or no signing key → unauthenticated, not an error.
+  [ -x "$REVERIED" ] || return 0
+  [ -n "${REVERIE_JWT_PRIVATE_KEY:-}" ] || return 0
+
+  local tok
+  tok="$("$REVERIED" token mint \
+           --sub claude-code-capture \
+           --scope 'mcp:write lcm:write' \
+           --proj "$project" \
+           --ttl-hours 1 2>/dev/null)" || return 0
+  [ -n "$tok" ] || return 0
+
+  # 0700 dir, 0600 file — the token is bearer credential material.
+  ( umask 077
+    mkdir -p "$cache_dir" 2>/dev/null || exit 0
+    rm -f "$cache" 2>/dev/null
+    printf '%s' "$tok" > "$cache" 2>/dev/null
+  ) || true
+  printf '%s' "$tok"
+}
+
+# Alias for the name used in reverie's ops/harness docs and hook headers.
+reveried_jwt_for() { reveried_jwt "${1:-}"; }
+
+# POST one turn to reveried's /v1/turns.
+#
+#   reverie_post_turn <project> <json_body>
+#
+# /v1/turns requires both `mcp:write lcm:write` and a --proj claim matching the
+# event's project, so the token is minted per-project. If minting yields
+# nothing the request still goes out unauthenticated: the daemon rejects it
+# with a logged 401, which is visible, rather than dropping the turn silently.
+reverie_post_turn() {
+  local project="$1" body="$2"
+  [ -n "$body" ] || return 0
+
+  local tok; tok="$(reveried_jwt "$project")"
+
+  # Built as an array because a bare ${tok:+-H "..."} word-splits on the space
+  # inside the header value. The ${auth[@]+...} guard is required: under
+  # `set -u`, expanding an empty array as "${auth[@]}" is a fatal unbound
+  # variable error on bash 3.2 — the /bin/bash shipped on macOS.
+  local -a auth=()
+  [ -n "$tok" ] && auth=(-H "Authorization: Bearer $tok")
+
+  curl -s -o /dev/null -m 2 -X POST \
+    -H 'Content-Type: application/json' \
+    ${auth[@]+"${auth[@]}"} \
+    -d "$body" \
+    "$ENGRAM_URL/v1/turns" 2>/dev/null || true
+}
