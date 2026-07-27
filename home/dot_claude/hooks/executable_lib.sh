@@ -267,3 +267,81 @@ cb_reset() {
 
 ENGRAM_URL="http://127.0.0.1:7437"
 REVERIED="${HOME}/.local/bin/reveried"
+
+# --- reverie capture auth (CER-1741) ---
+
+# Mint (and cache) an Ed25519 JWT for reveried's authenticated routes.
+#
+#   reveried_jwt [project]
+#
+# Prints the token on stdout, or nothing at all. Every failure path returns
+# empty rather than non-zero: these run on the hot prompt/tool path, where a
+# missing token must degrade to unauthenticated capture, never to a blocked
+# tool call. Callers source this under `set -u` with an ERR trap.
+#
+# Cache: per-project under /tmp at mode 0600, reused for 50min of the 1h TTL
+# (the contract in reverie's ops/harness/README.md). The cache key is
+# sanitized because the project name reaches a filesystem path.
+reveried_jwt() {
+  local project="${1:-${PROJECT:-default}}"
+  local safe_project="${project//[^A-Za-z0-9_.-]/_}"
+  local cache="/tmp/reveried-hook-jwt-${safe_project}.cache"
+
+  # Serve from cache while >10min of the 1h TTL remains.
+  if [ -s "$cache" ]; then
+    local now mtime
+    now="$(date +%s 2>/dev/null || echo 0)"
+    # stat is BSD on darwin, GNU on linux — try both.
+    mtime="$(stat -f %m "$cache" 2>/dev/null || stat -c %Y "$cache" 2>/dev/null || echo 0)"
+    if [ "$now" -gt 0 ] && [ "$mtime" -gt 0 ] && [ $((now - mtime)) -lt 3000 ]; then
+      cat "$cache" 2>/dev/null || true
+      return 0
+    fi
+  fi
+
+  # No binary or no signing key → unauthenticated, not an error.
+  [ -x "$REVERIED" ] || return 0
+  [ -n "${REVERIE_JWT_PRIVATE_KEY:-}" ] || return 0
+
+  local tok
+  tok="$("$REVERIED" token mint \
+           --sub claude-code-capture \
+           --scope 'mcp:write lcm:write' \
+           --proj "$project" \
+           --ttl-hours 1 2>/dev/null)" || return 0
+  [ -n "$tok" ] || return 0
+
+  # 0600 — the token is bearer credential material.
+  (umask 077; printf '%s' "$tok" > "$cache") 2>/dev/null || true
+  printf '%s' "$tok"
+}
+
+# Alias for the name used in reverie's ops/harness docs + hook headers.
+reveried_jwt_for() { reveried_jwt "${1:-}"; }
+
+# POST one turn to reveried's /v1/turns.
+#
+#   reverie_post_turn <project> <json_body>
+#
+# /v1/turns requires BOTH `mcp:write lcm:write` scopes and a --proj claim
+# matching the event's project, so the token is minted per-project. If
+# minting yields nothing the request still goes out unauthenticated: the
+# daemon rejects it with a logged 401, which is a visible failure rather
+# than a turn silently dropped on the client side.
+reverie_post_turn() {
+  local project="$1" body="$2"
+  [ -n "$body" ] || return 0
+
+  local tok; tok="$(reveried_jwt "$project")"
+
+  # Build args as an array: a bare ${tok:+-H "..."} word-splits on the
+  # space inside the header value and sends a malformed header.
+  local -a auth=()
+  [ -n "$tok" ] && auth=(-H "Authorization: Bearer $tok")
+
+  curl -s -o /dev/null -m 2 -X POST \
+    -H 'Content-Type: application/json' \
+    "${auth[@]}" \
+    -d "$body" \
+    "$ENGRAM_URL/v1/turns" 2>/dev/null || true
+}
