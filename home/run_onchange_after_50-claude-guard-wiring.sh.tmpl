@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# Splice the canonical guard wiring into ~/.claude/settings.json (CER-1741).
+#
+# Manifest hash — this line is why the script is a template. run_onchange_ keys
+# off the RENDERED content, so without embedding the manifest's hash here,
+# editing guard-wiring.json would never re-run this and new guards would reach
+# no host, silently.
+# manifest sha256: {{ include "dot_claude/guard-wiring.json" | sha256sum }}
+#
+# settings.json is chezmoi-ignored because Claude Code rewrites it in place.
+# Rather than fight that, this owns only the guard subset: it ensures each
+# (matcher, hook) pair from the manifest is present in .hooks.PreToolUse and
+# leaves every other key untouched.
+#
+# ADDITIVE ONLY. It never removes an entry. Guards are the only thing binding
+# agents that run with --dangerously-skip-permissions, so a wiring mechanism
+# that can subtract is one that can silently disarm a host (CER-1743).
+#
+# FAILS LOUDLY. An earlier revision exited 0 on every error path, so chezmoi
+# reported success while doing nothing and never retried. Real failures now
+# exit non-zero; only genuinely-not-applicable conditions exit 0.
+#
+# GUARD_WIRING_DRY_RUN=1 prints what would change and exits.
+
+set -uo pipefail
+
+SETTINGS="${GUARD_WIRING_SETTINGS:-$HOME/.claude/settings.json}"
+MANIFEST="${GUARD_WIRING_MANIFEST:-$HOME/.claude/guard-wiring.json}"
+HOOKS_DIR="${GUARD_WIRING_HOOKS_DIR:-$HOME/.claude/hooks}"
+DRY="${GUARD_WIRING_DRY_RUN:-0}"
+
+die()  { echo "guard-wiring: $*" >&2; exit 1; }
+skip() { echo "guard-wiring: $*" >&2; exit 0; }
+
+command -v jq >/dev/null 2>&1 || die "jq not found — cannot wire guards"
+[ -f "$MANIFEST" ] || skip "no manifest at $MANIFEST (guards not managed on this host)"
+
+# A fresh host has no settings.json yet, because it is chezmoi-ignored. Exiting
+# here would record the run as done and leave the host permanently unwired, so
+# seed a minimal file instead.
+if [ ! -f "$SETTINGS" ]; then
+  mkdir -p "$(dirname "$SETTINGS")" || die "cannot create $(dirname "$SETTINGS")"
+  echo '{}' > "$SETTINGS" || die "cannot seed $SETTINGS"
+  echo "guard-wiring: seeded empty $SETTINGS"
+fi
+jq -e . "$SETTINGS" >/dev/null 2>&1 || die "$SETTINGS is not valid JSON — refusing to touch it"
+
+# Validate the manifest yields work. A renamed key or malformed JSON must not
+# read as "everything already wired".
+pairs="$(jq -r '.shared.PreToolUse[] | "\(.matcher)\t\(.hook)"' "$MANIFEST" 2>/dev/null)" \
+  || die "manifest $MANIFEST is malformed"
+[ -n "$pairs" ] || die "manifest $MANIFEST declares no PreToolUse entries — refusing to report success"
+
+tmp="$(mktemp "${TMPDIR:-/tmp}/guard-wiring.XXXXXX")" || die "mktemp failed"
+trap 'rm -f "$tmp"' EXIT
+cp "$SETTINGS" "$tmp" || die "cannot read $SETTINGS"
+
+# Hash what we actually copied, taken immediately after the copy. Snapshotting
+# any earlier leaves a window in which a concurrent write is invisible.
+hash_of() { shasum -a256 "$1" 2>/dev/null | cut -d' ' -f1 || sha256sum "$1" 2>/dev/null | cut -d' ' -f1; }
+before_hash="$(hash_of "$SETTINGS")"
+[ -n "$before_hash" ] || die "cannot hash $SETTINGS — refusing to risk clobbering a concurrent write"
+
+added=0 missing=0
+while IFS=$'\t' read -r matcher hook; do
+  [ -n "$matcher" ] || continue
+  if [ ! -f "$HOOKS_DIR/$hook" ]; then
+    echo "guard-wiring: $hook not present on this host — not wiring" >&2
+    missing=$((missing + 1))
+    continue
+  fi
+  cmd="$HOOKS_DIR/$hook"
+
+  # Compare the FULL path with the home prefix normalised, not the basename.
+  # Basename matching meant any entry ending in the same filename — a stale
+  # hooks.bak copy, or a planted no-op — would suppress wiring of the real
+  # guard and report success.
+  if jq -e --arg m "$matcher" --arg c "$cmd" --arg home "$HOME" '
+      (.hooks.PreToolUse // [])
+      | any(
+          .matcher == $m
+          and ((.hooks // []) | any(
+                 (.command // "")
+                 | gsub("^~/"; $home + "/")
+                 | gsub("^\\$HOME/"; $home + "/")
+                 | gsub("^\\$\\{HOME\\}/"; $home + "/")
+                 | . == $c))
+        )' "$tmp" >/dev/null 2>&1; then
+    continue
+  fi
+
+  echo "guard-wiring: + $hook (matcher $matcher)"
+  added=$((added + 1))
+  [ "$DRY" = "1" ] && continue
+
+  out="$(jq --arg m "$matcher" --arg c "$cmd" '
+    .hooks //= {} |
+    .hooks.PreToolUse //= [] |
+    .hooks.PreToolUse |= (
+      (map(.matcher == $m) | index(true)) as $i |
+      if $i == null then
+        . + [{matcher:$m, hooks:[{type:"command", command:$c}]}]
+      else
+        .[:$i] + [(.[$i] | .hooks = ((.hooks // []) + [{type:"command", command:$c}]))] + .[$i+1:]
+      end
+    )' "$tmp")" || die "jq splice failed for $hook — no changes written"
+  printf '%s' "$out" > "$tmp" || die "cannot write temp file"
+done <<EOF
+$pairs
+EOF
+
+if [ "$added" -eq 0 ]; then
+  echo "guard-wiring: all canonical guards already wired${missing:+ (${missing} absent from disk)}"
+  exit 0
+fi
+
+[ "$DRY" = "1" ] && { echo "guard-wiring: dry run, $added change(s) not applied"; exit 0; }
+
+jq -e . "$tmp" >/dev/null 2>&1 || die "result is not valid JSON — no changes written"
+
+# Claude Code may have rewritten settings.json while we worked. Writing our
+# snapshot back would silently revert that — the exact thing this design exists
+# to avoid. Re-check and bail; the next apply picks it up.
+after_hash="$(hash_of "$SETTINGS")"
+[ "$before_hash" = "$after_hash" ] \
+  || die "$SETTINGS changed while wiring (concurrent write) — no changes made, re-run to apply"
+
+# Atomic swap. cat > "$SETTINGS" truncates in place, so an interruption or
+# ENOSPC would leave the file the harness boots from unparsable and hookless.
+# rename(2) within a directory is atomic: readers see old or new, never partial.
+final="$(dirname "$SETTINGS")/.guard-wiring.$$.tmp"
+cp "$SETTINGS" "$SETTINGS.guard-wiring.bak" 2>/dev/null || true
+cp "$tmp" "$final" || die "cannot stage new settings"
+mv -f "$final" "$SETTINGS" || { rm -f "$final"; die "atomic swap failed — settings.json untouched"; }
+echo "guard-wiring: wired $added guard(s); previous file at $SETTINGS.guard-wiring.bak"
