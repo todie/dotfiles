@@ -37,6 +37,10 @@ DOTFILES_ZSH_DIR="$HOME/.config/zsh"
 # resolve mise-managed binaries. mise prepends its shim dir; env.zsh's later
 # path+= only appends, so mise keeps PATH precedence. Manifest:
 # ~/.config/mise/config.toml — see docs/tooling-strategy.md.
+# sshd spawns zsh with the bare system PATH, and ~/.local/bin (where mise
+# lives) is only appended later in env.zsh — after this gate. Prepend it here
+# so SSH logins activate mise too; env.zsh's typeset -U dedups the re-append.
+path=("$HOME/.local/bin" $path)
 command -v mise >/dev/null 2>&1 && eval "$(mise activate zsh)"
 
 # Load modules in dependency order.
@@ -86,3 +90,14 @@ export PATH=$HOME/.opencode/bin:$PATH
 
 # OpenBao (unsigned-paas-dev, via tailnet LB — bao.dev.unsigned.gg ingress is dead)
 export BAO_ADDR=http://bao.tail769bd2.ts.net
+
+# >>> railway initialize >>>
+source "$HOME/.railway/env"
+# <<< railway initialize <<<
+
+. "$HOME/.moon/bin/env"
+
+# Added by biomni setup
+# Remove any old paths first to avoid duplicates
+PATH=$(echo $PATH | tr ':' '\n' | grep -v "biomni_tools/bin" | tr '\n' ':' | sed 's/:$//')
+export PATH="/home/ctodie/projects/cerebral/biomni/biomni_env/biomni_tools/bin:$PATH"
