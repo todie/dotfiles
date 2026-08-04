@@ -21,6 +21,24 @@
 claude-personal() { CLAUDE_CONFIG_DIR="$HOME/.claude-personal" command env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude "$@"; }
 alias ccp="claude-personal"
 
+# anthropic-api — run one command with API-key auth.
+#
+# secrets.env deliberately renders the key as ANTHROPIC_API_KEY_INACTIVE rather
+# than exporting the real name: ANTHROPIC_API_KEY outranks the claude.ai
+# subscription login, and that account has no credit, so an ambient export made
+# `claude` fail with "Credit balance is too low" while the subscription was fine.
+# Tools that genuinely want API billing opt in here.
+#
+#   anthropic-api ant ...      # anthropic-cli, which auths off the key
+#   anthropic-api pi --provider anthropic ...
+anthropic-api() {
+  if [[ -z "${ANTHROPIC_API_KEY_INACTIVE:-}" ]]; then
+    print -u2 -P "%F{red}✗%f ANTHROPIC_API_KEY_INACTIVE unset — expected from secrets.env"
+    return 1
+  fi
+  ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY_INACTIVE" command "$@"
+}
+
 _cc_need_tmux() { [[ -n "$TMUX" ]] || { print -u2 "cc: not inside tmux"; return 1; }; }
 
 _cc_new() {

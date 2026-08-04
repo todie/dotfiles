@@ -52,7 +52,9 @@ fzf      = "0.73.1"   # fuzzy finder — REQUIRED by fzf-tab (TAB completion). W
 # github backend: not in the bare registry, so the full locator is required and
 # the archived binary (`ant`) is named differently from the repo, hence `exe`.
 # Release tarballs are SLSA-provenance + GitHub artifact-attestation verified on
-# install. Auths off the existing $ANTHROPIC_API_KEY (rendered from 1Password);
+# install. Auths off $ANTHROPIC_API_KEY, which is deliberately NOT in the ambient
+# env (secrets.env renders it as ANTHROPIC_API_KEY_INACTIVE so it cannot outrank
+# the claude.ai subscription login) — run it as `anthropic-api ant ...`.
 # `ant @completion zsh` feeds the zsh completion cache. See docs/sdks/cli.
 "github:anthropics/anthropic-cli" = { version = "1.10.0", exe = "ant" }
 
