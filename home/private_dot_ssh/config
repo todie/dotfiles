@@ -1,5 +1,48 @@
+# europa SSH routing. Restructured 2026-07-21 to fix "Too many authentication
+# failures"; per-host routing restored 2026-08-05 after it was lost from the
+# chezmoi source (the live file had drifted down to only `Host *`).
+#
+# DESIGN: the local Apple launchd agent is PRIMARY — it holds europa's on-disk
+# keys. 1Password is SECONDARY, demoted to explicit per-host blocks.
+#
+# Why not a fallback chain: OpenSSH's IdentityAgent is single-valued per host,
+# so true two-agent chaining is impossible, and a proxy that merges keyrings
+# just re-creates the key flood that trips sshd's MaxAuthTries=6. Routing is
+# therefore PER-HOST, not a chain — a 1Password-only host with no explicit
+# block will fail, offering only the local keys. Add a block per new vault host.
+#
+# Order matters: OpenSSH takes the FIRST value obtained for each keyword, so
+# every specific block must precede `Host *`.
+
+Include /Users/ctodie/.config/colima/ssh_config
+
+# --- 1Password vault hosts (secondary agent) ---------------------------------
+# These hosts' keys live ONLY in the 1Password vault, never on disk.
+#
+# `IdentitiesOnly no` is LOAD-BEARING: `Host *` below sets it to yes, and under
+# IdentitiesOnly=yes ssh offers only the keys named by IdentityFile — i.e. the
+# on-disk key — so the vault keys this block exists to reach would never be
+# presented. Verify with `ssh -G <host> | grep identit`.
+Host 45.76.5.89 100.65.9.122 100.99.117.77
+	IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
+	IdentitiesOnly no
+
+# --- estate hosts (local agent, pinned) --------------------------------------
+# ceres is the Brooklyn desktop, reached over the tailnet. It runs WSL2 and the
+# login account is `ctodie`, NOT `todie` — that mismatch cost an hour on
+# 2026-07-21.
+Host ceres ceres.tail769bd2.ts.net
+	User ctodie
+	IdentityFile ~/.ssh/id_ed25519
+	IdentitiesOnly yes
+
+Host github.com
+	User git
+	IdentityFile ~/.ssh/id_ed25519
+	IdentitiesOnly yes
+
+# --- default -----------------------------------------------------------------
 Host *
 	IdentityFile ~/.ssh/id_ed25519
 	IdentitiesOnly yes
 	AddKeysToAgent yes
-
