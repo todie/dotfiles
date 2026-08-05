@@ -23,20 +23,26 @@ alias ccp="claude-personal"
 
 # anthropic-api — run one command with API-key auth.
 #
-# secrets.env deliberately renders the key as ANTHROPIC_API_KEY_INACTIVE rather
-# than exporting the real name: ANTHROPIC_API_KEY outranks the claude.ai
-# subscription login, and that account has no credit, so an ambient export made
-# `claude` fail with "Credit balance is too low" while the subscription was fine.
-# Tools that genuinely want API billing opt in here.
+# The key is not exported anywhere, under any name: ANTHROPIC_API_KEY outranks
+# the claude.ai subscription login, and that account has no credit, so an
+# ambient export made `claude` fail with "Credit balance is too low" while the
+# subscription was fine. Rendering it under a different name kept it out of the
+# precedence path but still put the secret in every process's environment, so
+# secrets.env now renders nothing and this reads it at call time instead.
+#
+# Costs one `op read` per invocation. That is the point: the key exists only in
+# the environment of the single command that asked for it.
 #
 #   anthropic-api ant ...      # anthropic-cli, which auths off the key
 #   anthropic-api pi --provider anthropic ...
 anthropic-api() {
-  if [[ -z "${ANTHROPIC_API_KEY_INACTIVE:-}" ]]; then
-    print -u2 -P "%F{red}✗%f ANTHROPIC_API_KEY_INACTIVE unset — expected from secrets.env"
+  [[ $# -gt 0 ]] || { print -u2 "usage: anthropic-api <cmd> [args...]"; return 2; }
+  local _ak
+  if ! _ak=$(op read "op://cloud/cerebral-anthropic-api/credential" 2>/dev/null) || [[ -z "$_ak" ]]; then
+    print -u2 -P "%F{red}✗%f could not read the Anthropic key from 1Password (is OP_SERVICE_ACCOUNT_TOKEN set?)"
     return 1
   fi
-  ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY_INACTIVE" command "$@"
+  ANTHROPIC_API_KEY="$_ak" command "$@"
 }
 
 _cc_need_tmux() { [[ -n "$TMUX" ]] || { print -u2 "cc: not inside tmux"; return 1; }; }
