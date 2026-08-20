@@ -70,7 +70,7 @@ unset _module
 # ssh/ssh-add to ssh.exe/ssh-add.exe per WSL integration docs).
 
 # Prefer stored gh OAuth token over inherited GITHUB_TOKEN PAT (which lacks SSO access to cerebral-work/*)
-gh() { GITHUB_TOKEN= command gh "$@"; }
+gh() { GH_TOKEN= GITHUB_TOKEN= GH_ENTERPRISE_TOKEN= command gh "$@"; }
 
 # The next line updates PATH for the Google Cloud SDK.
 if [ -f "$HOME/google-cloud-sdk/path.zsh.inc" ]; then . "$HOME/google-cloud-sdk/path.zsh.inc"; fi
@@ -91,13 +91,22 @@ export PATH=$HOME/.opencode/bin:$PATH
 # OpenBao (unsigned-paas-dev, via tailnet LB — bao.dev.unsigned.gg ingress is dead)
 export BAO_ADDR=http://bao.tail769bd2.ts.net
 
+# Installer-appended blocks below. These landed via installers run on ceres
+# (Linux); the paths do not exist on macOS hosts, and an unguarded `source` of
+# a missing file errors on every shell start. Guard each — a no-op where the
+# file is absent, unchanged behaviour where it is present.
+
 # >>> railway initialize >>>
-source "$HOME/.railway/env"
+[ -f "$HOME/.railway/env" ] && source "$HOME/.railway/env"
 # <<< railway initialize <<<
 
-. "$HOME/.moon/bin/env"
+[ -f "$HOME/.moon/bin/env" ] && . "$HOME/.moon/bin/env"
 
 # Added by biomni setup
 # Remove any old paths first to avoid duplicates
-PATH=$(echo $PATH | tr ':' '\n' | grep -v "biomni_tools/bin" | tr '\n' ':' | sed 's/:$//')
-export PATH="/home/ctodie/projects/cerebral/biomni/biomni_env/biomni_tools/bin:$PATH"
+BIOMNI_BIN="$HOME/projects/cerebral/biomni/biomni_env/biomni_tools/bin"
+if [ -d "$BIOMNI_BIN" ]; then
+  PATH=$(echo $PATH | tr ':' '\n' | grep -v "biomni_tools/bin" | tr '\n' ':' | sed 's/:$//')
+  export PATH="$BIOMNI_BIN:$PATH"
+fi
+unset BIOMNI_BIN
