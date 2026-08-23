@@ -176,10 +176,12 @@ fi
 # the binary is discoverable)
 # (delta is used via git's [core] pager — no env var needed here)
 
-# fnm — fast Node version manager (replaces nvm)
-# Adds `fnm`, plus auto-switches Node version on cd into dirs with .nvmrc/.node-version
-if has fnm; then
-  eval "$(fnm env --use-on-cd --shell zsh)"
+# proto — multi-language toolchain manager (node/pnpm/bun/python/moon; replaces fnm+nvm).
+# Single source of truth for tool versions (matches the `agentic` monorepo's .prototools).
+# `proto activate` puts shims on PATH and auto-switches pinned versions on cd into dirs
+# with .prototools (and legacy .nvmrc/.node-version). Migrated off fnm 2026-07-25.
+if has proto; then
+  eval "$(proto activate zsh)"
 fi
 
 # rust — cargo + rustup binaries live in ~/.cargo/bin (added once above; the
