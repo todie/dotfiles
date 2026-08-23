@@ -147,7 +147,7 @@ if has fzf; then
   export FZF_CTRL_R_OPTS="
     --preview 'echo {}' --preview-window down:3:hidden:wrap
     --bind 'ctrl-/:toggle-preview'
-    --bind 'ctrl-y:execute-silent(echo -n {2..} | win32yank.exe -i)+abort'
+    --bind 'ctrl-y:execute-silent(echo -n {2..} | ~/.local/bin/tmux-copy)+abort'
     --color header:italic
     --header 'ctrl-/ preview · ctrl-y copy · enter run'
   "

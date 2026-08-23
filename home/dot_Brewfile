@@ -48,3 +48,4 @@ cask "cate"           # Infinite zoomable canvas with editor, terminal, and brow
 # ── GNU/Linux CLI parity (macOS ships BSD userland; these are procps/coreutils-side tools missing on Darwin) ──
 brew "watch"          # procps `watch` — drop-in for the Linux command (not in macOS base system)
 brew "viddy"          # modern watch: diff highlighting, time-travel scrollback, `-d`/`-n` compatible
+brew "flock"          # util-linux flock — absent from macOS; the tmux claude-reap hook waits on it
