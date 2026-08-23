@@ -3,5 +3,5 @@
     "mcp",
     "--tools=agent"
   ],
-  "command": "{{ .chezmoi.homeDir }}/.local/bin/engram"
+  "command": "{{ if eq .chezmoi.os "darwin" }}{{ .chezmoi.homeDir }}/.local/bin/reveried{{ else }}{{ .chezmoi.homeDir }}/.local/bin/engram{{ end }}"
 }

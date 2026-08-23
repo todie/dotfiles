@@ -1,9 +1,15 @@
 # Global Config — Claude Code
 
 ## Environment
-- **Platform:** WSL2 (Linux on Windows). Shell: bash. User: `ctodie` (uid 1000, groups: sudo docker adm).
+{{- if eq .chezmoi.os "darwin" }}
+- **Platform:** macOS (Apple Silicon, europa). Shell: zsh. User: `ctodie` (admin).
+- **Docker:** via colima — no Docker Desktop; `docker` CLI talks to the colima VM.
+- **sudo:** password-protected. Suggest userspace alternatives (`cargo install`, `pip --user`, brew) first; ask before using sudo.
+{{- else }}
+- **Platform:** WSL2 (Linux on Windows, ceres). Shell: bash. User: `ctodie` (uid 1000, groups: sudo docker adm).
 - **Docker:** runs without sudo — never `sudo docker`.
 - **sudo:** password-protected. Suggest userspace alternatives (`cargo install`, `pip --user`, docker) first; ask before using sudo.
+{{- end }}
 - **Default language:** Rust for new repos; Python for scripting.
 
 ## Identity & Auth
