@@ -1,0 +1,141 @@
+# k9s plugins — tailnet + ARC + Forgejo integration for Cygnus.
+# Installed 2026-08-07 (operator directive). All read-only or log-viewing:
+# nothing here mutates cluster or tailnet state, so it is safe to hit by
+# accident. Mutating ops stay on the CLI where they get a confirmation.
+plugins:
+  # ── Tailscale ───────────────────────────────────────────────────────────
+  ts-status:
+    shortCut: Ctrl-T
+    description: "tailnet status"
+    scopes: [all]
+    command: sh
+    background: false
+    args:
+      - -c
+      - "tailscale status | less -R"
+
+  ts-svc-hostname:
+    shortCut: Ctrl-Y
+    description: "tailnet hostname + ping (LB svc)"
+    scopes: [services, svc]
+    command: sh
+    background: false
+    args:
+      - -c
+      - >-
+        H=$(kubectl --context $CONTEXT -n $NAMESPACE get svc $NAME
+        -o jsonpath='{.status.loadBalancer.ingress[0].hostname}');
+        A=$(kubectl --context $CONTEXT -n $NAMESPACE get svc $NAME
+        -o jsonpath='{.status.loadBalancer.ingress[0].ip}');
+        C=$(kubectl --context $CONTEXT -n $NAMESPACE get svc $NAME
+        -o jsonpath='{.spec.loadBalancerClass}');
+        echo "svc      : $NAMESPACE/$NAME";
+        echo "lbClass  : ${C:-<none — not a tailnet LB>}";
+        echo "hostname : ${H:-<none>}";
+        echo "tailIP   : ${A:-<none>}";
+        if [ -n "$H" ]; then echo; echo "--- tailscale ping $H ---";
+        tailscale ping --c 3 "$H" 2>&1 | tail -5; fi;
+        echo; read -p "enter to close" _
+
+  # The tailscale operator materialises one proxy pod per tailnet LB in ns
+  # `tailscale`. When a tailnet hostname does not answer, the answer is
+  # almost always in this pod's log, not in the workload's.
+  ts-proxy-log:
+    shortCut: Ctrl-L
+    description: "tailnet proxy log"
+    scopes: [pods, po]
+    command: sh
+    background: false
+    args:
+      - -c
+      - "kubectl --context $CONTEXT -n $NAMESPACE logs $NAME --tail 200 -c tailscale 2>/dev/null || kubectl --context $CONTEXT -n $NAMESPACE logs $NAME --tail 200; read -p 'enter to close' _"
+
+  ts-netcheck:
+    shortCut: Ctrl-N
+    description: "tailnet netcheck (local path/DERP)"
+    scopes: [all]
+    command: sh
+    background: false
+    args:
+      - -c
+      - "tailscale netcheck 2>&1 | less -R"
+
+  # ── ARC runner fleet ────────────────────────────────────────────────────
+  # Six scale sets across four namespaces (arc-runners: fastembed, reverie,
+  # reverie-ug; cerebral-work-runners; unsigned-gg-runners; unsigned-gg-ci-runners).
+  # This is the "why is CI queued forever" view: a scale set with 0 running
+  # runners and a pending listener is the runner-group allowlist gap (OPS-1138).
+  arc-fleet:
+    shortCut: Ctrl-R
+    description: "ARC fleet summary"
+    scopes: [all]
+    command: sh
+    background: false
+    args:
+      - -c
+      - >-
+        { echo "=== AutoscalingRunnerSets (runs-on token = NAME) ==="
+        ; kubectl --context $CONTEXT get autoscalingrunnersets -A
+        -o custom-columns='NS:.metadata.namespace,RUNS-ON:.spec.runnerScaleSetName,MIN:.spec.minRunners,MAX:.spec.maxRunners,CURRENT:.status.currentRunners,PENDING:.status.pendingEphemeralRunners,RUNNING:.status.runningEphemeralRunners'
+        ; echo; echo "=== EphemeralRunners (live jobs) ==="
+        ; kubectl --context $CONTEXT get ephemeralrunners -A
+        -o custom-columns='NS:.metadata.namespace,NAME:.metadata.name,STATUS:.status.phase,JOB:.status.jobDisplayName' 2>/dev/null | head -25
+        ; echo; echo "=== Listeners (queue watchers — NotReady means no job pickup) ==="
+        ; kubectl --context $CONTEXT get autoscalinglisteners -A
+        -o custom-columns='NS:.metadata.namespace,NAME:.metadata.name,SET:.spec.autoscalingRunnerSetName' 2>/dev/null
+        ; } | less -R
+
+  # ── Forgejo (PRIMARY forge — GitHub is the mirror) ───────────────────────
+  forgejo-health:
+    shortCut: Ctrl-F
+    description: "Forgejo + runners health"
+    scopes: [all]
+    command: sh
+    background: false
+    args:
+      - -c
+      - >-
+        { echo "=== forgejo ns workloads ==="
+        ; kubectl --context $CONTEXT -n forgejo get pods -o wide
+        ; echo; echo "=== forgejo runners (CI on the primary forge) ==="
+        ; kubectl --context $CONTEXT -n forgejo get deploy,pods -l app.kubernetes.io/name=forgejo-runners 2>/dev/null
+        ; echo; echo "=== recent forgejo events ==="
+        ; kubectl --context $CONTEXT -n forgejo get events --sort-by=.lastTimestamp 2>/dev/null | tail -12
+        ; } | less -R
+
+  # ── Estate-wide triage ──────────────────────────────────────────────────
+  # ArgoCD is manual-sync everywhere, so OutOfSync is normal and Degraded is
+  # not. This separates the two instead of alarming on both.
+  argo-triage:
+    shortCut: Ctrl-A
+    description: "ArgoCD: Degraded vs OutOfSync"
+    scopes: [all]
+    command: sh
+    background: false
+    args:
+      - -c
+      - >-
+        { echo "=== DEGRADED / unhealthy (act on these) ==="
+        ; kubectl --context $CONTEXT -n argocd get applications.argoproj.io
+        -o custom-columns='APP:.metadata.name,HEALTH:.status.health.status,SYNC:.status.sync.status'
+        --no-headers | awk '$2!="Healthy"'
+        ; echo; echo "=== OutOfSync but Healthy (expected — manual sync estate) ==="
+        ; kubectl --context $CONTEXT -n argocd get applications.argoproj.io
+        -o custom-columns='APP:.metadata.name,HEALTH:.status.health.status,SYNC:.status.sync.status'
+        --no-headers | awk '$2=="Healthy" && $3!="Synced"'
+        ; } | less -R
+
+  # ExternalSecrets: SecretSynced=True proves the reference resolved, NOT that
+  # the value is correct — see the secret-verification rule before trusting it.
+  eso-failures:
+    shortCut: Ctrl-E
+    description: "ExternalSecrets not synced"
+    scopes: [all]
+    command: sh
+    background: false
+    args:
+      - -c
+      - >-
+        kubectl --context $CONTEXT get externalsecrets.external-secrets.io -A
+        -o custom-columns='NS:.metadata.namespace,NAME:.metadata.name,STATUS:.status.conditions[0].reason,MSG:.status.conditions[0].message'
+        --no-headers | awk '$3!="SecretSynced"' | less -R
