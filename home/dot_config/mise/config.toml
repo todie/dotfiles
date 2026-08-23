@@ -3,10 +3,10 @@
 # The MACHINE LAYER of the tooling strategy (docs/tooling-strategy.md): mise is
 # the ONLY globally-activated version manager. It pins the CLIs + language
 # runtimes that live on PATH everywhere, plus proto & moon (the per-repo /
-# monorepo layer). Exact versions are frozen in the committed mise.lock.
+# monorepo layer). Exact versions are pinned inline in this file (no mise.lock).
 #
 # `mise install` restores every tool here after a wipe or on a fresh machine.
-# Bump a version → `mise install && mise pin` → commit config.toml + mise.lock.
+# Bump a version → `mise use -g <tool>@<ver>` → commit this file.
 #
 # Backends resolve via the mise registry (aqua-first → SLSA + checksums).
 #
@@ -37,7 +37,7 @@ gh       = "2.93.0"
 jq       = "1.8.1"
 uv       = "0.11.17"
 direnv   = "2.37.1"
-btop     = "1.4.7"
+# btop: brew-owned (mise pin was never installed; dropped 2026-08-23 — audit B1/B2)
 rclone   = "1.74.2"
 flyctl   = "0.4.57"
 starship = "1.25.1"
@@ -84,10 +84,10 @@ deno = "2.8.1"
 #    bare registry, so the full aqua:owner/repo locator is required) ──────────
 "aqua:moonrepo/proto" = "0.57.3"
 "aqua:moonrepo/moon"  = "2.2.6"
-"aqua:go-task/task" = "latest"
-"aqua:rhysd/actionlint" = "latest"
-"github:cerebral-work/linearctl" = "latest"
-age = "latest"
+"aqua:go-task/task" = "3.52.0"
+"aqua:rhysd/actionlint" = "1.7.12"
+"github:cerebral-work/linearctl" = "0.7.0"
+age = "1.3.1"
 
 [settings]
 # Don't auto-install on cd; installs are explicit (`mise install`) — keeps the
