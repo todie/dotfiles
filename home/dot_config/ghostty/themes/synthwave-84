@@ -1,0 +1,29 @@
+# Synthwave '84 — Robb Owen's iconic VS Code theme.
+# https://github.com/robb0wen/synthwave-vscode
+
+background = 262335
+foreground = ffffff
+
+# normal colors
+palette = 0=#495495
+palette = 1=#fe4450
+palette = 2=#72f1b8
+palette = 3=#fede5d
+palette = 4=#03edf9
+palette = 5=#ff7edb
+palette = 6=#36f9f6
+palette = 7=#ffffff
+
+# bright colors
+palette = 8=#af6df9
+palette = 9=#f97e72
+palette = 10=#b9f2a1
+palette = 11=#fff39d
+palette = 12=#6effff
+palette = 13=#ffa2e3
+palette = 14=#b1ffff
+palette = 15=#ffffff
+
+cursor-color = #ff7edb
+selection-background = #463465
+selection-foreground = #ffffff

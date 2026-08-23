@@ -1,0 +1,96 @@
+hotKeys:
+  shift-1:
+    shortCut: Shift-1
+    description: "CRIT \xB7 OpenBao (secrets \u2014 widest blast radius)"
+    command: pods openbao
+    keepHistory: true
+  shift-2:
+    shortCut: Shift-2
+    description: "CRIT \xB7 Keycloak (SSO)"
+    command: pods keycloak-cerebral
+    keepHistory: true
+  shift-3:
+    shortCut: Shift-3
+    description: "CRIT \xB7 CNPG postgres clusters"
+    command: clusters.postgresql.cnpg.io
+    keepHistory: true
+  shift-4:
+    shortCut: Shift-4
+    description: "CRIT \xB7 ArgoCD (GitOps \u2014 apps + controllers)"
+    command: applications.argoproj.io
+    keepHistory: true
+  shift-5:
+    shortCut: Shift-5
+    description: "CRIT \xB7 Forgejo (PRIMARY git forge)"
+    command: pods forgejo
+    keepHistory: true
+  shift-6:
+    shortCut: Shift-6
+    description: "CRIT \xB7 Edge (traefik / cert-manager / cloudflared)"
+    command: pods traefik
+    keepHistory: true
+  shift-7:
+    shortCut: Shift-7
+    description: "CRIT \xB7 Longhorn storage (volumes)"
+    command: volumes.longhorn.io
+    keepHistory: true
+  shift-8:
+    shortCut: Shift-8
+    description: "CRIT \xB7 Nodes (control plane = legates)"
+    command: nodes
+    keepHistory: true
+  shift-9:
+    shortCut: Shift-9
+    description: "CRIT \xB7 Events, all namespaces, warnings first"
+    command: events
+    keepHistory: true
+  shift-0:
+    shortCut: Shift-0
+    description: "Pulses \u2014 cluster-wide health at a glance"
+    command: pulses
+    keepHistory: true
+  shift-a:
+    shortCut: Shift-A
+    description: ArgoCD apps OutOfSync/Degraded (the daily check)
+    command: applications.argoproj.io argocd
+    keepHistory: true
+  shift-s:
+    shortCut: Shift-S
+    description: SPIRE (workload identity)
+    command: pods spire
+    keepHistory: true
+  shift-h:
+    shortCut: Shift-H
+    description: "Harbor (image registry \u2014 pulls fail estate-wide if down)"
+    command: pods harbor
+    keepHistory: true
+  shift-t:
+    shortCut: Shift-T
+    description: Tenant VMs (engineer kata microVMs)
+    command: pods tenant-vm
+    keepHistory: true
+  shift-e:
+    shortCut: Shift-E
+    description: "ExternalSecrets \u2014 SecretSynced failures"
+    command: externalsecrets.external-secrets.io
+    keepHistory: true
+  shift-n:
+    shortCut: Shift-N
+    description: "CRIT \xB7 Tailscale operator + proxies"
+    command: pods tailscale
+    keepHistory: true
+  shift-r:
+    shortCut: Shift-R
+    description: "CRIT \xB7 ARC runner fleet (scale sets)"
+    command: autoscalingrunnersets.actions.github.com
+    keepHistory: true
+  shift-g:
+    shortCut: Shift-G
+    description: Tailnet LB services (all namespaces)
+    command: services
+    keepHistory: true
+  shift-p:
+    shortCut: Shift-P
+    description: Kyverno policy reports (fail entries)
+    command: policyreports.wgpolicyk8s.io
+    keepHistory: true

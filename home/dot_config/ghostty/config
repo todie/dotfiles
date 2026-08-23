@@ -1,0 +1,48 @@
+# Ghostty config — Synthwave '84 (Robb Owen palette) to match shell + Zed theme.
+
+# ── font ────────────────────────────────────────────────────────────────────
+font-family = FiraCode Nerd Font Mono
+font-size = 14
+font-thicken = true
+
+# ── shell ───────────────────────────────────────────────────────────────────
+shell-integration = zsh
+shell-integration-features = cursor,sudo,title
+
+# ── window ──────────────────────────────────────────────────────────────────
+window-padding-x = 12
+window-padding-y = 12
+window-padding-balance = true
+window-decoration = true
+macos-titlebar-style = transparent
+background-opacity = 0.94
+background-blur-radius = 20
+
+# ── cursor ──────────────────────────────────────────────────────────────────
+cursor-style = block
+cursor-style-blink = true
+
+# ── theme ───────────────────────────────────────────────────────────────────
+# Active palette lives in theme.conf, rewritten by `theme set <name>`.
+# Palette files: ~/.config/ghostty/themes/<name>
+config-file = theme.conf
+
+# ── keybinds (mac) ──────────────────────────────────────────────────────────
+keybind = super+t=new_tab
+keybind = super+w=close_surface
+keybind = super+shift+enter=new_split:right
+keybind = super+d=new_split:right
+keybind = super+shift+d=new_split:down
+keybind = super+alt+left=goto_split:left
+keybind = super+alt+right=goto_split:right
+keybind = super+alt+up=goto_split:top
+keybind = super+alt+down=goto_split:bottom
+
+# ── misc ────────────────────────────────────────────────────────────────────
+# Notify on updates but don't silently swap the bundle — keeps the app identity
+# stable so TCC / Full-Disk-Access grants persist across versions.
+auto-update = check
+copy-on-select = clipboard
+mouse-hide-while-typing = true
+confirm-close-surface = false
+clipboard-paste-protection = true
