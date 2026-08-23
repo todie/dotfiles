@@ -1,0 +1,50 @@
+# ~/.Brewfile — macOS packages for Europa (chezmoi-managed)
+# Applied by home/run_onchange_after_40-brew-bundle.sh.tmpl via `brew bundle`
+# (re-runs automatically whenever this file changes).
+# Curated 2026-07-25 from a brew-update batch of new formulae/casks.
+# Full candidate menu (incl. deferred/skipped + rationale): macos/utils.md
+# NOTE: many entries are brand-new, lightly-vetted brew formulae/casks.
+
+# ── Core CLI (local-MLX / multi-repo / agent-config) ──
+brew "rapid-mlx"      # Fast local AI engine for Apple Silicon, OpenAI-compatible API
+brew "gita"           # Manage multiple git repos with sanity (92 repos across 2 orgs)
+brew "apm"            # Dependency manager for AI agent configuration
+brew "herdr"          # Agentic terminal multiplexer
+
+# ── Agent harness CLIs (agentic monorepo: install.sh wires local-model presets) ──
+cask "codex"          # OpenAI Codex terminal agent (local via rapid-mlx :11437 responses API)
+cask "claude-code"    # Claude Code — Anthropic terminal agent (Anthropic-format; local needs a proxy)
+# kimi-code CLI = the `kimi-code` formula (already listed below)
+
+# ── Disk + dev-infra utils ──
+brew "dskditto"       # Ultra-fast duplicate file finder TUI
+brew "droast"         # Opinionated Dockerfile linter
+brew "humanbound"     # Adversarial security testing engine/SDK/CLI for AI agents
+
+# ── Voice / ASR (local dictation) ──
+cask "openwhispr"     # Privacy-first voice-to-text with AI agents
+cask "koe"            # Zero-GUI voice input tool
+
+# ── Claude Code / agent desktop apps (new casks — mild caution) ──
+cask "sessionwatcher"    # Menu-bar monitor for AI coding-assistant usage + limits
+cask "claude-status-bar" # Menu-bar status indicator for Claude Code
+cask "clarc"             # Desktop client for Claude Code
+cask "hermes-desktop"    # Open-source desktop AI agent (pairs with agentic/harness-hermes)
+cask "codexia"           # GUI/toolkit for Codex CLI and Claude Code
+
+# ── Disk viz + clipboard ──
+cask "neodisk"        # Read-only disk-space visualiser
+cask "pastebot@2"     # Clipboard-history workflow app
+
+# ── Kimi 3 (Moonshot AI) — CLI/TUI + desktop ──
+brew "kimi-code"      # AI coding agent for terminal (current; supersedes deprecated kimi-cli)
+cask "kimi"           # Kimi 3 desktop AI chat assistant (v3.1.5)
+# skipped: kimi-cli (deprecated upstream, disabled 2027-01-17), kimis (Misskey client, unrelated)
+
+# ── Surprise picks ──
+brew "pixtuoid"       # Terminal pixel-art office for AI coding agents (delight)
+cask "cate"           # Infinite zoomable canvas with editor, terminal, and browser panels
+
+# ── GNU/Linux CLI parity (macOS ships BSD userland; these are procps/coreutils-side tools missing on Darwin) ──
+brew "watch"          # procps `watch` — drop-in for the Linux command (not in macOS base system)
+brew "viddy"          # modern watch: diff highlighting, time-travel scrollback, `-d`/`-n` compatible
