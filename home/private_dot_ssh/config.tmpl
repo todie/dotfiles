@@ -1,4 +1,4 @@
-# europa SSH routing. Restructured 2026-07-21 to fix "Too many authentication
+# SSH routing (chezmoi template; macOS-only blocks are os-gated). Restructured 2026-07-21 to fix "Too many authentication
 # failures"; per-host routing restored 2026-08-05 after it was lost from the
 # chezmoi source (the live file had drifted down to only `Host *`).
 #
@@ -13,8 +13,9 @@
 #
 # Order matters: OpenSSH takes the FIRST value obtained for each keyword, so
 # every specific block must precede `Host *`.
-
-Include /Users/ctodie/.config/colima/ssh_config
+{{ if eq .chezmoi.os "darwin" }}
+Include {{ .chezmoi.homeDir }}/.config/colima/ssh_config
+{{- end }}
 
 # --- 1Password vault hosts (secondary agent) ---------------------------------
 # These hosts' keys live ONLY in the 1Password vault, never on disk.
@@ -23,9 +24,14 @@ Include /Users/ctodie/.config/colima/ssh_config
 # IdentitiesOnly=yes ssh offers only the keys named by IdentityFile — i.e. the
 # on-disk key — so the vault keys this block exists to reach would never be
 # presented. Verify with `ssh -G <host> | grep identit`.
+{{- if eq .chezmoi.os "darwin" }}
 Host 45.76.5.89 100.65.9.122 100.99.117.77
 	IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 	IdentitiesOnly no
+{{- else }}
+# (1Password agent routing is darwin-only; add a Linux agent socket block here
+# if/when ceres runs a 1Password SSH agent.)
+{{- end }}
 
 # --- estate hosts (local agent, pinned) --------------------------------------
 # ceres is the Brooklyn desktop, reached over the tailnet. It runs WSL2 and the
