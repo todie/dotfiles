@@ -1,0 +1,18 @@
+{{- if eq .chezmoi.os "darwin" -}}
+#!/usr/bin/env bash
+# Auto-runs `brew bundle` against ~/.Brewfile whenever the Brewfile changes.
+# run_onchange: the hash below ties this script to dot_Brewfile's content, so
+# editing the Brewfile (adding/removing a util) re-triggers a bundle on next apply.
+# Brewfile sha256: {{ include "dot_Brewfile" | sha256sum }}
+set -euo pipefail
+
+command -v brew >/dev/null 2>&1 || { echo "brew not found — skipping brew bundle"; exit 0; }
+
+echo "→ brew bundle (~/.Brewfile)…"
+# --no-upgrade: don't churn already-installed packages; just install what's missing.
+brew bundle --file="$HOME/.Brewfile" --no-upgrade || {
+  echo "⚠ brew bundle reported failures (often a not-yet-published new cask) — non-fatal."
+  exit 0
+}
+echo "✓ brew bundle complete"
+{{- end -}}
