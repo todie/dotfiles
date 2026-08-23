@@ -49,3 +49,181 @@ cask "cate"           # Infinite zoomable canvas with editor, terminal, and brow
 brew "watch"          # procps `watch` — drop-in for the Linux command (not in macOS base system)
 brew "viddy"          # modern watch: diff highlighting, time-travel scrollback, `-d`/`-n` compatible
 brew "flock"          # util-linux flock — absent from macOS; the tmux claude-reap hook waits on it
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Baseline sweep — added 2026-08-23 from `brew leaves` reality.
+# EXCLUDED on purpose: mise-owned tools (helm k9s kustomize stern terraform
+# sops gh jq uv direnv starship fzf go age shellcheck go-task proto), fnm
+# (replaced by proto), bun (proto owns 1.3.14 and shadows brew's), and
+# non-leaf dependencies (ffmpeg, imagemagick, tesseract, ghostscript, …).
+# ═════════════════════════════════════════════════════════════════════════════
+
+# ── Taps (only those backing installed entries below) ──
+tap "rjyo/moshi"
+tap "twilio/brew", trusted: true
+tap "terraform-linters/tap"
+
+# ── Shell / CLI core ──
+brew "chezmoi"        # this repo's own engine
+brew "rtk"            # CLI proxy to minimize LLM token consumption
+brew "atuin", restart_service: :changed  # shell history sync (Ctrl-R)
+brew "bat"            # cat with syntax highlighting
+brew "coreutils"      # GNU userland on Darwin
+brew "gnu-sed"        # GNU sed (gsed)
+brew "eza"            # modern ls
+brew "fd"             # modern find
+brew "ripgrep"
+brew "sd"             # intuitive find & replace
+brew "dust"           # modern du
+brew "zoxide"         # smarter cd
+brew "tmux"
+brew "zellij"         # terminal workspace / multiplexer
+brew "tree"
+brew "htop"
+brew "btop"           # NOTE: mise pins btop 1.4.7 but it is NOT installed there — brew copy is the live one
+brew "hexyl"          # hex viewer
+brew "hyperfine"      # CLI benchmarking
+brew "gron"           # make JSON greppable
+brew "dasel"          # JSON/YAML/TOML/XML/CSV query tool
+brew "miller"         # sed/awk/cut for CSV/name-indexed data
+brew "yq"
+brew "yamllint"
+brew "tokei"          # count code
+brew "pigz"           # parallel gzip
+brew "mas"            # Mac App Store CLI (backs the mas section below)
+
+# ── Git / dev toolchain ──
+brew "git-delta"      # syntax-highlighting pager for git diffs
+brew "difftastic"     # syntax-aware diff
+brew "lazygit"
+brew "lefthook"       # git hooks manager
+brew "pre-commit"
+brew "cmake"
+brew "cargo-binstall" # binary install for rust crates
+brew "cargo-sweep"    # clean unused cargo build files
+brew "rustup"
+brew "sccache"        # compiler cache
+brew "capnp"          # Cap'n Proto
+brew "mkcert"         # locally-trusted dev TLS certs
+brew "duckdb"
+brew "postgresql@16", link: true
+brew "redis", restart_service: :changed
+
+# ── Containers / Docker ──
+brew "docker"
+brew "docker-buildx"
+brew "docker-compose"
+brew "colima"         # container runtime without Docker Desktop
+brew "lazydocker"
+brew "qemu"
+
+# ── k8s / infra (only what mise does NOT own) ──
+# kubernetes-cli removed 2026-08-23: Docker Desktop owns kubectl (/usr/local/bin symlink) and the shell aliases kubectl→kubecolor.
+brew "kubecolor"      # colorized kubectl (kubectl is aliased to this)
+brew "kubeconform"    # manifest validator
+brew "kyverno"        # policy management CLI
+brew "argocd"
+brew "opentofu"       # terraform drop-in (brew terraform itself is mise-owned)
+brew "openbao"        # vault drop-in
+brew "checkov"        # IaC misconfiguration scanner
+
+# ── Cloud / service CLIs ──
+brew "awscli"
+brew "twilio/brew/twilio", trusted: true
+
+# ── Networking ──
+brew "mosh"
+brew "mtr"            # traceroute+ping
+brew "nmap"
+brew "iperf3"
+brew "socat"
+brew "websocat"       # netcat for WebSockets
+brew "wget"
+brew "httpie"
+brew "croc"           # secure file transfer between machines
+brew "ssh-copy-id"
+brew "tailscale", restart_service: :changed
+brew "wireshark"      # CLI build (tshark)
+
+# ── Security / supply chain / forensics ──
+brew "cosign"         # container signing
+brew "gitleaks"       # secret scanning in repos
+brew "grype"          # vuln scanner (images + filesystems)
+brew "syft"           # SBOM generator
+brew "trivy"          # vuln scanner
+brew "semgrep"
+brew "step"           # crypto/x509 swiss-army knife
+brew "ffuf"           # web fuzzer
+brew "binwalk"        # firmware/binary analysis
+brew "radare2"        # reverse engineering
+brew "sleuthkit"      # forensic toolkit
+brew "testdisk"       # data recovery
+
+# ── Media / images / docs ──
+brew "handbrake"      # video transcoder (CLI)
+brew "gifsicle"
+brew "jpegoptim"
+brew "oxipng"         # PNG optimizer
+brew "svgo"           # SVG optimizer
+brew "vips"           # fast image processing
+brew "exiftool"
+brew "media-info"     # tag/technical data for A/V files
+brew "mkvtoolnix"     # Matroska tools
+brew "sox"            # audio converter
+brew "yt-dlp"
+brew "ocrmypdf"       # OCR layer for scanned PDFs (pulls tesseract/ghostscript)
+brew "tesseract-lang" # extra OCR languages
+brew "pandoc"
+brew "typst"          # typesetting
+
+# ── AI / LLM local stack ──
+brew "ollama", restart_service: :changed
+brew "rjyo/moshi/moshi-hook", trusted: true  # bridges agents to Moshi mobile app (moshi-hook daemon on europa)
+
+# ── Casks — apps ──
+cask "1password-cli"  # op
+cask "caffeine"       # keep-awake
+cask "docker-desktop"
+cask "ghostty"
+cask "obsidian"
+cask "raycast"
+cask "rectangle"      # window snapping
+cask "terraform-linters/tap/tflint", trusted: true
+
+# ── Casks — nerd fonts ──
+cask "font-commit-mono-nerd-font"
+cask "font-fira-code-nerd-font"
+cask "font-geist-mono-nerd-font"
+cask "font-hack-nerd-font"
+cask "font-iosevka-nerd-font"
+cask "font-jetbrains-mono-nerd-font"
+cask "font-meslo-lg-nerd-font"
+cask "font-monaspice-nerd-font"
+cask "font-sauce-code-pro-nerd-font"
+cask "font-symbols-only-nerd-font"
+
+# ── Mac App Store (via mas) ──
+mas "1Password for Safari", id: 1569813296
+mas "Developer", id: 640199958
+mas "Drone Flight Simulation", id: 1638379394
+mas "Final Cut Pro", id: 1631624924
+mas "GarageBand", id: 682658836
+mas "iMovie", id: 408981434
+mas "Keynote", id: 409183694
+mas "Keynote", id: 361285480      # duplicate id — likely legacy/iOS listing; verify before pruning
+mas "Loci", id: 6768186318
+mas "Logic Pro", id: 1615087040
+mas "Microsoft Excel", id: 462058435
+mas "Microsoft OneNote", id: 784801555
+mas "Microsoft PowerPoint", id: 462062816
+mas "Microsoft Word", id: 462054704
+mas "Mudra Link", id: 6593681411
+mas "Numbers", id: 409203825
+mas "Numbers", id: 361304891      # duplicate id — likely legacy/iOS listing; verify before pruning
+mas "OneDrive", id: 823766827
+mas "Pages", id: 409201541
+mas "Pages", id: 361309726        # duplicate id — likely legacy/iOS listing; verify before pruning
+mas "Pixelmator Pro", id: 6746662575
+mas "Slack", id: 803453959
+mas "Telegram", id: 747648890
+mas "WhatsApp", id: 310633997
