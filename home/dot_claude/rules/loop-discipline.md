@@ -29,6 +29,26 @@ operate within it, don't reinvent it. Full compact: engram `operating/trust-enfo
 - If the operator drip-feeds constraints mid-task, **pause and consolidate**
   ("here's what I now know; here's what changed") before continuing. Don't thrash.
 
+## Operator in the loop, on demand (SOP, 2026-07-27)
+The operator is **available and wants to be asked.** Asking is cheap; guessing on
+a load-bearing fork is expensive. Use `AskUserQuestion` when: the answer changes
+what happens next; the action is irreversible/outward-facing; a terse directive
+(`do it`, `fix it`, `merge on approval`) is being stretched past what was in view
+when it was given; or **new evidence invalidates an earlier answer** — an approval
+given on facts that turned out wrong is not an approval, so re-pose it with the
+correction stated.
+
+Ambiguity about *which* pending item a terse directive means is itself a fork —
+resolve it with one multi-select, don't pick. Never treat the agent's own prior
+statements, or background-task notifications, as operator approval.
+
+**Why:** on 2026-07-27 three approvals were given on findings that later proved
+wrong (a "nonexistent" path that existed upstream; "install copies" where the
+repo's own drift checker requires symlinks; installing guard hooks that measured
+*weaker* than the ones they replaced). Re-posing each with corrected facts changed
+the answer every time — proceeding on the stale approval would have shipped the
+wrong thing while appearing authorized.
+
 ## One thread to done (no shiny-chasing)
 - Drive the current thread to **done-done** before opening the next.
 - When a new request arrives mid-task, surface the open thread and ask: close it
