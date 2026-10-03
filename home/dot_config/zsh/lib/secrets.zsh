@@ -68,3 +68,13 @@ render-zed-settings() {
   op inject -i "$tpl" -o "$out" -f && \
     print -P "%F{green}✓%f rendered $out from template"
 }
+
+## Headless hosts (agent-bastion): Claude Code's long-lived OAuth token, minted with
+## `claude setup-token` on a machine with a browser and saved 0600 by
+## agent-bastion-stack/save-token.sh. Exported only when the file exists, so a
+## workstation with a normal browser login is untouched. Never copy
+## .credentials.json between machines instead: two copies share one rotating
+## refresh token and log each other out (measured 2026-10-03).
+if [[ -r "$HOME/.config/claude/oauth-token" && -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]]; then
+  export CLAUDE_CODE_OAUTH_TOKEN="$(<"$HOME/.config/claude/oauth-token")"
+fi
