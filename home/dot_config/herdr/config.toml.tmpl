@@ -4,6 +4,7 @@ onboarding = false
 show_agent_labels_on_pane_borders = false
 
 agent_panel_sort = "spaces"
+tab_bar_right = [{ type = "command", command = "{{ .chezmoi.homeDir }}/.config/herdr/plugins/github/herdr-projects-b1278ffb803c/target/release/herdr-projects --root {{ .chezmoi.homeDir }}/.herdr-projects needs-you --line", interval_seconds = 15, timeout_seconds = 5 }]
 [ui.toast]
 # "herdr" = in-app visual popup. "terminal" asked Windows for a desktop toast, which plays the
 # Windows notification sound (operator: no bell noise, visual only, 2026-09-27).
@@ -12,6 +13,12 @@ delivery = "herdr"
 [ui.sound]
 # Silence the background-agent state-change sounds (operator, 2026-09-27).
 enabled = false
+
+[ui.sidebar.agents]
+rows = [["state_icon", { token = "agent", bold = false, dim = false, rules = [{ contains = "​", bold = true }] }, "state_text"], [{ token = "$hp_sub", dim = true }]]
+
+[ui.sidebar.spaces]
+rows = [["state_icon", { token = "workspace", rules = [{ contains = "⠀", bold = true }] }, { token = "branch", dim = true }, "git_status"]]
 
 [theme]
 name = "terminal"
@@ -151,23 +158,26 @@ command = "annotate.manage"
 description = "Annotate: manage annotations"
 
 # ── projects (eliasstravik/herdr-projects) ────────────────────────────────
-# Its README suggests prefix+a (taken by herdr-plus). Not running the plugin's
-# `configure` action: it rewrites this file and adds agent hooks.
+# Its README suggests prefix+a (taken by herdr-plus); prefix+shift+p is herdr's
+# rename_pane. The tab_bar_right entry and the [ui.sidebar.*] rows above come
+# from `herdr-projects configure` (run on europa 2026-10-04, hooks for claude and
+# codex); its plugin dir hash is sha256("herdr-projects"), the same on every host.
 [[keys.command]]
-key = "prefix+shift+p"
+key = "prefix+shift+o"
 type = "plugin_action"
 command = "herdr-projects.open-popup"
 description = "Projects popup"
 
 # ── sidebar (alexarthurs/herdr-sidebar) ───────────────────────────────────
+# Not prefix+s / prefix+shift+g: those are herdr's settings and new_worktree.
 [[keys.command]]
-key = "prefix+s"
+key = "prefix+shift+b"
 type = "plugin_action"
 command = "herdr-sidebar.open-sidebar"
 description = "Sidebar: toggle"
 
 [[keys.command]]
-key = "prefix+shift+g"
+key = "prefix+shift+s"
 type = "plugin_action"
 command = "herdr-sidebar.show-git"
 description = "Sidebar: source control"
