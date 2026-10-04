@@ -23,15 +23,26 @@ case "$(uname -m)" in
   aarch64|arm64) ARCH=arm64 ;;
   *) echo "mise: unsupported arch $(uname -m) — skipping" >&2; exit 0 ;;
 esac
+# Upstream calls darwin "macos". Hardcoding "linux" here silently installed a
+# Linux ELF on europa (macOS) — `command -v mise` then succeeded while every
+# invocation died with `exec format error`. Template the OS, not just the arch.
+case "$(uname -s)" in
+  Linux)  OS=linux ;;
+  Darwin) OS=macos ;;
+  *) echo "mise: unsupported os $(uname -s) — skipping" >&2; exit 0 ;;
+esac
+# macOS only recently gained sha256sum(1); fall back to shasum on older hosts.
+if command -v sha256sum >/dev/null 2>&1; then SHACMD="sha256sum"
+else SHACMD="shasum -a 256"; fi
 
 # ── install the mise binary (pinned + checksum-verified) ─────────────────────
 if ! { command -v mise >/dev/null 2>&1 && mise --version 2>/dev/null | grep -q "$MISE_VER"; }; then
   tmp=$(mktemp -d)
   base="https://github.com/jdx/mise/releases/download/v${MISE_VER}"
-  if curl -fsSL "$base/mise-v${MISE_VER}-linux-${ARCH}" -o "$tmp/mise" \
+  if curl -fsSL "$base/mise-v${MISE_VER}-${OS}-${ARCH}" -o "$tmp/mise" \
      && curl -fsSL "$base/SHASUMS256.txt" -o "$tmp/sums"; then
-    want=$(grep -E "mise-v${MISE_VER}-linux-${ARCH}\$" "$tmp/sums" | awk '{print $1}' | head -1)
-    got=$(sha256sum "$tmp/mise" | awk '{print $1}')
+    want=$(grep -E "mise-v${MISE_VER}-${OS}-${ARCH}\$" "$tmp/sums" | awk '{print $1}' | head -1)
+    got=$($SHACMD "$tmp/mise" | awk '{print $1}')
     if [[ -n "$want" && "$want" == "$got" ]]; then
       install -m755 "$tmp/mise" "$BIN/mise" && echo "mise: installed $MISE_VER"
     else
