@@ -30,7 +30,8 @@ done
 # --- preflight -------------------------------------------------------------
 linearctl --version
 linearctl whoami >/dev/null
-linearctl ratelimit --json >/dev/null
+REMAINING="$(linearctl ratelimit --json | python3 -c 'import json,sys; print(json.load(sys.stdin)["requests"]["remaining"])')"
+[ "$REMAINING" -ge 300 ] || { echo "rate budget low: $REMAINING" >&2; exit 1; }
 
 # --- resolve ---------------------------------------------------------------
 PID="$(linearctl project list --team "$TEAM" --json \

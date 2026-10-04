@@ -20,8 +20,11 @@ the old TOD-only wording is gone.
 
 - The fix isn't on main yet — push first
 - Only one part of a multi-part epic shipped — comment, don't flip state
-- Close as Cancelled / Won't Fix — `linearctl update <id> --state Canceled`
-  directly, with a comment saying why
+- Close as Cancelled / Won't Fix — comment why, then `linearctl update <id>
+  --state "<name>"`. State **names vary per team** ("Canceled"/"Cancelled"), so
+  resolve by type, never hardcode: `linearctl search --team <key> --state
+  canceled --json` and read `.state` off any row (no rows → MCP read with a
+  `fields` list, or ask the operator for the exact name)
 - No evidence exists — a close **requires** evidence: a merged commit/PR, all
   children done, or a live check named in the comment
 
