@@ -15,8 +15,15 @@
 	navigate = true
 	side-by-side = true
 	line-numbers = true
+{{- /* zdiff3 needs git 2.35+. Older git (Ubuntu 22.04 ships 2.34) rejects the
+       unknown style and then fails every command, so fall back to diff3 there.
+       `git --version` does not read this file, so it works even when it is broken. */}}
+{{- $gitVersion := "0.0.0" }}
+{{- if lookPath "git" }}
+{{-   $gitVersion = output "git" "--version" | regexFind "[0-9]+\\.[0-9]+(\\.[0-9]+)?" | default "0.0.0" }}
+{{- end }}
 [merge]
-	conflictStyle = zdiff3
+	conflictStyle = {{ if semverCompare ">=2.35.0" $gitVersion }}zdiff3{{ else }}diff3{{ end }}
 [alias]
 	st = status -sb
 	co = checkout
