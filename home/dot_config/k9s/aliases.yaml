@@ -1,0 +1,50 @@
+aliases:
+  # ── pre-existing (kept) ─────────────────────────────────────────────────
+  dp: deployments
+  sec: v1/secrets
+  jo: jobs
+  cr: clusterroles
+  crb: clusterrolebindings
+  ro: roles
+  rb: rolebindings
+  np: networkpolicies
+
+  # ── Cygnus mission-critical CRDs (added 2026-08-07) ─────────────────────
+  # Verified present on the cluster before aliasing — no guessed GVRs.
+  # ArgoCD (manual-sync estate: OutOfSync is normal, Degraded is not)
+  app: applications.argoproj.io
+  appset: applicationsets.argoproj.io
+  # CNPG postgres — load-bearing for godseat/cortex/keycloak-class apps
+  pg: clusters.postgresql.cnpg.io
+  pgb: backups.postgresql.cnpg.io
+  # Longhorn storage
+  lhv: volumes.longhorn.io
+  lhn: nodes.longhorn.io
+  # External Secrets — presence != correctness, see the secret-verification rule
+  es: externalsecrets.external-secrets.io
+  ss: secretstores.external-secrets.io
+  # Kyverno policy + reports
+  pol: clusterpolicies.kyverno.io
+  polr: policyreports.wgpolicyk8s.io
+  # SPIRE workload identity
+  spire: clusterspiffeids.spire.spiffe.io
+
+  # ── Tailscale operator ──────────────────────────────────────────────────
+  tsc: connectors.tailscale.com
+  tspg: proxygroups.tailscale.com
+  tspc: proxyclasses.tailscale.com
+  tsdns: dnsconfigs.tailscale.com
+  tsnet: tailnets.tailscale.com
+  tsrec: recorders.tailscale.com
+
+  # ── ARC runner fleet (6 scale sets / 4 namespaces) ──────────────────────
+  # NOTE: the scale-set NAME is the sole `runs-on` token; classic multi-label
+  # forms never match. A queued-forever job is usually the runner-group
+  # allowlist, not capacity (OPS-1138).
+  ars: autoscalingrunnersets.actions.github.com
+  al: autoscalinglisteners.actions.github.com
+  er: ephemeralrunners.actions.github.com
+  ers: ephemeralrunnersets.actions.github.com
+
+  # ── kata / engineer VMs ─────────────────────────────────────────────────
+  rc: runtimeclasses.node.k8s.io

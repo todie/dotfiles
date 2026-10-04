@@ -5,7 +5,11 @@
 # DELETE without `;`) plus legit commands and the secret-print rules.
 # Exit-code contract: 0 = allow, 2 = block.  Run: bash <this>
 set -uo pipefail
-HOOK="${BASH_SOURCE[0]%/*}/../guard-dangerous-commands.sh"
+# Hooks live under the chezmoi source tree (.chezmoiroot=home), so the test
+# targets the source file, not a deployed copy. Resolve from the repo root so
+# this works from any cwd and in CI.
+_REPO="$(cd "${BASH_SOURCE[0]%/*}/../../.." && pwd)"
+HOOK="${HOOK_OVERRIDE:-$_REPO/home/dot_claude/hooks/executable_guard-dangerous-commands.sh}"
 pass=0 fail=0
 
 v() { # v <block|allow> <command> <desc>

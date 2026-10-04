@@ -1,0 +1,50 @@
+# k9s custom views — surface the columns that matter for triage on this estate.
+# Installed 2026-08-07. Conservative on purpose: only reordering/selecting
+# columns k9s already computes, so a k9s upgrade can't break the view.
+views:
+  v1/pods:
+    columns:
+      - NAMESPACE
+      - NAME
+      - STATUS
+      - READY
+      - RESTARTS      # restart churn is the earliest crashloop signal
+      - NODE          # which physical box — matters, node names are cross-wired
+      - CPU
+      - MEM
+      - AGE
+  v1/nodes:
+    columns:
+      - NAME
+      - STATUS
+      - ROLE
+      - TAINTS
+      - CPU
+      - "%CPU"
+      - MEM
+      - "%MEM"
+      - AGE
+  v1/services:
+    columns:
+      - NAMESPACE
+      - NAME
+      - TYPE
+      - CLUSTER-IP
+      - EXTERNAL-IP    # tailnet LBs surface their tailnet hostname here
+      - PORTS
+      - AGE
+  v1/persistentvolumeclaims:
+    columns:
+      - NAMESPACE
+      - NAME
+      - STATUS
+      - VOLUME
+      - CAPACITY
+      - STORAGECLASS
+      - AGE
+  apps/v1/statefulsets:
+    columns:
+      - NAMESPACE
+      - NAME
+      - READY
+      - AGE

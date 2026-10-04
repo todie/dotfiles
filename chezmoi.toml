@@ -27,6 +27,24 @@ sourceDir = "/home/ctodie/projects/todie/dotfiles"
 # Must be TOP-LEVEL (before any [table]) or TOML scopes it into that table.
 encryption = "age"
 
+# Pin the umask so file modes are a property of the repo, not of the shell that
+# happened to run `chezmoi apply` (2026-07-27).
+#
+# `executable_` resolves to 0777 &^ umask. ceres logs in with umask 002 and
+# europa with 022, so the same source targeted 0775 on one host and 0755 on the
+# other while the deployed files were 0755 everywhere. `chezmoi status` then
+# reported 13 hook files as permanently modified — mode-only, content
+# byte-identical.
+#
+# That is worse than cosmetic. A drift detector that always shows 13 false
+# positives is a drift detector nobody reads, and it is exactly the condition
+# under which a real divergence goes unnoticed — which is what happened when
+# the CER-1097 cutover rewrote the guards (CER-1741).
+#
+# 0o022 matches the deployed modes, so this is a no-op on disk and simply makes
+# the report honest.
+umask = 0o022
+
 [onepassword]
     # Service-account mode: reads OP_SERVICE_ACCOUNT_TOKEN from the environment
     # at apply time (the token must already be exported when `chezmoi apply`

@@ -7,3 +7,9 @@ name = "Christian M. Todie"
 email = "chris@todie.io"
 emailWork = "ctodie@cerebral.work"
 github = "todie"
+
+# API-key rendering into ~/.config/zsh/secrets.env is OPT-IN per machine.
+# Both default off; override in ~/.config/chezmoi/chezmoi.toml under [data.secrets].
+[secrets]
+apiKeys = false          # render op://cloud/* keys (needs OP_SERVICE_ACCOUNT_TOKEN at apply)
+workstationKeys = false  # also render op://workstation-keys/* (needs the workstation-apply token)

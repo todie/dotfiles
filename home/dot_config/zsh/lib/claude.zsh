@@ -21,6 +21,30 @@
 claude-personal() { CLAUDE_CONFIG_DIR="$HOME/.claude-personal" command env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN claude "$@"; }
 alias ccp="claude-personal"
 
+# anthropic-api — run one command with API-key auth.
+#
+# The key is not exported anywhere, under any name: ANTHROPIC_API_KEY outranks
+# the claude.ai subscription login, and that account has no credit, so an
+# ambient export made `claude` fail with "Credit balance is too low" while the
+# subscription was fine. Rendering it under a different name kept it out of the
+# precedence path but still put the secret in every process's environment, so
+# secrets.env now renders nothing and this reads it at call time instead.
+#
+# Costs one `op read` per invocation. That is the point: the key exists only in
+# the environment of the single command that asked for it.
+#
+#   anthropic-api ant ...      # anthropic-cli, which auths off the key
+#   anthropic-api pi --provider anthropic ...
+anthropic-api() {
+  [[ $# -gt 0 ]] || { print -u2 "usage: anthropic-api <cmd> [args...]"; return 2; }
+  local _ak
+  if ! _ak=$(op read "op://cloud/cerebral-anthropic-api/credential" 2>/dev/null) || [[ -z "$_ak" ]]; then
+    print -u2 -P "%F{red}✗%f could not read the Anthropic key from 1Password (is OP_SERVICE_ACCOUNT_TOKEN set?)"
+    return 1
+  fi
+  ANTHROPIC_API_KEY="$_ak" command "$@"
+}
+
 _cc_need_tmux() { [[ -n "$TMUX" ]] || { print -u2 "cc: not inside tmux"; return 1; }; }
 
 _cc_new() {
@@ -88,3 +112,9 @@ cc() {
     *)            _cc_new "$sub" ;;   # `cc <dir>` shorthand
   esac
 }
+
+# Per-pane profile swap (agentic packages/claude-profiles): claude-swap records a
+# CLAUDE_CONFIG_DIR for a herdr pane; this wrapper applies it on the next `claude`.
+# Without the file (package not checked out) `claude` is the plain binary as before.
+[[ -r "$HOME/projects/unsigned/agentic/packages/claude-profiles/zsh/claude-profiles.zsh" ]] \
+  && source "$HOME/projects/unsigned/agentic/packages/claude-profiles/zsh/claude-profiles.zsh"

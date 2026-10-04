@@ -1,0 +1,29 @@
+# Vaporwave — pastel synthwave. Cotton candy + mint + lilac + cream.
+# Soft Miami 1986; pairs with the starship vaporwave palette.
+
+background = 1a1033
+foreground = e0c3fc
+
+# normal colors
+palette = 0=#2a1f5c
+palette = 1=#ff7e7e
+palette = 2=#b8f2e6
+palette = 3=#fff3b0
+palette = 4=#7df9ff
+palette = 5=#ff77aa
+palette = 6=#7df9ff
+palette = 7=#e0c3fc
+
+# bright colors
+palette = 8=#6c5b9e
+palette = 9=#ff9eb5
+palette = 10=#c8f5e8
+palette = 11=#fff7c8
+palette = 12=#aafcff
+palette = 13=#ffaad0
+palette = 14=#c8fbff
+palette = 15=#ffffff
+
+cursor-color = #ff77aa
+selection-background = #3a2a7c
+selection-foreground = #ffffff

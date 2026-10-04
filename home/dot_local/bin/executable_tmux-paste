@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# tmux-paste — paste the SYSTEM clipboard into the active tmux pane, choosing
+# the right read backend. Sibling of tmux-copy (which handles the copy
+# direction); replaces the WSL-only ~/.local/bin/wsl-paste, which was never in
+# the source tree and left the M-v/V binds dead on macOS and plain Linux.
+#
+# Order of preference mirrors tmux-copy:
+#   1. win32yank.exe -o   WSL2 ← Windows clipboard (unicode-safe)
+#   2. wl-paste           Wayland
+#   3. xclip -o           X11
+#   4. xsel -b -o         X11 fallback
+#   5. pbpaste            macOS
+#   6. powershell.exe     WSL2 last resort (Get-Clipboard; may mangle EOLs)
+
+set -euo pipefail
+
+read_clip() {
+  if command -v win32yank.exe >/dev/null 2>&1; then
+    win32yank.exe -o --lf
+  elif command -v wl-paste >/dev/null 2>&1; then
+    wl-paste --no-newline
+  elif command -v xclip >/dev/null 2>&1; then
+    xclip -selection clipboard -out
+  elif command -v xsel >/dev/null 2>&1; then
+    xsel --clipboard --output
+  elif command -v pbpaste >/dev/null 2>&1; then
+    pbpaste
+  elif command -v powershell.exe >/dev/null 2>&1; then
+    powershell.exe -NoProfile -Command Get-Clipboard
+  else
+    return 1
+  fi
+}
+
+read_clip | tmux load-buffer -b hostclip - && tmux paste-buffer -b hostclip -d

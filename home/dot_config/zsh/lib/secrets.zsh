@@ -23,6 +23,27 @@
 # resolved the op:// refs. Sourced silently; absence is non-fatal.
 [[ -r "$HOME/.config/zsh/secrets.env" ]] && source "$HOME/.config/zsh/secrets.env"
 
+## op-rw — run `op` under the read-write service account.
+##
+## The ambient OP_SERVICE_ACCOUNT_TOKEN is the *workstation-apply* account: it
+## READS both `cloud` and `workstation-keys` (the latter is why apply can render
+## the op://workstation-keys refs in secrets.env.tmpl) but it cannot WRITE.
+## OP_SA_RW_TOKEN writes, but only sees `cloud` — so it deliberately does NOT
+## replace the ambient token, or apply would stop resolving the workstation-tier
+## keys. Writes therefore opt in per-command and the default stays read-only.
+##
+##   op-rw item create --category "API Credential" --vault cloud --title foo ...
+##   op-rw item delete foo --vault cloud
+##
+## Reads need no wrapper: plain `op read op://...` already works for both vaults.
+op-rw() {
+  if [[ -z "${OP_SA_RW_TOKEN:-}" ]]; then
+    print -u2 -P "%F{red}✗%f OP_SA_RW_TOKEN unset — expected from ~/.secrets"
+    return 1
+  fi
+  OP_SERVICE_ACCOUNT_TOKEN="$OP_SA_RW_TOKEN" command op "$@"
+}
+
 ## Back-compat shims for the old runtime interface. Secrets are now resolved at
 ## apply time and sourced above on every shell, so loading is eager and these
 ## are effectively no-ops. Kept so existing muscle memory / scripts / the
@@ -47,3 +68,13 @@ render-zed-settings() {
   op inject -i "$tpl" -o "$out" -f && \
     print -P "%F{green}✓%f rendered $out from template"
 }
+
+## Headless hosts (agent-bastion): Claude Code's long-lived OAuth token, minted with
+## `claude setup-token` on a machine with a browser and saved 0600 by
+## agent-bastion-stack/save-token.sh. Exported only when the file exists, so a
+## workstation with a normal browser login is untouched. Never copy
+## .credentials.json between machines instead: two copies share one rotating
+## refresh token and log each other out (measured 2026-10-03).
+if [[ -r "$HOME/.config/claude/oauth-token" && -z "${CLAUDE_CODE_OAUTH_TOKEN:-}" ]]; then
+  export CLAUDE_CODE_OAUTH_TOKEN="$(<"$HOME/.config/claude/oauth-token")"
+fi

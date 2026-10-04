@@ -4,7 +4,11 @@
 # false-positive that blocked ordinary greps, and the Grep empty-path fail-open.
 # Exit-code contract: 0 = allow, 2 = block.  Run: bash <this>
 set -uo pipefail
-HOOK="${BASH_SOURCE[0]%/*}/../guard-secret-access.sh"
+# Hooks live under the chezmoi source tree (.chezmoiroot=home), so the test
+# targets the source file, not a deployed copy. Resolve from the repo root so
+# this works from any cwd and in CI.
+_REPO="$(cd "${BASH_SOURCE[0]%/*}/../../.." && pwd)"
+HOOK="${HOOK_OVERRIDE:-$_REPO/home/dot_claude/hooks/executable_guard-secret-access.sh}"
 pass=0 fail=0
 
 bash_v() { # <block|allow> <command> <desc>

@@ -16,7 +16,6 @@ home/
   dot_config/zsh/private_secrets.env.tmpl — app keys, rendered from 1Password at apply
   dot_tmux.conf, dot_tmux.conf.d/claude.conf
   dot_local/bin/executable_*         — theme, zedw, tmux-* helpers  (→ ~/.local/bin)
-  dot_claude/hooks/executable_*      — Claude Code hooks            (→ ~/.claude/hooks)
   starship/{base.toml,themes/*.toml} — theme palettes (source-input; .chezmoiignore'd, read by `theme`)
   run_once_* / run_onchange_*        — plugin bootstrap, completion gen, theme generation
 ```

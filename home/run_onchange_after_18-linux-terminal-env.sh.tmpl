@@ -1,0 +1,61 @@
+{{- if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+# run_onchange_after_18-linux-terminal-env.sh
+#
+# Makes a Linux box a sane SSH/mosh *target* for a Ghostty client on macOS.
+# Fixes two independent failure modes that together read as "control codes and
+# character ghosting" over ssh/mosh (diagnosed on ceres 2026-08-11):
+#
+#   1. MISSING LOCALE. europa's /etc/ssh/ssh_config.d/100-macos.conf sends
+#      `SendEnv LANG LC_*`, so LANG=en_US.UTF-8 arrives here. Debian/Ubuntu
+#      ships only C / C.utf8 / POSIX, so the locale silently fails to set and
+#      mosh-server refuses outright ("The locale requested by LANG=en_US.UTF-8
+#      isn't available here"). Without a UTF-8 locale, mosh miscounts the
+#      column width of multibyte prompt glyphs (starship powerline) and leaves
+#      ghost characters behind on redraw.
+#
+#   2. MISSING TERMINFO. Ghostty forwards TERM=xterm-ghostty, which no distro
+#      packages. ncurses finds no entry, capability lookups fail, and raw
+#      escape sequences get echoed as visible control codes. Fixed by tic'ing
+#      the committed source into ~/.terminfo (no root needed; ncurses reads it
+#      automatically).
+#
+# Both were machine-local state with no home in the dotfiles, so a rebuild
+# silently regressed them. This script is the durable fix.
+#
+# Keyed to the terminfo source so a Ghostty upgrade (re-export the .ti) re-runs:
+#   ghostty terminfo: {{ include "dot_local/share/terminfo-src/xterm-ghostty.ti" | sha256sum }}
+set -u
+
+# ── 1. locale ────────────────────────────────────────────────────────────────
+# Only act when the locale is genuinely absent AND we can get root without a
+# prompt — chezmoi apply must never block on a sudo password.
+want_locale="en_US.UTF-8"
+if ! locale -a 2>/dev/null | grep -qiE "^en_US\.(utf8|UTF-8)$"; then
+  if command -v locale-gen >/dev/null 2>&1 && sudo -n true 2>/dev/null; then
+    echo "chezmoi: generating ${want_locale} (absent; mosh-server rejects it)"
+    if [ -f /etc/locale.gen ]; then
+      sudo sed -i "s/^# *${want_locale} UTF-8/${want_locale} UTF-8/" /etc/locale.gen
+    fi
+    sudo locale-gen >/dev/null 2>&1 || true
+    sudo update-locale "LANG=${want_locale}" 2>/dev/null || true
+  else
+    echo "chezmoi: WARNING ${want_locale} missing and passwordless sudo unavailable." >&2
+    echo "chezmoi:   mosh will ghost. Run: sudo locale-gen ${want_locale} && sudo update-locale LANG=${want_locale}" >&2
+  fi
+fi
+
+# ── 2. ghostty terminfo ──────────────────────────────────────────────────────
+# tic writes to ~/.terminfo, so this needs no privileges. Skip if a
+# system-wide entry already exists (a future distro package would win).
+if ! infocmp xterm-ghostty >/dev/null 2>&1; then
+  src="$HOME/.local/share/terminfo-src/xterm-ghostty.ti"
+  if [ -r "$src" ] && command -v tic >/dev/null 2>&1; then
+    echo "chezmoi: installing xterm-ghostty terminfo into ~/.terminfo"
+    # -x keeps the extended (user-defined) capabilities Ghostty relies on.
+    tic -x -o "$HOME/.terminfo" "$src" 2>/dev/null || true
+  fi
+fi
+
+exit 0
+{{- end }}

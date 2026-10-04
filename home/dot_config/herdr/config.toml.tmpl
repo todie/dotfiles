@@ -1,0 +1,189 @@
+onboarding = false
+
+[ui]
+show_agent_labels_on_pane_borders = false
+
+agent_panel_sort = "spaces"
+tab_bar_right = [{ type = "command", command = "{{ .chezmoi.homeDir }}/.config/herdr/plugins/github/herdr-projects-b1278ffb803c/target/release/herdr-projects --root {{ .chezmoi.homeDir }}/.herdr-projects needs-you --line", interval_seconds = 15, timeout_seconds = 5 }]
+[ui.toast]
+# "herdr" = in-app visual popup. "terminal" asked Windows for a desktop toast, which plays the
+# Windows notification sound (operator: no bell noise, visual only, 2026-09-27).
+delivery = "herdr"
+
+[ui.sound]
+# Silence the background-agent state-change sounds (operator, 2026-09-27).
+enabled = false
+
+[ui.sidebar.agents]
+rows = [["state_icon", { token = "agent", bold = false, dim = false, rules = [{ contains = "​", bold = true }] }, "state_text"], [{ token = "$hp_sub", dim = true }]]
+
+[ui.sidebar.spaces]
+rows = [["state_icon", { token = "workspace", rules = [{ contains = "⠀", bold = true }] }, { token = "branch", dim = true }, "git_status"]]
+
+[theme]
+name = "terminal"
+auto_switch = false
+
+# ── Keys — emulate ~/.tmux.conf (backtick prefix, vim panes) ──────────────
+[keys]
+prefix = "backtick"
+
+# tmux: r = reload config, R = rename window (tab)
+reload_config = "prefix+r"
+rename_tab = "prefix+shift+r"
+resize_mode = "prefix+alt+r" # displaced from prefix+r by reload
+
+# tmux: d = detach
+detach = "prefix+d"
+
+# tmux: | = side-by-side split, - = stacked split (keep current path is herdr default)
+split_vertical = "prefix+|"
+split_horizontal = "prefix+minus"
+
+# tmux: c = new window
+new_tab = "prefix+c"
+
+# tmux: Tab = toggle to last; frees prefix+tab from pane cycling
+last_pane = "prefix+tab"
+cycle_pane_next = ""
+
+# tmux: h/j/k/l pane navigation (herdr defaults, pinned explicitly)
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+
+# tmux: x = kill pane, X = kill window, z = zoom (herdr defaults, pinned)
+close_pane = "prefix+x"
+close_tab = "prefix+shift+x"
+zoom = "prefix+z"
+
+# tmux: Alt+1..9 jump to window N without prefix
+[keys.indexed]
+tabs = "alt"
+
+# tmux: C-g = lazygit fullscreen popup
+[[keys.command]]
+key = "ctrl+g"
+type = "pane"
+command = "lazygit"
+
+# ── Plugins (installed 2026-07-05) ────────────────────────────────────────
+[[keys.command]]
+key = "prefix+p"
+type = "plugin_action"
+command = "jt.command-palette.open"
+description = "Command palette (all plugin actions)"
+
+[[keys.command]]
+key = "prefix+o"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.projects"
+description = "Herdr Plus: open project template"
+
+[[keys.command]]
+key = "prefix+a"
+type = "plugin_action"
+command = "cloudmanic.herdr-plus.quick-actions"
+description = "Herdr Plus: quick actions"
+
+[[keys.command]]
+key = "prefix+e"
+type = "plugin_action"
+command = "herdr-file-viewer.open-file-viewer"
+description = "Git-aware file viewer (split)"
+
+[[keys.command]]
+key = "prefix+v"
+type = "plugin_action"
+command = "persiyanov.reviewr.toggle"
+description = "reviewr: toggle code-review sidebar"
+
+# tmux-fingers style copy hints
+[[keys.command]]
+key = "prefix+f"
+type = "plugin_action"
+command = "rmarganti.herdr-pluck.pluck"
+description = "Pluck visible token to clipboard"
+
+[experimental]
+pane_history = true
+switch_ascii_input_source_in_prefix = false
+
+# shell-deck (2026-10-02): focus the deck's tab, or open a "deck" tab running it.
+# One deck per machine; ~/.local/bin/herdr-deck never starts a second one.
+[[keys.command]]
+key = "prefix+alt+d"
+type = "shell"
+command = "~/.local/bin/herdr-deck"
+description = "shell-deck: focus or open the deck"
+
+# ── annotate (plannotator/herdr-annotate) ─────────────────────────────────
+# The plugin README's keys, except capture: its suggested prefix+a is herdr-plus
+# quick actions here, so capture moves to prefix+i.
+[[keys.command]]
+key = "prefix+i"
+type = "plugin_action"
+command = "annotate.capture"
+description = "Annotate selection"
+
+[[keys.command]]
+key = "prefix+shift+a"
+type = "plugin_action"
+command = "annotate.copy-context"
+description = "Annotate: copy annotations as context"
+
+[[keys.command]]
+key = "prefix+ctrl+a"
+type = "plugin_action"
+command = "annotate.copy-archive"
+description = "Annotate: copy as context and archive"
+
+[[keys.command]]
+key = "prefix+ctrl+v"
+type = "plugin_action"
+command = "annotate.paste-archive"
+description = "Annotate: paste into the agent's prompt and archive"
+
+[[keys.command]]
+key = "prefix+ctrl+s"
+type = "plugin_action"
+command = "annotate.send-archive"
+description = "Annotate: send to the agent and archive"
+
+[[keys.command]]
+key = "prefix+m"
+type = "plugin_action"
+command = "annotate.manage"
+description = "Annotate: manage annotations"
+
+# ── projects (eliasstravik/herdr-projects) ────────────────────────────────
+# Its README suggests prefix+a (taken by herdr-plus); prefix+shift+p is herdr's
+# rename_pane. The tab_bar_right entry and the [ui.sidebar.*] rows above come
+# from `herdr-projects configure` (run on europa 2026-10-04, hooks for claude and
+# codex); its plugin dir hash is sha256("herdr-projects"), the same on every host.
+[[keys.command]]
+key = "prefix+shift+o"
+type = "plugin_action"
+command = "herdr-projects.open-popup"
+description = "Projects popup"
+
+# ── sidebar (alexarthurs/herdr-sidebar) ───────────────────────────────────
+# Not prefix+s / prefix+shift+g: those are herdr's settings and new_worktree.
+[[keys.command]]
+key = "prefix+shift+b"
+type = "plugin_action"
+command = "herdr-sidebar.open-sidebar"
+description = "Sidebar: toggle"
+
+[[keys.command]]
+key = "prefix+shift+s"
+type = "plugin_action"
+command = "herdr-sidebar.show-git"
+description = "Sidebar: source control"
+
+[[keys.command]]
+key = "prefix+shift+f"
+type = "plugin_action"
+command = "herdr-sidebar.quick-open"
+description = "Sidebar: quick open"
