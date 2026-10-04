@@ -125,7 +125,15 @@ if command -v rclone >/dev/null 2>&1 && ! rclone lsd "$REMOTE" >/dev/null 2>&1; 
   need "remote $REMOTE is not reachable via 'rclone lsd' (bucket missing or no credentials)"
 fi
 
-BASE="${XDG_RUNTIME_DIR:-/tmp}"
+# The work dir holds the plaintext dump, so it must be on tmpfs. No /tmp fallback:
+# /tmp may be a disk. Operators who know their tmpfs can set LINEAR_BACKUP_WORKDIR.
+BASE="${LINEAR_BACKUP_WORKDIR:-${XDG_RUNTIME_DIR:-}}"
+BASE="${BASE%/}"
+if [ -z "$BASE" ]; then
+  need "no tmpfs work dir: XDG_RUNTIME_DIR is unset (set LINEAR_BACKUP_WORKDIR to a tmpfs directory)"
+elif [ ! -d "$BASE" ] || [ ! -w "$BASE" ]; then
+  need "work dir base $BASE is not a writable directory"
+fi
 HIST_FLAG=""; [ "$INCLUDE_HISTORY" = 1 ] && HIST_FLAG=" --include-history"
 
 if [ "$DRY_RUN" = 1 ]; then
@@ -197,13 +205,17 @@ COUNTS=$(jq -r '(.entities // .) | to_entries[]
 
 # ---- upload + re-read ---------------------------------------------------------
 echo "== upload =="
-rclone copyto "$WORK/$NAME" "$REMOTE/$NAME" --s3-no-check-bucket 2>&1 | tail -2
-[ "${PIPESTATUS[0]}" -eq 0 ] || fail "upload of $NAME failed"
-rclone copyto "$WORK/$NAME.sha256" "$REMOTE/$NAME.sha256" --s3-no-check-bucket 2>&1 | tail -1
-[ "${PIPESTATUS[0]}" -eq 0 ] || fail "upload of $NAME.sha256 failed"
+rclone copyto "$WORK/$NAME" "$REMOTE/$NAME" --s3-no-check-bucket \
+  || fail "upload of $NAME to $REMOTE failed"
+rclone copyto "$WORK/$NAME.sha256" "$REMOTE/$NAME.sha256" --s3-no-check-bucket \
+  || fail "upload of $NAME.sha256 to $REMOTE failed"
 
 # Verify the uploaded object by re-reading it, not by trusting the writer.
-REMOTE_SUM=$(rclone cat "$REMOTE/$NAME" | sha256sum | awk '{print $1}')
+# pipefail makes a failed rclone fail the whole pipeline, so the branch runs.
+if ! rclone cat "$REMOTE/$NAME" | sha256sum > "$WORK/remote.sum"; then
+  fail "could not read back $REMOTE/$NAME to verify the upload"
+fi
+REMOTE_SUM=$(awk '{print $1}' "$WORK/remote.sum")
 if [ "$REMOTE_SUM" = "$SUM" ]; then
   echo "   UPLOAD VERIFIED — remote sha256 matches local"
 else
