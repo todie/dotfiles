@@ -35,6 +35,8 @@ sops      = "3.13.1"
 # ── general CLIs ─────────────────────────────────────────────────────────────
 gh       = "2.93.0"
 jq       = "1.8.1"
+lazygit  = "0.65.1"   # git TUI — herdr binds ctrl+g to it on every host; moved here
+                      # from the macOS-only Brewfile so Linux hosts get it too.
 uv       = "0.11.17"
 direnv   = "2.37.1"
 # btop: brew-owned (mise pin was never installed; dropped 2026-08-23 — audit B1/B2)

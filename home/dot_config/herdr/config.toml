@@ -3,12 +3,18 @@ onboarding = false
 [ui]
 show_agent_labels_on_pane_borders = false
 
-agent_panel_sort = "priority"
+agent_panel_sort = "spaces"
 [ui.toast]
-delivery = "terminal"
+# "herdr" = in-app visual popup. "terminal" asked Windows for a desktop toast, which plays the
+# Windows notification sound (operator: no bell noise, visual only, 2026-09-27).
+delivery = "herdr"
+
+[ui.sound]
+# Silence the background-agent state-change sounds (operator, 2026-09-27).
+enabled = false
 
 [theme]
-name = "kanagawa-lotus"
+name = "terminal"
 auto_switch = false
 
 # ── Keys — emulate ~/.tmux.conf (backtick prefix, vim panes) ──────────────
@@ -96,3 +102,11 @@ description = "Pluck visible token to clipboard"
 [experimental]
 pane_history = true
 switch_ascii_input_source_in_prefix = false
+
+# shell-deck (2026-10-02): focus the deck's tab, or open a "deck" tab running it.
+# One deck per machine; ~/.local/bin/herdr-deck never starts a second one.
+[[keys.command]]
+key = "prefix+alt+d"
+type = "shell"
+command = "~/.local/bin/herdr-deck"
+description = "shell-deck: focus or open the deck"

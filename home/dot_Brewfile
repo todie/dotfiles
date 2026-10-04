@@ -95,7 +95,6 @@ brew "mas"            # Mac App Store CLI (backs the mas section below)
 # ── Git / dev toolchain ──
 brew "git-delta"      # syntax-highlighting pager for git diffs
 brew "difftastic"     # syntax-aware diff
-brew "lazygit"
 brew "lefthook"       # git hooks manager
 brew "pre-commit"
 brew "cmake"
