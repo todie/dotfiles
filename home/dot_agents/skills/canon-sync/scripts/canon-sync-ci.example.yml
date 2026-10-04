@@ -1,0 +1,39 @@
+# canon-sync CI gate — drop into .github/workflows/canon-sync.yml
+# Gates on the default gating set (pr_merged_ticket_open et al.); exit 1 fails the job.
+# Needs: repo secret LINEAR_API_KEY. The skill itself runs `claude -p "/canon-sync --ci"`
+# (or the equivalent headless harness invocation) from the project root.
+name: canon-sync
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install linearctl (SLSA-attested binary via mise)
+        uses: jdx/mise-action@5ac50f335ca0392b3ae1b2bde68d757e5a4f1dc4 # v2
+        with:
+          experimental: true
+      - run: mise use -g "github:cerebral-work/linearctl" && linearctl --version
+
+      - name: Preflight
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          linearctl whoami
+          linearctl ratelimit
+
+      # The drift checks run in the agent harness (the skill is instructions, not a
+      # binary). Point your headless runner at the repo root with the skill mounted:
+      #   claude -p "/canon-sync --ci"     # exits 1 on gating drift
+      - name: canon-sync --ci
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: claude -p "/canon-sync --ci"

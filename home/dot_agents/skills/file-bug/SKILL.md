@@ -1,53 +1,76 @@
 ---
 name: file-bug
-description: Quick single-issue Linear filer for mid-session bug discoveries. Complement to `/linear-file-spec` — that one parses multi-section markdown specs, this one is "I just hit a bug, file it with evidence before I forget." Formats Repro / Evidence / Root cause / Fix direction / Acceptance into the house markdown template, creates a Linear issue in team=CER (Cerebral Work Institute) project=Reverie via the claude_ai_Linear MCP, and reports the new CER-ID. Use when the user says "file a bug", "ticket this", "open an issue for X", "log this in Linear", or when you discover a reproducible defect mid-debug. Args — `<title>` required, `--priority <1-4>` (default 3), `--related <CER-101,CER-102>` csv of related tickets, `--labels <bug,observability>` csv of label names.
+description: Quick single-issue Linear filer for mid-session bug discoveries. Complement to `/linear-file-spec` — that one parses multi-section markdown specs, this one is "I just hit a bug, file it with evidence before I forget." Formats Repro / Evidence / Root cause / Fix direction / Acceptance into the house markdown template, files via `linearctl file` (never the Linear MCP), and re-reads the ticket before reporting. Use when the user says "file a bug", "ticket this", "open an issue for X", "log this in Linear", or when you discover a reproducible defect mid-debug. Args — `<title>` and `--team <key>` required; optional `--project <name-or-id>`, `--priority <1-4>` (default 3), `--related <CER-101,CER-102>` csv, `--labels <bug,observability>` csv, `--apply`.
 ---
 
 # file-bug — one-shot Linear bug filer with evidence template
 
-Create a single Linear issue with a proper Repro / Evidence / Root cause / Fix / Acceptance body, without hand-rolling the markdown each time. Built for the "I hit a bug while debugging something else — file it before the context evaporates" case. Uses the house evidence template so the team reads the same shape every time.
+Create a single Linear issue with a proper Repro / Evidence / Root cause /
+Fix / Acceptance body, without hand-rolling the markdown each time.
 
-> **Team migration (2026-05-21):** reverie tickets moved from legacy team Todie (TOD) to **Cerebral Work Institute (CER)**. This skill files to **CER**; legacy `TOD-NNN` in old examples below are historical.
+**v2 (2026-10-04).** Rewritten onto `linearctl`: the write is
+`linearctl file --desc -`, never the Linear MCP
+(`hold-batch-ops-until-root-cause.md`). The hardcoded `CER`/`Reverie` target
+is gone — the old skill pointed at a dead project binding; `--team` is now
+required and `--project` is explicit when used.
 
 ## When to use
 
-- User says "file a bug", "ticket this", "open an issue", "log this in Linear", "create a CER" (or "a TOD" out of habit)
-- You (Claude) just hit a reproducible defect mid-debug and want to persist it before switching contexts
-- You found a bug in a review / audit that doesn't block the current PR but needs to land on the backlog
+- "file a bug", "ticket this", "open an issue", "log this in Linear"
+- You just hit a reproducible defect mid-debug and want it persisted before
+  the context evaporates
+- A review/audit finding that doesn't block the current PR but needs the
+  backlog
 
 ## When NOT to use
 
-- Multi-section specs with Part 1 / Part 2 / Part 3 and inter-ticket dependencies — use `/linear-file-spec` instead.
-- A vague "we should think about X" without repro steps or evidence — that's a discussion topic, not a bug.
-- A PR review comment — use `gh pr review` or a sticky comment.
-- A feedback note about the conversation — that's auto-memory, not Linear.
+- Multi-section specs with Part 1/2/3 and inter-ticket dependencies —
+  `/linear-file-spec`
+- A vague "we should think about X" with no repro or evidence — discussion,
+  not a bug
+- A PR review comment — use `gh pr review`
+- A user story rather than a defect — `linearctl park`
+
+## Preconditions
+
+```bash
+linearctl --version   # >= 0.7.0
+linearctl whoami      # abort on auth failure, no retry
+linearctl ratelimit   # abort below 300 remaining
+```
 
 ## Procedure
 
-### 1. Parse args / preconditions
+### 1. Parse args
 
-- `<title>` (positional, required): the one-line ticket title. Keep under 80 chars. Do not prefix with `bug:` — use `--labels bug` instead.
-- `--priority <1-4>` (default 3): Linear priority. 1=Urgent, 2=High, 3=Medium, 4=Low.
-- `--related <ids>` (csv): e.g. `--related TOD-724,TOD-725`. Each is appended as a `Related: <id>` bullet in the body.
-- `--labels <labels>` (csv): label names. Must exist in the Reverie project or they're ignored by Linear.
+- `<title>` (positional, required): one line, < 80 chars, imperative. No
+  `bug:` prefix — that's what `--labels bug` is for.
+- `--team <key>` (required — no default). Active teams: CER, OPS, EST, SEC,
+  ONB, TOD, RD, BIZ, BRAND, VES.
+- `--project <name-or-id>` (optional): exact project name or UUID.
+- `--priority <1-4>` (default 3): 1=Urgent 2=High 3=Medium 4=Low.
+- `--labels <csv>` (optional): label names; must exist in the team —
+  `linearctl label list --team <key> --json` to check, `label create` to add.
+- `--related <csv>` (optional): issue identifiers to link as related.
+- `--apply`: write. **Default is a dry-run** that prints the composed body and
+  the exact command, and exits.
 
-Preflight:
-- Confirm the claude_ai_Linear MCP is available (tools prefixed `mcp__claude_ai_Linear__*`).
-- Refuse to file if `<title>` is empty.
+Refuse an empty title. Redact anything token-shaped from Evidence to
+`<REDACTED:token>` before it enters the body.
 
 ### 2. Gather the body
 
-If the calling session already has the five sections in context, use them verbatim. If not, ask the caller for:
+If the session already has the five sections, use them verbatim. Otherwise ask
+for:
 
-1. **Repro steps** — bulleted, minimal, copy-pasteable commands or actions.
-2. **Evidence** — code block or log excerpt. Inline with triple backticks. If >40 lines, truncate with `… (N lines elided, full log attached as artifact on request)`.
-3. **Root cause hypothesis** — 1–3 sentences. OK to say "unknown — needs bisect" if genuinely unknown.
-4. **Fix direction** — bullets, ordered by preferred approach. It's fine to enumerate 2–3 alternatives.
-5. **Acceptance criteria** — bullets starting with checkbox syntax `- [ ]`. Each criterion must be testable.
+1. **Repro** — bulleted, minimal, copy-pasteable.
+2. **Evidence** — code block or log excerpt; truncate past 40 lines with
+   `… (N lines elided)`.
+3. **Root cause** — 1–3 sentences; "unknown — needs bisect" is acceptable.
+4. **Fix direction** — bullets, ordered by preference.
+5. **Acceptance** — `- [ ]` checkboxes, each testable.
 
-### 3. Format the body
-
-Use this exact template (matches TOD-723/724/725/730):
+### 3. Compose
 
 ```markdown
 ## Repro
@@ -57,7 +80,7 @@ Use this exact template (matches TOD-723/724/725/730):
 ## Evidence
 
 ```
-<code or log block>
+<code or log>
 ```
 
 ## Root cause
@@ -72,61 +95,72 @@ Use this exact template (matches TOD-723/724/725/730):
 ## Acceptance
 
 - [ ] <criterion 1>
-- [ ] <criterion 2>
-
-## Related
-
-- <CER-XXX>
-- <CER-YYY>
 ```
 
-Omit the `## Related` block entirely if `--related` is empty.
+(Omit empty sections rather than leaving placeholders.)
 
-### 4. File via Linear MCP
+### 4. File (with `--apply`)
 
-Call `mcp__claude_ai_Linear__save_issue` with:
+One write, dedupe-checked, body piped on stdin:
 
-- `team`: `CER` (Cerebral Work Institute)
-- `project`: `Reverie`
-- `title`: `<title>` positional arg
-- `description`: the composed markdown body (send real newlines, not `\n` escapes — per the claude_ai_Linear MCP instruction)
-- `priority`: numeric from `--priority`
-- `labels`: array from `--labels` csv
+```bash
+linearctl file "<title>" \
+  --team "<team>" --priority <n> --label bug \
+  --project "<project>" \
+  --check-dups \
+  --desc - --json <<'EOF'
+<composed body>
+EOF
+```
 
-Capture the returned issue identifier (e.g. `CER-731`) and URL.
+`--check-dups` refuses when a likely duplicate exists; re-run with `--force`
+only when the operator confirms a false positive (say why in the body).
 
-### 5. Report
+If `--related` was given, wire it after creation (append-only, space-separated):
 
-One line only:
+```bash
+linearctl update <ID> --related-to <ID1> <ID2> --json
+```
+
+### 5. Re-read and report
+
+Verify with a different call than wrote it:
+
+```bash
+linearctl show <ID> --json
+```
+
+Assert the state is the team's default and the title matches. Report one line:
 
 ```
 filed CER-731: <title> — https://linear.app/cerebral-work/issue/CER-731
 ```
 
-No rehashing the body content — the user can click through.
+## Safety invariants
+
+- Writes through `linearctl` only — never the Linear MCP; never a ticket ID in
+  an MCP comment body.
+- No default team or project — both explicit, every time.
+- Never file without a title; never file secrets (redact Evidence first).
+- Dry-run by default; `--apply` writes; the ticket is re-read before the
+  report.
+- One ticket per invocation — batch filing is `linear-file-spec` or
+  `linearctl file --stdin`.
 
 ## Examples
 
 ```
-/file-bug "cortex dash loses heartbeat when terminal is resized" --priority 2 --labels bug,observability --related TOD-725
+file-bug "cortex dash loses heartbeat on terminal resize" --team CER --project Reverie --priority 2 --labels bug,observability
+file-bug "status JSON drops role on stale records" --team CER --labels bug --related CER-725 --apply
 ```
 
-Files a P2 bug with labels `bug,observability`, a Related bullet linking TOD-725, and the standard evidence template populated from session context.
+## Example script
 
-```
-/file-bug "cortex status JSON output drops role on stale records" --labels bug,observability
-
-Files a P3 bug (default) with `bug,observability` labels and no related tickets.
-
-## Safety invariants
-
-- Never file without a title.
-- Never embed secrets in the Evidence block. If a log line contains what looks like a token/key, redact to `<REDACTED:token>` before filing.
-- Never file under a different team/project than `CER`/`Reverie` from this skill — if you need a different target, call the Linear MCP directly.
-- Always use real newlines in the description (the claude_ai_Linear MCP rejects escape sequences).
+`scripts/file-bug-example.sh` — preflight + dry-run body render; with
+`APPLY=1 TEAM=<key>` files a demo bug and re-reads it.
 
 ## Related skills
 
-- `/linear-file-spec` — multi-section specs with inter-ticket dependencies (use that instead for Part 1 / Part 2 structure).
-- `/close-ticket` — flip an existing TOD to Done with a shipping-commit comment.
-- `/push-close` — push main and auto-close every TOD mentioned in commit messages since last push.
+- `/linear-file-spec` — multi-section specs with dependencies
+- `/close-ticket` — flip an existing ticket to Done with shipping evidence
+- `/push-close` — push main and close every ticket named in commit messages
