@@ -59,7 +59,7 @@ brew "flock"          # util-linux flock — absent from macOS; the tmux claude-
 # ═════════════════════════════════════════════════════════════════════════════
 
 # ── Taps (only those backing installed entries below) ──
-tap "rjyo/moshi"
+tap "rjyo/moshi", trusted: true
 tap "twilio/brew", trusted: true
 tap "terraform-linters/tap"
 
