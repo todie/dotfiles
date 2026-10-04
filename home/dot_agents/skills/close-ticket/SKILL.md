@@ -1,106 +1,132 @@
 ---
 name: close-ticket
-description: Mark a Linear issue Done and append a comment recording the shipping commit SHA, plus sync any matching TaskList entry. Always the same 2–3 MCP calls — save_comment with the SHA note, save_issue flipping state to Done, then TaskUpdate for any task with metadata.linear matching the TOD-ID. Use when the user says "close TOD-X", "mark X done, shipped in abc1234", "wrap up TOD-Y with commit Z", or after a push lands a fix for a tracked ticket. Args — `<TOD-ID>` required, `<commit-sha>` required (short or full), optional `--note "<extra context>"` appended to the shipping comment.
+description: Mark a Linear issue Done with evidence, through `linearctl`. The shipping comment (commit SHA, or another named verification) lands FIRST, then the state flip, then a re-read confirms the close. Never the Linear MCP; never a close without evidence. Use when the user says "close CER-X", "mark X done, shipped in abc1234", "wrap up OPS-Y with commit Z", or after a push lands a fix for a tracked ticket. Args — `<ISSUE-ID>` required, `<commit-sha>` required (short or full), optional `--note "<extra context>"` appended to the shipping comment.
 ---
 
-# close-ticket — flip Linear issue to Done + log shipping SHA
+# close-ticket — evidence comment, then Done, then re-read
 
-Close one Linear ticket with the standard shipping record: a comment citing the commit SHA on main, a state transition to Done, and a TaskList sync if a task tracks this TOD. Built for the "I just pushed the fix, close the ticket" moment that otherwise sprawls into 4 manual MCP calls.
+Close one Linear ticket with the standard shipping record. **v2 (2026-10-04):**
+rewritten onto `linearctl` (never the Linear MCP for writes), the TaskUpdate
+coupling is removed, and any team identifier (`CER-123`, `OPS-456`, …) works —
+the old TOD-only wording is gone.
 
 ## When to use
 
-- User says "close TOD-731", "mark TOD-X done, shipped in abc1234", "wrap up TOD-Y"
+- "close CER-731", "mark OPS-12 done, shipped in abc1234", "wrap up EST-88"
 - A commit has just landed on main that resolves a tracked ticket
 - Inside `/push-close` as the per-ticket inner loop
 
 ## When NOT to use
 
-- The fix isn't actually on main yet — wait for `git push` to succeed first.
-- The ticket is a multi-part epic where only one part shipped — add a comment instead, don't flip state.
-- You want to close as "Cancelled" / "Won't Fix" — use the Linear MCP directly with the right state.
-- You want to close many tickets after one push — use `/push-close` which batches this skill.
+- The fix isn't on main yet — push first
+- Only one part of a multi-part epic shipped — comment, don't flip state
+- Close as Cancelled / Won't Fix — comment why, then `linearctl update <id>
+  --state "<name>"`. State **names vary per team** ("Canceled"/"Cancelled"), so
+  resolve by type, never hardcode: `linearctl search --team <key> --state
+  canceled --json` and read `.state` off any row (no rows → MCP read with a
+  `fields` list, or ask the operator for the exact name)
+- No evidence exists — a close **requires** evidence: a merged commit/PR, all
+  children done, or a live check named in the comment
+
+## Preconditions
+
+```bash
+linearctl --version   # >= 0.7.0
+linearctl whoami      # abort on auth failure, no retry
+linearctl ratelimit   # abort below 300 remaining
+```
 
 ## Procedure
 
-### 1. Parse args / preconditions
+### 1. Parse args / preflight
 
-- `<TOD-ID>` (positional, required): e.g. `TOD-731`. Must match `^TOD-\d+$`.
-- `<commit-sha>` (positional, required): short (7+) or full hex SHA. Validated with `git rev-parse --verify <sha>^{commit}` — refuse if unknown to the local repo.
-- `--note "<text>"` (optional): appended to the shipping comment after a blank line.
+- `<ISSUE-ID>` (positional, required): must match `^[A-Z]+-[0-9]+$`.
+- `<commit-sha>` (positional, required): short (7+) or full hex. Verify it
+  resolves in the relevant repo **before** touching Linear:
 
-Preflight:
-- Confirm `mcp__claude_ai_Linear__*` tools are available.
-- Confirm the SHA resolves locally (prevents typos closing tickets against a non-existent commit):
   ```bash
-  git -C ~/projects/reverie rev-parse --verify "${SHA}^{commit}" >/dev/null \
-    || { echo "ERROR: SHA ${SHA} does not resolve in reverie repo"; exit 1; }
-  ```
-- Short-form the SHA to 7 chars for display: `SHORT=$(git rev-parse --short=7 "$SHA")`.
-
-### 2. Post the shipping comment
-
-Call `mcp__claude_ai_Linear__save_comment`:
-
-- `issueId`: `<TOD-ID>`
-- `body`:
-  ```markdown
-  Shipped in `<SHORT>` on main.
-
-  <optional --note text>
+  git -C <repo> rev-parse --verify "${SHA}^{commit}" >/dev/null \
+    || { echo "ERROR: SHA ${SHA} does not resolve in <repo>"; exit 1; }
+  SHORT="$(git -C <repo> rev-parse --short=7 "$SHA")"
   ```
 
-Send real newlines (per the claude_ai_Linear MCP instruction), not `\n` escapes. Omit the trailing blank line + note section if `--note` wasn't given.
+- `--note "<text>"` (optional): appended to the shipping comment.
 
-### 3. Flip state to Done
+Read the ticket first: `linearctl show <ID> --json`. If it is already in a
+completed state (`stateType: completed`), post the comment if there is
+something new to record and stop — never re-flip.
 
-Call `mcp__claude_ai_Linear__save_issue`:
+### 2. Comment FIRST (evidence before close)
 
-- `id`: `<TOD-ID>`
-- `state`: `Done`
+The shipping record lands as a comment *before* the state transition — a close
+without its evidence comment is the failure mode this ordering prevents
+(estate convention; see `linear-groom` "closes need evidence"):
 
-Do NOT pass title / description / labels — this is a pure state transition and sending other fields risks clobbering them.
+```bash
+linearctl comment <ID> --body - <<'EOF'
+Shipped in `<short-sha>` on main.
 
-### 4. Sync TaskList (if applicable)
-
-Check the current session's TaskList for any task where `metadata.linear == "<TOD-ID>"`. If one exists, `TaskUpdate` it to `status: completed`.
-
-If no matching task is found, skip this step silently — not every Linear ticket has a local task.
-
-### 5. Report
-
-One line:
-
-```
-TOD-731 → Done (shipped in abc1234)
+<optional --note text>
+EOF
 ```
 
-If a TaskList entry was also synced, append ` + task synced`.
+Body is piped on stdin (`--body -`), never via shell-escaped arguments.
 
-If the ticket was already Done before this call (detected by reading the current state via `get_issue` beforehand, or by Linear returning a no-op), report `TOD-731 already Done — comment appended only`.
+### 3. Flip state
+
+```bash
+linearctl close <ID> --json
+```
+
+Nothing else on this call — no title, description, or label edits ride along.
+
+### 4. Re-read and report
+
+Confirm with a different call than wrote it:
+
+```bash
+linearctl show <ID> --json   # assert stateType == "completed"
+```
+
+Report one line:
+
+```
+CER-731 → Done (shipped in abc1234)
+```
+
+or, when step 1 found it already closed: `<ID> already Done — comment appended
+only`.
+
+If the re-read shows the state did NOT land, say so loudly and stop — do not
+retry blindly; surface `linearctl history <ID> --json` for the operator.
+
+## Safety invariants
+
+- Writes through `linearctl` only — never the Linear MCP; never a ticket ID in
+  an MCP comment body (`hold-batch-ops-until-root-cause.md`).
+- Evidence first: the comment naming the commit lands before the state flip.
+- Never close against a SHA that doesn't resolve locally — `rev-parse --verify`
+  is mandatory.
+- Never close without evidence. The SHA is the default evidence; a close with
+  different evidence (children done, live check) names it in the comment
+  instead — but a bare close is always wrong.
+- One ticket per invocation; batch closes are `/push-close` or
+  `linearctl update --stdin --apply` with a plan you wrote.
 
 ## Examples
 
 ```
-/close-ticket TOD-725 a4f2c19
+close-ticket CER-725 a4f2c19
+close-ticket OPS-730 f8b2001 --note "ACK now precedes execute; see src/worker.rs:142"
 ```
 
-Posts "Shipped in `a4f2c19` on main." comment, flips TOD-725 to Done.
+## Example script
 
-```
-/close-ticket TOD-730 f8b2001 --note "ACK is now before execute; see crates/reveried/src/worker.rs:142"
-```
-
-Posts a comment with the SHA and the extra context note, flips to Done.
-
-## Safety invariants
-
-- Never close a ticket against a SHA that doesn't exist locally. The `rev-parse --verify` check is mandatory.
-- Never pass title/description/labels on the state-transition `save_issue` call — it will silently overwrite.
-- Always short the SHA to 7 chars for the comment (Linear renders long SHAs as ugly walls of text).
-- Use real newlines in comment body, not escape sequences.
+`scripts/close-ticket-example.sh <ID> <sha> [--note text]` — runs the full
+verify-SHA → comment → close → re-read sequence against a real ticket.
 
 ## Related skills
 
-- `/push-close` — push main and close every TOD-ID mentioned in commit messages in one shot (calls this skill internally).
-- `/file-bug` — open a new bug with the standard template.
-- `/linear-file-spec` — multi-section spec filing.
+- `/push-close` — push main and close every ticket named in commit messages
+- `/file-bug` — open a new bug with the standard template
+- `/linear-file-spec` — multi-section spec filing

@@ -1,0 +1,240 @@
+#!/usr/bin/env bash
+# linear-backup-r2 — age-encrypted Linear workspace backup → R2.
+#
+# Pipeline: `linearctl backup` → `linearctl backup --verify` → tar | age → rclone
+# upload → re-read the remote object and compare sha256. The tarball is never
+# written unencrypted: it is piped straight into `age` and only ciphertext lands
+# in the work dir. The work dir (which does hold the plaintext dump) is created
+# under $XDG_RUNTIME_DIR (tmpfs) and shredded/removed by an EXIT trap.
+#
+# Credentials: LINEAR_API_KEY comes from the environment and is never printed.
+# The systemd unit loads it from ~/.config/linear-backup/env (mode 0600, one
+# line `LINEAR_API_KEY=lin_api_...`). This script never creates that file.
+#
+# Recovery key: the age identity is escrowed in 1Password as document
+# "cw-coldstore-identity" (vault: cloud) and is NOT on this machine by design.
+#
+# Operating notes
+#   One-shot, before the Linear reorg (never prunes):
+#     linear-backup-r2 --include-history
+#   History is ~5k API requests (~2.5 h); run it by hand, never from the timer.
+#
+#   Restore drill (list contents, then verify the extracted dump):
+#     op document get "cw-coldstore-identity" --vault cloud --out-file /tmp/k
+#     rclone cat r2:linear-backups/<object> | age -d -i /tmp/k | tar -tzf -
+#     mkdir /tmp/restore && rclone cat r2:linear-backups/<object> \
+#       | age -d -i /tmp/k | tar -xzf - -C /tmp/restore
+#     linearctl backup --verify /tmp/restore/linear-<stamp>
+#     shred -u /tmp/k; rm -rf /tmp/restore
+#
+#   Enable the twice-daily timer (00:00 and 12:00, keeps newest 28):
+#     install -d -m 700 ~/.config/linear-backup
+#     (umask 077; printf 'LINEAR_API_KEY=%s\n' "<key>" > ~/.config/linear-backup/env)
+#     systemctl --user daemon-reload
+#     systemctl --user enable --now linear-backup.timer
+#     systemctl --user list-timers linear-backup.timer
+#
+# Usage: linear-backup-r2 [--include-history] [--prune N] [--dry-run]
+#                         [--remote REMOTE:BUCKET] [--recipient FILE]
+#   --include-history  also dump issue history (slow; one-shot use only)
+#   --prune N          after a verified upload keep only the newest N snapshots
+#                      (default: never prune; N must be a positive integer)
+#   --dry-run          print every step and resolved path; run only the
+#                      prerequisite checks and `linearctl backup --help`
+#   --remote           default $LINEAR_BACKUP_REMOTE or r2:linear-backups
+#   --recipient        default $LINEAR_BACKUP_RECIPIENT or
+#                      ~/.config/age/cw-coldstore.pub
+#
+# Exit codes: 0 ok · 1 backup/verify/encrypt/upload failure · 2 usage ·
+#             3 prerequisite missing
+set -euo pipefail
+# systemd user units carry a minimal PATH; age/rclone/linearctl live under mise
+# and ~/.local/bin (same trap that cost coldstore its 2026-08-26 run).
+export PATH="$HOME/.local/bin:$HOME/.local/share/mise/shims:/usr/local/bin:/usr/bin:/bin:$PATH"
+umask 077
+
+RECIPIENT_FILE="${LINEAR_BACKUP_RECIPIENT:-$HOME/.config/age/cw-coldstore.pub}"
+REMOTE="${LINEAR_BACKUP_REMOTE:-r2:linear-backups}"
+PRUNE_KEEP=""
+INCLUDE_HISTORY=0
+DRY_RUN=0
+WORK=""
+
+usage() { sed -n '/^# Usage:/,/^# Exit codes/p' "$0" | sed 's/^# \{0,1\}//' >&2; }
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --include-history) INCLUDE_HISTORY=1; shift ;;
+    --prune)
+      [ $# -ge 2 ] || { echo "--prune needs a count" >&2; usage; exit 2; }
+      PRUNE_KEEP="$2"; shift 2 ;;
+    --dry-run) DRY_RUN=1; shift ;;
+    --remote)
+      [ $# -ge 2 ] || { echo "--remote needs a value" >&2; usage; exit 2; }
+      REMOTE="$2"; shift 2 ;;
+    --recipient)
+      [ $# -ge 2 ] || { echo "--recipient needs a file" >&2; usage; exit 2; }
+      RECIPIENT_FILE="$2"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "unknown arg: $1" >&2; usage; exit 2 ;;
+  esac
+done
+
+if [ -n "$PRUNE_KEEP" ]; then
+  case "$PRUNE_KEEP" in
+    ''|*[!0-9]*) echo "--prune needs a positive integer, got: $PRUNE_KEEP" >&2; exit 2 ;;
+  esac
+  [ "$PRUNE_KEEP" -ge 1 ] || { echo "--prune must be >= 1" >&2; exit 2; }
+fi
+REMOTE="${REMOTE%/}"
+
+cleanup() {
+  local rc=$?
+  if [ -n "$WORK" ] && [ -d "$WORK" ]; then
+    find "$WORK" -type f -exec shred -u {} + 2>/dev/null || true
+    rm -rf "$WORK"
+  fi
+  # Normalise unexpected set -e failures to the documented "failure" code.
+  case "$rc" in 0|1|2|3) exit "$rc" ;; *) exit 1 ;; esac
+}
+trap cleanup EXIT
+
+fail() { echo "FATAL: $*" >&2; exit 1; }
+
+# ---- prerequisites: collect every failure, then exit 3 -----------------------
+PREREQ_FAIL=0
+need() { echo "PREREQ FAILED: $*" >&2; PREREQ_FAIL=1; }
+
+if ! command -v linearctl >/dev/null 2>&1; then
+  need "linearctl not on PATH"
+else
+  # An unknown subcommand makes commander print the TOP-LEVEL help and exit 0,
+  # so the exit code proves nothing: require the backup command's own usage line.
+  backup_help=$(linearctl backup --help 2>&1 || true)
+  case "$backup_help" in
+    "Usage: linearctl backup"*) ;;
+    *) need "linearctl lacks a working 'backup' command (installed: $(linearctl --version 2>/dev/null || echo unknown); needs >= 0.8)" ;;
+  esac
+fi
+command -v age     >/dev/null 2>&1 || need "age not on PATH"
+command -v rclone  >/dev/null 2>&1 || need "rclone not on PATH"
+command -v jq      >/dev/null 2>&1 || need "jq not on PATH"
+[ -f "$RECIPIENT_FILE" ] || need "no age recipient file at $RECIPIENT_FILE"
+[ -n "${LINEAR_API_KEY:-}" ] || need "LINEAR_API_KEY is not set (systemd: ~/.config/linear-backup/env)"
+if command -v rclone >/dev/null 2>&1 && ! rclone lsd "$REMOTE" >/dev/null 2>&1; then
+  need "remote $REMOTE is not reachable via 'rclone lsd' (bucket missing or no credentials)"
+fi
+
+# The work dir holds the plaintext dump, so it must be on tmpfs. No /tmp fallback:
+# /tmp may be a disk. Operators who know their tmpfs can set LINEAR_BACKUP_WORKDIR.
+BASE="${LINEAR_BACKUP_WORKDIR:-${XDG_RUNTIME_DIR:-}}"
+BASE="${BASE%/}"
+if [ -z "$BASE" ]; then
+  need "no tmpfs work dir: XDG_RUNTIME_DIR is unset (set LINEAR_BACKUP_WORKDIR to a tmpfs directory)"
+elif [ ! -d "$BASE" ] || [ ! -w "$BASE" ]; then
+  need "work dir base $BASE is not a writable directory"
+fi
+HIST_FLAG=""; [ "$INCLUDE_HISTORY" = 1 ] && HIST_FLAG=" --include-history"
+
+if [ "$DRY_RUN" = 1 ]; then
+  echo "== dry run: nothing is dumped, encrypted or uploaded =="
+  echo "   work dir      : mktemp -d under $BASE (shredded on exit)"
+  echo "   recipient     : $RECIPIENT_FILE"
+  echo "   remote        : $REMOTE"
+  echo "   history pass  : $([ "$INCLUDE_HISTORY" = 1 ] && echo yes || echo no)"
+  echo "   prune         : ${PRUNE_KEEP:-never}"
+  echo "   step 1 dump   : linearctl backup --out \$WORK$HIST_FLAG"
+  echo "   step 2 verify : linearctl backup --verify \$WORK/linear-<stamp>"
+  echo "   step 3 encrypt: tar -C \$WORK -czf - linear-<stamp> | age -R $RECIPIENT_FILE -o \$WORK/linear-<stamp>.tar.gz.age"
+  echo "   step 4 upload : rclone copyto … $REMOTE/linear-<stamp>.tar.gz.age (+ .sha256 sidecar)"
+  echo "   step 5 reread : rclone cat $REMOTE/linear-<stamp>.tar.gz.age | sha256sum == local"
+  echo "   step 6 prune  : $([ -n "$PRUNE_KEEP" ] && echo "keep newest $PRUNE_KEEP of linear-*.tar.gz.age" || echo "skipped (no --prune)")"
+  if [ "$PREREQ_FAIL" -ne 0 ]; then
+    echo "== dry run: prerequisites NOT met (exit 3) ==" >&2; exit 3
+  fi
+  echo "== dry run: prerequisites ok =="; exit 0
+fi
+
+[ "$PREREQ_FAIL" -eq 0 ] || exit 3
+
+# ---- dump ---------------------------------------------------------------------
+WORK=$(mktemp -d "$BASE/linear-backup.XXXXXX")
+echo "== dump =="
+# shellcheck disable=SC2086  # HIST_FLAG is intentionally word-split (empty or one flag)
+linearctl backup --out "$WORK" ${HIST_FLAG# } || fail "linearctl backup failed"
+
+shopt -s nullglob
+dumps=("$WORK"/linear-*/)
+shopt -u nullglob
+[ ${#dumps[@]} -eq 1 ] || fail "expected exactly one linear-* dump in work dir, found ${#dumps[@]}"
+DUMP="${dumps[0]%/}"
+STEM=$(basename "$DUMP")
+NAME="${STEM}.tar.gz.age"
+
+echo "== verify =="
+linearctl backup --verify "$DUMP" || fail "linearctl backup --verify failed on $STEM"
+
+# ---- encrypt ------------------------------------------------------------------
+echo "== encrypt $NAME =="
+set +e
+tar -C "$WORK" -czf - "$STEM" | age -R "$RECIPIENT_FILE" -o "$WORK/$NAME"
+# One assignment: reading PIPESTATUS[0] into a variable would reset it.
+ps=("${PIPESTATUS[@]}")
+set -e
+[ "${ps[0]}" -eq 0 ] || fail "tar failed (rc=${ps[0]})"
+[ "${ps[1]}" -eq 0 ] || fail "age encryption failed (rc=${ps[1]})"
+[ -s "$WORK/$NAME" ] || fail "empty ciphertext"
+head -c 22 "$WORK/$NAME" | grep -q 'age-encryption.org' \
+  || fail "output is not age ciphertext — refusing to upload"
+
+SUM=$(sha256sum "$WORK/$NAME" | awk '{print $1}')
+SIZE=$(stat -c %s "$WORK/$NAME")
+echo "   ciphertext: $SIZE bytes  sha256:${SUM:0:16}…"
+
+# Sidecar: checksum line plus the manifest's per-entity counts (best effort —
+# a manifest shape surprise must not discard an otherwise good backup).
+COUNTS=$(jq -r '(.entities // .) | to_entries[]
+                | select(.value | type == "object" and has("count"))
+                | "\(.key)=\(.value.count)"' "$DUMP/manifest.json" 2>/dev/null || true)
+[ -n "$COUNTS" ] || echo "WARNING: could not read entity counts from manifest.json" >&2
+{
+  printf '%s  %s\n%s bytes\nhost=%s\n' "$SUM" "$NAME" "$SIZE" "$(hostname)"
+  printf 'history=%s\n' "$([ "$INCLUDE_HISTORY" = 1 ] && echo yes || echo no)"
+  printf 'counts:\n%s\n' "$COUNTS"
+} > "$WORK/$NAME.sha256"
+
+# ---- upload + re-read ---------------------------------------------------------
+echo "== upload =="
+rclone copyto "$WORK/$NAME" "$REMOTE/$NAME" --s3-no-check-bucket \
+  || fail "upload of $NAME to $REMOTE failed"
+rclone copyto "$WORK/$NAME.sha256" "$REMOTE/$NAME.sha256" --s3-no-check-bucket \
+  || fail "upload of $NAME.sha256 to $REMOTE failed"
+
+# Verify the uploaded object by re-reading it, not by trusting the writer.
+# pipefail makes a failed rclone fail the whole pipeline, so the branch runs.
+if ! rclone cat "$REMOTE/$NAME" | sha256sum > "$WORK/remote.sum"; then
+  fail "could not read back $REMOTE/$NAME to verify the upload"
+fi
+REMOTE_SUM=$(awk '{print $1}' "$WORK/remote.sum")
+if [ "$REMOTE_SUM" = "$SUM" ]; then
+  echo "   UPLOAD VERIFIED — remote sha256 matches local"
+else
+  fail "remote checksum mismatch (local=$SUM remote=$REMOTE_SUM)"
+fi
+
+# ---- prune (only with --prune, only after a verified upload) -------------------
+if [ -n "$PRUNE_KEEP" ]; then
+  echo "== prune: keeping newest $PRUNE_KEEP =="
+  mapfile -t all < <(rclone lsf "$REMOTE" --include 'linear-*.tar.gz.age' | sort -r)
+  if [ ${#all[@]} -le "$PRUNE_KEEP" ]; then
+    echo "   nothing to prune (${#all[@]} snapshots)"
+  else
+    for o in "${all[@]:$PRUNE_KEEP}"; do
+      echo "   deleting $o"
+      rclone deletefile "$REMOTE/$o"
+      rclone deletefile "$REMOTE/$o.sha256" 2>/dev/null || true
+    done
+  fi
+fi
+
+echo "== done: $REMOTE/$NAME =="

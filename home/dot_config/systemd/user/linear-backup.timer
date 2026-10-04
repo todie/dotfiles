@@ -1,0 +1,13 @@
+[Unit]
+Description=Twice-daily age-encrypted Linear backup → R2
+
+# 00:00 and 12:00 local. Persistent=true fires a run missed while the machine
+# was off on next start, so a powered-down WSL does not leave a long gap.
+
+[Timer]
+OnCalendar=*-*-* 00,12:00:00
+Persistent=true
+RandomizedDelaySec=15m
+
+[Install]
+WantedBy=timers.target

@@ -937,16 +937,6 @@
         ]
       },
       {
-        "matcher": "mcp__claude_ai_Linear__save_issue",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/ctodie/.claude/hooks/linear-bulk-marker-inject.sh",
-            "timeout": 3
-          }
-        ]
-      },
-      {
         "matcher": "mcp__claude_ai_Linear__save_issue|mcp__claude_ai_Linear__save_comment|mcp__claude_ai_Linear__save_project|mcp__claude_ai_Linear__save_initiative",
         "hooks": [
           {

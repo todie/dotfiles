@@ -1,208 +1,220 @@
 ---
 name: linear-groom
-description: Audit a Linear scope (team / project / milestone) for ticket drift — stale, missing labels, missing estimate/assignee/project, orphan (no milestone), duplicate (exact + fuzzy) titles, broken relation mirrors — and propose a fix plan. Read-only by default; `--apply` writes the mechanical fixes in rate-limited batches with automatic `# bulk-file-spec: skip` injection when batch > 5. Always runs an OAuth preflight before any list/save call. Use when the user says "groom Linear", "audit the backlog", "clean up tickets in <project>", "find stale tickets". Args — optional `--team <key>` (default TOD), `--project <name>`, `--milestone <name>`, `--check <csv>` (default: all; includes relation-mirror), `--stale-days <N>` (default 14), `--apply`, `--auto-bulk-marker` (default on), `--batch <N>` (default 10), `--slack <channel>` to post the report, `--ai-suggest` to add a dry-run-only AI proposal pass for non-mechanical fields.
+description: Audit a Linear scope (team / project / milestone / assignee, or the whole workspace as a census) for tracker drift and emit a grooming plan — triage-queue age, stale In Progress, WIP overload, stale Todo, dormant projects, parents whose children are all done, merged-PR tickets still open, missing project/labels/estimate/assignee, orphan-of-milestone, duplicate titles, asymmetric relations. Dry-run by default; `--apply` executes only the evidence-backed mechanical fixes, one write at a time through `linearctl`, each re-read. Never the Linear MCP for writes. Use when the operator says "groom Linear", "audit the backlog", "what's stale", "clean up tickets", "take lead of grooming", or on the weekly hygiene loop. Args — scope flags (`--team <key...>|all`, `--project <name>`, `--milestone <name>`, `--assignee <who>`), `--check <csv>`, thresholds (`--stale-started 14d`, `--stale-todo 30d`, `--triage-sla 7d`, `--project-idle 30d`, `--wip-limit 10`), `--apply`, `--export <path>`, `--ai-suggest`, `--slack <channel>`.
 ---
 
-# linear-groom — bulk Linear audit + safe fix loop
+# linear-groom — tracker census + evidence-backed fix loop
 
-Walk a Linear scope, surface every drift signal as a structured row, then either print the plan (default) or apply the fixes in rate-limited batches. The audit set is opinionated: stale tickets, missing labels, missing estimates, missing assignee, missing project, orphan-of-milestone, and duplicate titles. Everything else is out of scope — this is *grooming*, not arbitrary bulk edits.
+Walk a Linear scope, surface every drift signal as a structured row, write the
+report to a file, and either stop (default) or apply the fixes that need no
+judgment. Grooming, not arbitrary bulk editing: anything that needs a human
+call is surfaced with a drafted command, never executed.
+
+**v2 (2026-10-04).** Rewritten onto `linearctl` after the first workspace-wide
+census (331 issues in Triage, 87 In Progress on one assignee, 31 In Progress
+stale beyond 14 days, 40 projects In Progress with most untouched since July).
+Three things changed and why:
+
+1. **Writes go through `linearctl`, never the Linear MCP.** The claude.ai Linear
+   connector is the held surface under `hold-batch-ops-until-root-cause.md`
+   (OPS-448): one write per message, and a body that names other ticket IDs
+   fans out server-side. `linearctl` is the sanctioned path.
+2. **The `# bulk-file-spec: skip` marker is gone.** v1 injected it into every
+   description on batches over five writes. That marker is the OPS-448 wiper:
+   descriptions were replaced with it across three incident windows and four
+   tickets have no recoverable source. A rate-limit workaround that rewrites
+   descriptions is not a workaround. Rate limits are handled by pacing and
+   `linearctl ratelimit`, nothing else. (`milestone-retarget` still carries the
+   v1 copy of this loop; fix it there too, tracked separately.)
+3. **No 200-ticket abort and no default team.** The estate's active teams are
+   CER, OPS, EST, SEC, ONB (not TOD); scope is always explicit. Large scopes
+   produce a file, not a terminal dump, and every table is capped per
+   category with an "…N more" line and the full list in the export.
 
 ## When to use
 
-- User says "groom Linear", "audit the backlog", "what's stale in <project>", "clean up tickets", "find tickets missing labels/estimates"
-- Before a planning session — pre-flight the backlog so the human time is spent on judgment, not enumeration
-- Recurring weekly hygiene loop (pair with `/loop 7d /linear-groom --team TOD`)
+- "groom Linear", "audit the backlog", "what's stale in <project>", "clean up
+  tickets", "who is overloaded", "triage queue status"
+- Before a planning session, so human time goes to judgment, not enumeration
+- The weekly hygiene loop: `/loop 7d /linear-groom --team CER,OPS,EST,SEC`
+- After a lane hands over work, to find the tickets it left In Progress
 
-**Don't** use this when:
-- The user wants arbitrary bulk edits ("change priority of these 20 tickets to X") — that's a different shape; call `mcp__claude_ai_Linear__save_issue` directly in a loop
-- The user wants to file new tickets — use `linear-file-spec` (multi-section) or `file-bug` (single)
-- The user wants to delete or merge tickets — the MCP lacks delete, and merging is judgment-heavy; surface the candidates and let the user act in the UI
-- Scope is unscoped ("audit all of Linear") — refuse and require at least `--team` or `--project`. Whole-workspace scans get rate-limited and the report is too long to be useful
+**Don't** use this for: arbitrary bulk edits (call `linearctl update --stdin`
+with a plan you wrote), filing (`linear-file-spec`, `file-bug`, `linearctl
+park`), milestone moves (`milestone-retarget`), or merging duplicates (the
+report names the pair; a human merges in the UI).
+
+## Preconditions
+
+```bash
+linearctl --version      # 0.7.0 or later; `label list` and `project list --team` need it
+linearctl whoami         # proves LINEAR_API_KEY works; abort on failure, do not retry
+linearctl ratelimit      # shared org budget (2500/hr); abort below 300 remaining
+```
+
+A stale `linearctl` ahead on PATH has happened (a 0.2.0 binary sat first on the
+operator's deck PATH until 2026-10-04). Check the version, not the presence.
+
+The Linear MCP (`mcp__claude_ai_Linear__*`) may be used for READS that
+`linearctl` lacks (notifications, project lead/target dates, relations), with a
+`fields` list every time. Never for a write, never for a comment.
 
 ## Procedure
 
-### 1. Parse args
+### 1 · Parse args and resolve scope
 
-- `--team <key>`: Linear team key (default `TOD`)
-- `--project <name>`: scope to one project (exact name match)
-- `--milestone <name>`: scope to one milestone
-- `--check <csv>`: subset of `stale,labels,estimate,assignee,project,orphan,duplicate,relation-mirror` (default: all)
-- `--stale-days <N>`: stale threshold in days (default `14`)
-- `--apply`: execute the fix plan; default is dry-run
-- `--batch <N>`: max writes per second (default `10`)
-- `--no-preflight`: skip the OAuth check (faster reruns; only use when you just ran it)
-- `--slack <channel>`: after the report, post a summary (counts + manual-review table) to a Slack channel via `mcp__claude_ai_Slack__slack_send_message`. Channel name without `#`.
-- `--ai-suggest`: add a third output section with AI-proposed values for non-mechanical fields (labels, estimate, project, milestone). Dry-run only — `--apply` never writes AI suggestions, even when both flags are passed.
-- `--auto-bulk-marker` / `--no-auto-bulk-marker`: when the `--apply` loop writes more than 5 `save_issue` calls, auto-inject `# bulk-file-spec: skip` into each call's description field to stay under the Linear rate limit. Default: on. Disable only when you know the batch will stay under 5 or you are intentionally testing the rate-limit path.
+- `--team <key...>|all` · `--project <name>` · `--milestone <name>` ·
+  `--assignee <who>` (`me`, email, display name). At least one is required;
+  `--team all` is a census and is allowed, the output goes to a file.
+- `--check <csv>` from: `triage,stale-started,stale-todo,wip,project-idle,
+  parent-done,pr-xref,project,labels,estimate,assignee,orphan,duplicate,
+  relation-mirror` (default: all except `pr-xref`, which needs `--repo`).
+- Thresholds: `--stale-started 14d` · `--stale-todo 30d` · `--triage-sla 7d`
+  · `--project-idle 30d` · `--wip-limit 10`.
+- `--repo <owner/repo...>`: enables `pr-xref` via `linearctl xref`.
+- `--apply` · `--export <path>` (default
+  `~/handoffs/linear-groom/<date>-<scope-slug>.md`) · `--ai-suggest` ·
+  `--slack <channel>`.
 
-If no scope flag is given and the user didn't supply one in the prompt, refuse with: `linear-groom requires --team, --project, or --milestone — refusing to audit all of Linear`.
+Refuse with no scope flag: `linear-groom requires --team, --project,
+--milestone or --assignee`. Resolve `--project`/`--milestone` to IDs
+(`linearctl project list --team <key> --json`, `linearctl milestone --project
+<id> --json`); abort on a non-exact match. Print the resolved scope first:
 
-### 2. OAuth + scope preflight
-
-Run **one** cheap call: `mcp__claude_ai_Linear__list_teams` (no args).
-
-- If it succeeds → OAuth is alive. Verify the resolved team key exists in the response; abort with a clear error if not.
-- If it fails with an auth-shaped error → abort with: `Linear OAuth expired. Re-auth with: /mcp` and stop. Do **not** retry, do **not** continue with the next check.
-
-Then resolve `--project` and `--milestone` to IDs via `list_projects` / `list_milestones` if provided. Abort if a name doesn't match exactly.
-
-Print a one-line preflight summary before any other work:
 ```
-Preflight: team=TOD (ok) · project=Reverie (ok) · milestone=Phase 5 (ok) · checks=all · mode=dry-run
+Preflight: linearctl 0.7.0 · viewer=ctodie · ratelimit=2210 · team=CER,OPS · project=— · checks=all · mode=dry-run · export=~/handoffs/linear-groom/2026-10-04-cer-ops.md
 ```
 
-### 3. List tickets in scope
+### 2 · Collect, once
 
-Use `mcp__claude_ai_Linear__list_issues` with the resolved filters. Page through if needed (the MCP returns up to ~50 per page).
+Pull every surface a single time into the scratchpad; the checks read files,
+not the API. Only open states (Triage, Backlog, Todo, In Progress, In Review)
+are drift candidates.
 
-State filter: only open tickets (Backlog, Todo, In Progress, In Review) — closed/cancelled tickets aren't drift candidates. Hard-code this; do not expose as a flag.
+```bash
+linearctl stale  --team <keys> --older-than 1d --json > stale.json    # every open issue with daysStale
+linearctl triage --team <keys> --json               > triage.json   # Triage-state + unassigned/unestimated/no-priority
+linearctl project list --team <key> --json          > projects-<key>.json   # per team; the flag is required
+linearctl milestone gap --project <id> --json       > gap-<id>.json  # only for --project scopes
+linearctl xref --repo <r> --team <keys> --json      > xref-<r>.json  # only with --repo
+```
 
-Cap at 200 tickets per scope. If the scope returns more, abort with: `Scope returned >200 tickets — narrow with --milestone or --project before grooming` — the report becomes unactionable past that size.
+Issue bodies and relations are fetched on demand (`linearctl show <id> --json`,
+MCP `get_issue` with `includeRelations`), capped as each check states.
 
-### 4. Run checks
+### 3 · Checks
 
-For each enabled check, walk the ticket list once and tag each ticket with the drift signals it triggers. A ticket can trigger multiple.
-
-- **stale**: `updatedAt` older than `--stale-days` days AND state is not `Backlog`. (Backlog is *meant* to be stale; In Progress that hasn't moved in 14d is the real signal.)
-- **labels**: `labels` array is empty
-- **estimate**: `estimate` is null AND state is not `Backlog` (backlog tickets routinely lack estimates)
-- **assignee**: `assignee` is null AND state is `In Progress` or `In Review` (unassigned active work is the smell; unassigned backlog is fine)
-- **project**: `project` is null AND `--team` scope (not `--project` — that's tautological)
-- **orphan**: `milestone` is null AND ticket is in a project that has milestones
-- **duplicate**: two or more tickets whose titles match either (a) exact normalized form (lowercase, trimmed, whitespace-collapsed) or (b) Levenshtein-similarity ≥ 0.85 on the normalized form AND in the same project. Surface as a *pair* (or cluster) row, not per-ticket. Tag each pair with `exact` or `fuzzy:<score>` so the manual reviewer can prioritize the cheap merges. Fuzzy matching is O(n²); the 200-ticket scope cap keeps this at ≤ 40k comparisons (fast). No downgrade in normal operation. Future-extension territory: switch to embeddings if anyone ever raises the scope cap.
-- **relation-mirror**: for each ticket whose `blocks` or `blockedBy` relation array is non-empty, call `get_issue(id, includeRelations: true)` on the *downstream* ticket and assert the mirror edge exists. A missing mirror means Linear's relation graph is asymmetric — surfaced as `relation-mirror-broken` in the manual-review table. This check is read-only and never auto-fixed; the user must correct the relation in the UI or via a manual `save_issue`. Implements the validation pass from `feedback_linear_deps_bidirectional.md`. Note: this check adds one `get_issue` call per ticket with relations — it is rate-limited to 20 such calls per groom run to avoid burst. If the scope has more than 20 tickets with relations, the check runs on the first 20 and appends a warning: `relation-mirror check capped at 20 — re-run with --milestone to narrow scope`.
-
-### 5. Build the fix plan
-
-For each drift signal, propose a fix *only when the fix is mechanical*:
-
-| Signal | Auto-fixable? | Proposed action |
+| check | signal | threshold |
 |---|---|---|
-| stale | No | Report only — human picks: nudge, reassign, close |
-| labels | No | Report only — labels need judgment |
-| estimate | No | Report only |
-| assignee | No | Report only |
-| project | Sometimes | If the team has exactly one active project, propose attach. Else report only. |
-| orphan | No | Report only — milestone choice needs judgment |
-| duplicate | No | Report only — surface both IDs for human merge in UI |
+| `triage` | issues in a Triage state, per team: count, oldest age, share with no priority | age > `--triage-sla` is the row |
+| `stale-started` | In Progress / In Review with `daysStale` > threshold | `--stale-started` |
+| `stale-todo` | Todo with `daysStale` > threshold (Backlog is meant to be stale and is never a signal) | `--stale-todo` |
+| `wip` | one assignee holding more In Progress + In Review than the limit | `--wip-limit` |
+| `project-idle` | project state In Progress and (no open issue updated within `--project-idle`, or zero open issues); also no lead, no target date | `--project-idle` |
+| `parent-done` | open parent whose sub-issues are all completed or canceled | none |
+| `pr-xref` | ticket referenced by a merged PR but still open (`linearctl xref`) | none |
+| `project` | no project, team scope only | none |
+| `labels` · `estimate` · `assignee` | empty labels; null estimate on non-Backlog; null assignee on In Progress / In Review | none |
+| `orphan` | no milestone, in a project that has milestones | none |
+| `duplicate` | same normalized title, or Levenshtein ≥ 0.85 within one project; emit a pair row tagged `exact` or `fuzzy:<score>` | none |
+| `relation-mirror` | `blocks` without the mirrored `blockedBy` on the other side; read-only; first 20 tickets with relations, then a capped warning | none |
 
-**This skill does not auto-fix anything that requires judgment.** The `--apply` path only writes the *mechanical* fixes (currently: project attach when unambiguous). Everything else goes in the report under "Manual review needed".
+A ticket may carry several signals; one row per ticket, signals joined.
 
-### 6. Dry-run output (default)
+### 4 · Fix plan — mechanical only
 
-Print two markdown tables:
+| signal | auto-fixable | action under `--apply` |
+|---|---|---|
+| `pr-xref` | yes, evidence is the merged PR | `linearctl xref --repo <r> --fix --apply`, one ticket at a time, then `linearctl show <id> --json` to confirm the state |
+| `parent-done` | yes, evidence is the children | `linearctl comment <id> "children all completed: <list>"` then `linearctl close <id>`; re-read |
+| `project` | only if the team has exactly one active project | `linearctl update <id> --project <id>`; re-read |
+| `stale-started` | opt-in only: `--demote-after <days>` | comment stating the age and the reason, then `--state Todo`; re-read. Default off; the operator ratifies the threshold once |
+| everything else | no | report with a drafted `linearctl` command the human can paste |
 
-**Auto-fixable**:
-| ID | Title | Signal | Proposed fix |
-|----|-------|--------|--------------|
-| TOD-501 | Wire observability telemetry | project missing | attach to project "Reverie" |
+Every write is sequential, re-read by a different call than the one that wrote
+it, and spaced ≥ 250 ms. On HTTP 429: back off 2 s doubling, five tries, then
+stop and report what landed. On any other error: stop, report, surface.
 
-**Manual review needed**:
-| ID | Title | Signals | Last updated |
-|----|-------|---------|--------------|
-| TOD-487 | Investigate flaky test | stale, no-labels, no-estimate | 2026-04-10 |
-| TOD-491 | Investigate flaky test | duplicate-of TOD-487 | 2026-04-22 |
+**Never:** write through the MCP; put ticket IDs in an MCP comment body; close
+without the evidence named above; delete anything; touch tickets another lane
+owns without telling that lane first (name the lane in the report; send one
+bundle on the mesh, not a drip); write descriptions; rewrite labels in bulk.
 
-Then a summary line: `N tickets scanned, K auto-fixable, M manual. Re-run with --apply to write the K auto-fixes.`
+### 5 · Report
 
-### 6b. AI-suggest pass (if `--ai-suggest`)
+Write the export file, then print to the terminal: the preflight line, a count
+per signal, the top ten rows of "Auto-fixable" and of "Manual review", and the
+path. If the full report exceeds about 40 lines, open the file in `$EDITOR`
+(`zedw` fallback) per `presentation-and-decisions.md`; the terminal keeps the
+orientation only.
 
-Append a third table — **AI-proposed (review only — never auto-applied)**:
+Report sections, in order:
 
-| ID | Title | Field | Current | Proposed | Confidence |
-|----|-------|-------|---------|----------|------------|
-| TOD-487 | Investigate flaky e2e | labels | — | `[bug, e2e, observability]` | high |
-| TOD-487 | Investigate flaky e2e | estimate | — | 3 | medium |
+1. **Census** — one line per team: open · Triage (oldest) · In Progress · WIP
+   per assignee over the limit.
+2. **Auto-fixable** — `| ID | Title | Signal | Evidence | Command |`.
+3. **Manual review** — `| ID | Title | Signals | Owner lane | Last updated |`,
+   grouped by owner lane (project → lane map from `herdr agent list` cwd when
+   derivable; else "unowned"), capped at 25 rows per group with "…N more".
+4. **Projects** — `| Project | Team | Lead | Target | Open | Last activity | Signals |`.
+5. **Decisions for the operator** — the forks this run cannot decide (close vs
+   demote vs reassign for each stale cluster; whether to triage a queue; whether
+   a dormant project is Done, Paused or still live). These go through
+   `AskUserQuestion`, batched, never as prose bullets.
 
-How to generate: spawn one `general-purpose` Agent with the manual-review rows + the ticket bodies (fetched via `mcp__claude_ai_Linear__get_issue`), and ask it to propose values for empty fields based on the ticket text. Limit to ≤ 25 tickets per AI call to keep the prompt tight; if more rows exist, page through.
+Summary line: `N scanned · K auto-fixable · M manual · P projects flagged ·
+export <path>. Re-run with --apply to write the K fixes.`
 
-**Cost gate:** cap the total tickets sent through the AI pass at 100. If manual-review > 100, refuse with `--ai-suggest exceeds 100-ticket budget; narrow with --milestone or --check`. AI passes burn real tokens; the user should be deliberate about scope.
+### 6 · `--ai-suggest` (dry-run only, never applied)
 
-Confidence label: the subagent reports `high|medium|low` per suggestion based on how clearly the ticket body implies the value. Surface low-confidence suggestions in a grey-italic style note rather than the main table if your terminal renderer supports it.
+One Sonnet subagent per 25 tickets, fed `linearctl show <id> --json` bodies,
+proposing labels / estimate / project / milestone with `high|medium|low`
+confidence. Budget 100 tickets; refuse above it. Written to a fourth table in
+the export; `--apply` ignores it even when both flags are passed.
 
-This pass costs real tokens — only run when explicitly requested.
+### 7 · `--slack <channel>`
 
-### 6c. Slack post (if `--slack <channel>`)
+Post the census lines and counts plus the top ten manual-review rows in a code
+block via `mcp__claude_ai_Slack__slack_send_message`. Over 30 rows: counts plus
+the export path only. Slack failure never fails the run.
 
-After printing the report locally, post a summary via `mcp__claude_ai_Slack__slack_send_message`:
+### 8 · Exit
 
-- Channel: the value passed to `--slack` (strip leading `#` if present)
-- Body: one-line scope header + counts (e.g. `47 scanned · 1 auto-fixable · 3 manual review`) + the manual-review table only (collapsed in a Slack code block). Skip the auto-fixable table — that's actionable terminal work, not async team review. Skip the AI-suggest table — too noisy for a channel.
-- If the manual-review table exceeds 30 rows, post a header + counts only and attach the full table as a snippet via the Slack snippet upload flow (or fall back to a truncated table with `…N more` if snippet upload is unavailable).
-
-On Slack post failure: log it, but do not fail the overall command — the local report is the source of truth.
-
-Exit. Do not call `save_issue`.
-
-### 7. Apply mode (`--apply`)
-
-Only acts on the auto-fixable rows. For each row:
-
-- If the planned batch size exceeds 5 and `--auto-bulk-marker` is on (default), inject `# bulk-file-spec: skip` as a trailing line in the `description` field of every `save_issue` call in this run. Log once: `auto-bulk-marker: injecting # bulk-file-spec: skip (N writes > 5-call threshold)`.
-- Call `mcp__claude_ai_Linear__save_issue` with `id` + the single field being changed (e.g. `project: <id>`).
-- Sequential, not parallel. Sleep `1000 / batch` ms between calls (default 100ms → 10/sec).
-- On rate-limit error (HTTP 429 or MCP-level rate-limit shape): exponential backoff starting at 2s, doubling each retry, max 5 retries. After 5 → abort the apply loop and report what landed.
-- On any other error: abort the apply loop immediately, report what landed, surface the error.
-
-After the loop, print the final tally:
-```
-Applied: 7 fixes, 0 failures, 0 rate-limit retries
-Manual review still needed: 23 tickets
-```
-
-### 8. Exit
-
-Return cleanly. Do NOT auto-loop into another scope. If the user wants weekly grooming, they wrap it in `/loop`.
+Return. Do not loop into another scope; the operator wraps the skill in `/loop`.
 
 ## Safety invariants
 
-- **Always** run the OAuth preflight first. Discovering the token is dead mid-batch is the #1 friction from your usage report.
-- **Always** require an explicit scope. Whole-workspace audits don't fit on a screen and burn rate-limit budget.
-- **Never** auto-fix anything beyond the mechanical fixes listed in step 5. Adding labels, estimates, assignees, or milestones requires human judgment — surface, don't decide.
-- **Never** delete or close tickets. The MCP can't delete; closing is a judgment call.
-- **Never** call `save_issue` in parallel. Sequential + rate-limit backoff is the only safe write pattern given the OAuth + rate-limit history.
-- **Never** continue after an auth error. Surface the `/mcp` reauth and stop.
-- **Never** auto-apply an `--ai-suggest` proposal, even if the user also passed `--apply`. AI-proposed fields require human review by design; the flags compose as "apply mechanical fixes AND propose AI ones for review", not "apply both".
-- **Always** print the resolved scope before doing anything — the wrong-workspace bug from your insights report is one user typo away.
+- Scope is explicit; `--team all` is allowed and writes a file.
+- Preflight through `linearctl whoami` + `ratelimit`; auth failure is a stop.
+- Writes: `linearctl` only, sequential, re-read, paced. The Linear MCP is
+  read-only here, with `fields`, and never carries ticket IDs in a body.
+- No description writes of any kind. No `# bulk-file-spec: skip`.
+- Closes need evidence (merged PR, all children done, or a live check named in
+  the comment). Demotion is opt-in and ratified once by the operator.
+- Decisions go through `AskUserQuestion`; long reports go to a file + editor.
+- Tickets a lane owns: tell the lane before writing; one bundle.
 
-## Example invocation
-
-```
-linear-groom --team TOD --project Reverie --stale-days 21
-```
-
-Expected dry-run output:
+## Example
 
 ```
-Preflight: team=TOD (ok) · project=Reverie (ok) · milestone=— · checks=all · mode=dry-run
-
-Auto-fixable:
-| ID      | Title                    | Signal          | Proposed fix             |
-|---------|--------------------------|-----------------|--------------------------|
-| TOD-512 | Wire observability telemetry hook | project missing | attach to "Reverie" (sole active project) |
-
-Manual review needed:
-| ID      | Title                       | Signals                              | Last updated |
-|---------|-----------------------------|--------------------------------------|--------------|
-| TOD-487 | Investigate flaky e2e       | stale (37d), no-labels, no-estimate  | 2026-04-20   |
-| TOD-491 | Investigate flaky e2e       | duplicate-of TOD-487                 | 2026-04-22   |
-| TOD-503 | Refactor offload router     | stale (22d), no-assignee             | 2026-05-05   |
-
-47 tickets scanned, 1 auto-fixable, 3 manual. Re-run with --apply to write the 1 auto-fix.
+/linear-groom --team CER,OPS,EST,SEC --stale-started 14d --wip-limit 10
 ```
 
-After `--apply`:
-
 ```
-Applied: 1 fix, 0 failures, 0 rate-limit retries
-Manual review still needed: 3 tickets
+Preflight: linearctl 0.7.0 · viewer=ctodie · ratelimit=2210 · team=CER,OPS,EST,SEC · checks=all · mode=dry-run · export=~/handoffs/linear-groom/2026-10-04-cer-ops-est-sec.md
+
+Census
+| team | open | triage (oldest) | in progress | wip > 10 |
+| OPS  | 1102 | 440 (125d)      | 31          | ctodie 24 |
+| CER  |  811 | 0               | 46          | ctodie 38 |
+...
+Auto-fixable (3)   Manual review (71)   Projects flagged (29)
+Report opened in $EDITOR. Re-run with --apply to write the 3 fixes.
 ```
 
 ## Future extensions
 
-- `--export <path>`: dump the manual-review table to a markdown file so the user can triage offline
-- `--since <date>`: restrict the scan to tickets touched after a date (faster on large projects)
-- `--cron <interval>`: register a recurring `CronCreate` rather than punt to `/loop`
-- A `--seed` flag to make the duplicate-pair surfacing deterministic across runs (matters when fuzzy matching ties)
-- Semantic duplicate detection via embeddings (current fuzzy match is Levenshtein-only; embeddings catch reword/paraphrase duplicates)
-- Raise the `relation-mirror` cap above 20 if the Linear MCP adds a batch-get endpoint (currently one `get_issue` per ticket is the only option)
+- `linearctl groom` as a native subcommand, so the census is one call
+- Owner-lane map as a file (`~/.agents/lane-map.toml`) instead of cwd inference
+- Semantic duplicate detection (embeddings) above the Levenshtein pass
+- A `--since` window for incremental runs on large teams

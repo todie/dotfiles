@@ -1,0 +1,18 @@
+[Unit]
+Description=Age-encrypted Linear workspace backup → R2
+Documentation=file:%h/.local/bin/linear-backup-r2
+
+# Credentials: LINEAR_API_KEY lives in ~/.config/linear-backup/env (mode 0600,
+# one line `LINEAR_API_KEY=...`). The file is created by the operator, never by
+# this repo or the script. A missing file fails the unit loudly, on purpose.
+#
+# The timer run never includes the history pass (~2.5 h of API calls); that is a
+# one-shot by hand: `linear-backup-r2 --include-history`.
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/linear-backup/env
+ExecStart=%h/.local/bin/linear-backup-r2 --prune 28
+TimeoutStartSec=45min
+Nice=10
+IOSchedulingClass=idle
