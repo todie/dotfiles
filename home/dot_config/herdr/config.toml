@@ -110,3 +110,70 @@ key = "prefix+alt+d"
 type = "shell"
 command = "~/.local/bin/herdr-deck"
 description = "shell-deck: focus or open the deck"
+
+# ── annotate (plannotator/herdr-annotate) ─────────────────────────────────
+# The plugin README's keys, except capture: its suggested prefix+a is herdr-plus
+# quick actions here, so capture moves to prefix+i.
+[[keys.command]]
+key = "prefix+i"
+type = "plugin_action"
+command = "annotate.capture"
+description = "Annotate selection"
+
+[[keys.command]]
+key = "prefix+shift+a"
+type = "plugin_action"
+command = "annotate.copy-context"
+description = "Annotate: copy annotations as context"
+
+[[keys.command]]
+key = "prefix+ctrl+a"
+type = "plugin_action"
+command = "annotate.copy-archive"
+description = "Annotate: copy as context and archive"
+
+[[keys.command]]
+key = "prefix+ctrl+v"
+type = "plugin_action"
+command = "annotate.paste-archive"
+description = "Annotate: paste into the agent's prompt and archive"
+
+[[keys.command]]
+key = "prefix+ctrl+s"
+type = "plugin_action"
+command = "annotate.send-archive"
+description = "Annotate: send to the agent and archive"
+
+[[keys.command]]
+key = "prefix+m"
+type = "plugin_action"
+command = "annotate.manage"
+description = "Annotate: manage annotations"
+
+# ── projects (eliasstravik/herdr-projects) ────────────────────────────────
+# Its README suggests prefix+a (taken by herdr-plus). Not running the plugin's
+# `configure` action: it rewrites this file and adds agent hooks.
+[[keys.command]]
+key = "prefix+shift+p"
+type = "plugin_action"
+command = "herdr-projects.open-popup"
+description = "Projects popup"
+
+# ── sidebar (alexarthurs/herdr-sidebar) ───────────────────────────────────
+[[keys.command]]
+key = "prefix+s"
+type = "plugin_action"
+command = "herdr-sidebar.open-sidebar"
+description = "Sidebar: toggle"
+
+[[keys.command]]
+key = "prefix+shift+g"
+type = "plugin_action"
+command = "herdr-sidebar.show-git"
+description = "Sidebar: source control"
+
+[[keys.command]]
+key = "prefix+shift+f"
+type = "plugin_action"
+command = "herdr-sidebar.quick-open"
+description = "Sidebar: quick open"
