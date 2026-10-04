@@ -22,21 +22,22 @@
 3. CLI tools (`gh`, `git`, `docker`, `curl`, `npm`)
 4. Manual workarounds last
 
-**Concurrency:** prefer subagents (Agent tool / background tasks) over spawning new tmux panes/windows for parallel or long-running work. tmux only when the operator asks for an attachable interactive surface.
+**Concurrency:** prefer subagents (Agent tool / background tasks) over spawning new panes/windows for parallel or long-running work. Attachable interactive surfaces only when the operator asks.
+**Terminal multiplexer is herdr, NOT tmux** — no tmux server runs on this machine. Pane/tab/layout ops and the agent-session lifecycle go through the `herdr` CLI / socket API (`~/.config/herdr/herdr.sock`). Key: `herdr status`, `herdr session list`, `herdr pane list`, `herdr agent list` (JSON — parse it before assuming which sessions run), `herdr agent read <pane_id> --lines N` (recon before touching a pane), `herdr agent start <NAME> --kind <KIND> --pane <ID>` (boots an agent into a pane at its shell prompt — quit the existing session first), `herdr agent send-keys`/`herdr agent prompt` (drive input). Config: `~/.config/herdr/config.toml`. Agent model config lives outside herdr (omp=`~/.omp/agent/config.yml`; Claude=this file + `settings.json`) — restarting the session is how a config change takes effect for that pane. Full quickref in the Estate Brief "Terminal multiplexer — herdr" section (rendered from `agentic/packages/context/estate.md`).
 **Agent shape — single-agent default (2026-07-04):** multi-agent generation is a trap — spawned workers lose uncommitted work at turn end, re-spawns start cold, coordination overhead compounds. One long-running Fable/Opus agent (or the main session inline) carries the work end-to-end with commit-as-you-go. Subagent spawns are reserved for read-only recon and mechanical critic/validation gates ("builders fabricate, critics catch" still holds). Multi-agent orchestration only on explicit operator request.
 
 ## MCP servers
-Cloud (managed by claude.ai): Linear (tickets), GCal, Gmail, Vercel. Local (`~/.claude/mcp/`): Engram (memory), GDrive, Obsidian (vault at `~/vault`).
+Cloud (managed by claude.ai): Linear (tickets), GCal, Gmail, Vercel. Local (`~/.claude/mcp/`): Reverie (memory; MCP server `reverie`, tools `mcp__reverie__*`), GDrive, Obsidian (vault at `~/vault`).
 
 ## LLM gateway (cluster)
-Non-Claude model access goes through **`https://llm.unsigned.gg/v1`** — OpenAI-compatible LiteLLM gateway on the unsigned-paas cluster (NOT local ollama, NOT vendor APIs directly). Key: `op read "op://cloud/unsigned-llm/credential"` — resolve per-call, never echo. Models incl. `zai/GLM-5.2`, DeepSeek-V4-Pro, Qwen3-235B, Kimi-K2.6/2.7, gpt-5.5, gemini-3.5-flash, devstral (list via `GET /v1/models`). Quirk: transient 401 "cached plan must not change result type" = gateway DB hiccup — retry, don't rotate the key.
+Non-Claude model access goes through **`https://llm.unsigned.gg/v1`** — OpenAI-compatible LiteLLM gateway on the unsigned-paas cluster (NOT local ollama, NOT vendor APIs directly). Key: `op read "op://cloud/unsigned-llm/credential"` — resolve per-call, never echo. Models (verified 2026-08-24, list via `GET /v1/models`): `glm-5.2` (+`-fast`/`-flex`/`-short` combos), `kimi-k3`/`kimi-k2.6` (+`-fast`/`-flex`/`-priority`), `kimi-k2.7-code`, `qwen3.5-397b`, `qwen3.6-35b`, `openai/gpt-5.5`, `google/gemini-3.5-flash`, `minimax/minimax-m2.7`, `mistralai/devstral-2512`, morph fast-apply (`morph-glm52-744b`, `morph-v3-fast`), plus Claude passthrough. **DeepSeek is no longer exposed**; GLM is unprefixed (not `zai/GLM-5.2`). Quirk: transient 401 "cached plan must not change result type" = gateway DB hiccup — retry, don't rotate the key.
 
 ## Retired systems (do not use)
 Local-LLM offload (`anchor-offload`/`maybe-offload`) is retired — never offload. For shared-resource safety: check `git status`/`ps` directly, prefer worktrees for parallel edits, surface conflicts to the operator.
 
 ## Memory
-Engram (`reveried` at `~/.local/bin/engram`, DB at `~/.engram/engram.db`, port 7437). Reads: `mem raw "/search?q=..."`. Writes: `mem_save`/`mem_update` MCP. Protocol: `engram:memory` skill. Context: `/context/smart?project=X&limit=15`.
-Before claiming no prior context exists for a task, search engram and Obsidian vault first.
+Reverie (`reveried` daemon at `~/.local/bin/reveried`, port 7437; `~/.local/bin/engram` is a legacy-alias symlink, DB at `~/.engram/engram.db`). Reads: `mem raw "/search?q=..."`. Writes: `mem_save`/`mem_update` MCP. Protocol: the reverie MCP (`mcp__reverie__*`). Context: `/context/smart?project=X&limit=15`.
+Before claiming no prior context exists for a task, search reverie and Obsidian vault first.
 
 ## Ground Rules
 - State facts calibrated to evidence. Surface bad news at the same prominence as good. Harsh truth over comfortable fiction.
@@ -65,15 +66,32 @@ When asked to "connect to", "check", or "open" a service, default to **status/he
 - **Never echo/printf/printenv/`${VAR:-fallback}`-expand a secret-named env var** (`*KEY*`, `*TOKEN*`, `*SECRET*`, `*PASSWORD*`, `*CRED*`). `${VAR:-default}` returns the VALUE when set — use `[ -n "${VAR:-}" ] && echo set`. Enforced by `~/.claude/hooks/guard-dangerous-commands.sh`. Bypass: `# allow-secret-print`.
 - Never commit API keys, tokens, or secrets in plaintext. If accidentally exposed in a commit, flag it immediately for rotation — treat it as already compromised.
 
+## Secret Verification
+Full rule: `~/.claude/rules/secret-verification.md`. In short: **check the whole BODY, never presence alone** (a key can exist and be empty/truncated/stale — `jq keys`, 1P `[has value]`, and `SecretSynced` all prove nothing about content; verify by length, structural parse, `sha256sum` comparison, or a functional test); **print only REDACTED** (length/hash/parse-result — never the value, not even "to check it looks right"); **a negative needs a control** (not-found and not-permitted look identical — probe something known-good before reporting ABSENT). Corollary: OpenBao KV v2 `bao kv put` REPLACES the whole secret — use `bao kv patch` and read the full key set back.
+
+## Post-merge branch hygiene
+A merge is not finished until the local branch is gone and `main` is current. On merge: `git fetch` → prove the content landed, scoped to the branch's own files — `PATHS=$(git diff --name-only origin/main...<branch>); git diff <branch> origin/main -- $PATHS` must be empty (a BARE `git diff origin/main <branch>` lists everything merged since you branched and falsely reads as "did not land"; `gh` MERGED is not proof either, squash rewrites SHAs) → `git switch main && git pull --ff-only` → `git branch -D <branch>` (`-d` refuses after a squash — expected, not evidence of unmerged work) → remove the worktree + `git worktree prune`. Never clean up a branch/worktree another session owns. Full rule: `~/.agents/sops/post-merge-branch-hygiene.md`.
+
 ## Session Bootstrap
-The `session-bootstrap.sh` SessionStart hook handles engram context injection, service health, and the auto-memory check. Don't repeat those manually — only act on its warnings (e.g. create `memory/MEMORY.md` if it says one is missing).
+The `session-bootstrap.sh` SessionStart hook handles reverie context injection, service health, and the auto-memory check. Don't repeat those manually — only act on its warnings (e.g. create `memory/MEMORY.md` if it says one is missing).
 
 ## Capacity
-**CLAUDE.md files must stay under 200 lines.** Adherence drops past that threshold. Before adding content to any CLAUDE.md, check `wc -l` and move low-priority items to engram or rules/ if near capacity.
+**CLAUDE.md files must stay under 200 lines.** Adherence drops past that threshold. Before adding content to any CLAUDE.md, check `wc -l` and move low-priority items to reverie or rules/ if near capacity.
 
 ## Project Design Context
 Check `.impeccable.md` at project root before design/UX decisions. If missing and design work is requested, suggest `/impeccable:teach-impeccable`.
 Before any UI or content change, read the project's CLAUDE.md and design docs to catch documented anti-patterns (e.g., if accordions are forbidden, don't introduce them).
 
+## Estate Brief
+The estate brief (clusters, repos, SOP index, memory-of-record, intake protocol) is shared across harnesses and imported below. Source of truth: `agentic/packages/context/estate.md` — edit there, re-render; never edit the rendered copy.
+
 @RTK.md
 @rules/presentation-and-decisions.md
+@~/.agents/estate.md
+@~/.agents/sops/host-identity.md
+@~/.agents/sops/blast-radius-and-estate-ops.md
+@~/.agents/sops/post-merge-branch-hygiene.md
+@~/.agents/sops/user-change-confirmation.md
+@~/.agents/sops/revenant-bridge-authority.md
+@~/.agents/sops/hold-batch-ops-until-root-cause.md
+@~/.agents/sops/merge-style.md
