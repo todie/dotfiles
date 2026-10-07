@@ -9,3 +9,8 @@ export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 
 # Cargo — available in non-interactive shells (scp, systemd user units, etc.)
 [[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
+
+# sccache: 50 GiB disk cache for Rust/C++ compiler outputs (shared across workspaces and worktrees)
+export SCCACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sccache"
+export SCCACHE_CACHE_SIZE="50G"
+export SCCACHE_BASE_DIR="/home/ctodie/projects"
