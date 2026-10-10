@@ -99,6 +99,7 @@ The full SOP for each is in the lookup index at the end of this file. Read it be
 - First-party images are pinned by digest. Verify what runs, not the sync status.
 - A new system with nothing depending on it gets the additive unblocking fix. File the ideal fix as a tracked follow-up.
 - Roadmap work ships as one feature branch with one review, not a stream of small PRs.
+- A custody changeset is a whole-file blob, not a patch. Diff it against its own base, apply that hunk to current `main`, and never apply the blob wholesale: it silently reverts everything merged into those files since the blob's base.
 
 ## Session Bootstrap
 The `session-bootstrap.sh` SessionStart hook handles reverie context injection, service health, and the auto-memory check. Don't repeat those manually — only act on its warnings (e.g. create `memory/MEMORY.md` if it says one is missing).
