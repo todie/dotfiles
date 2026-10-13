@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# agy-gw — run agy (Antigravity CLI) through escapement-proxy (127.0.0.1:8085) -> llm.unsigned.gg
+# so every model call is paced, credential-isolated, and traced in Langfuse / Tempo OTLP.
+# Plain `agy` and the herdr estate panes keep the Google sign-in (Code Assist) path unless
+# modelProvider=gemini is set in ~/.gemini/antigravity-cli/settings.json.
+set -euo pipefail
+REAL=$(getent passwd "$(id -un)" | cut -d: -f6)
+G="$REAL/.agy-gateway-home"
+link_entries() {  # link_entries SRC DST SKIP... : symlink each entry of SRC into DST
+  local src=$1 dst=$2; shift 2
+  mkdir -p "$dst"
+  find "$dst" -maxdepth 1 -xtype l -delete          # drop links to removed entries
+  local e n
+  for e in "$src"/* "$src"/.[!.]* "$src"/..?*; do
+    [ -e "$e" ] || [ -L "$e" ] || continue
+    n=${e##*/}
+    case " $* " in *" $n "*) continue ;; esac
+    [ -e "$dst/$n" ] || [ -L "$dst/$n" ] || ln -s "$e" "$dst/$n"
+  done
+}
+link_entries "$REAL" "$G" .agy-gateway-home .gemini
+link_entries "$REAL/.gemini" "$G/.gemini" antigravity-cli
+link_entries "$REAL/.gemini/antigravity-cli" "$G/.gemini/antigravity-cli" settings.json
+python3 - "$REAL/.gemini/antigravity-cli/settings.json" "$G/.gemini/antigravity-cli/settings.json" <<'PY'
+import json, sys
+s = json.load(open(sys.argv[1]))
+s["modelProvider"] = "gemini"
+json.dump(s, open(sys.argv[2], "w"), indent=2)
+PY
+
+LANE_SECRET_FILE="$REAL/.config/escapement/lane.secret"
+BASE_URL="https://llm.unsigned.gg"
+KEY="${UNSIGNED_LLM_API_KEY:-${UNSIGNED_LLM_SHARED_KEY:-}}"
+
+if [ -s "$LANE_SECRET_FILE" ] && curl -fsS --max-time 1 http://127.0.0.1:8085/healthz 2>/dev/null | grep -q '"auth_configured":true'; then
+  BASE_URL="http://127.0.0.1:8085"
+  KEY="$(cat "$LANE_SECRET_FILE")"
+fi
+
+if [ -z "$KEY" ] && [ -s "$REAL/.config/opencode/secrets/unsigned-llm.key" ]; then
+  KEY="$(cat "$REAL/.config/opencode/secrets/unsigned-llm.key")"
+fi
+
+[ -n "$KEY" ] || { echo "agy-gw: no UNSIGNED_LLM_API_KEY or escapement lane.secret available" >&2; exit 1; }
+
+WS_NAME="${CEREBRAL_WORKSPACE:-$(basename "$PWD")}"
+PANE_ID="${HERDR_PANE_ID:-none}"
+LANE_ROLE="${CORTEX_ROLE:-local}"
+
+exec env \
+  HOME="$G" \
+  AGY_GW=1 \
+  GEMINI_API_KEY="$KEY" \
+  AGY_LLM_GATEWAY_API_KEY="$KEY" \
+  GOOGLE_GEMINI_BASE_URL="$BASE_URL" \
+  CEREBRAL_WORKSPACE="$WS_NAME" \
+  CEREBRAL_PANE="$PANE_ID" \
+  CEREBRAL_LANE="$LANE_ROLE" \
+  "$REAL/.local/bin/agy" "$@"
