@@ -73,17 +73,26 @@ unpack() {
 # key from secrets.env is restored. Most-specific prefix wins; the cerebral
 # catch-all must stay last.
 _unsigned_llm_ws_key() {
-  local key=""
+  local key="" ws="default"
   case $PWD in
-    $HOME/projects/unsigned/paas*)            key=$UNSIGNED_LLM_KEY_WS_PAAS ;;
-    $HOME/projects/mission-control*)          key=$UNSIGNED_LLM_KEY_WS_MISSION_CONTROL ;;
-    $HOME/projects/unsigned/gg*)              key=$UNSIGNED_LLM_KEY_WS_GG ;;
-    $HOME/projects/cerebral/reverie*)         key=$UNSIGNED_LLM_KEY_WS_REVERIE ;;
-    $HOME/projects/usewire*)                  key=$UNSIGNED_LLM_KEY_WS_USEWIRE ;;
-    $HOME/projects/cerebral/terrarium*)       key=$UNSIGNED_LLM_KEY_WS_TERRARIUM ;;
-    $HOME/projects/cerebral/cerebral-design*) key=$UNSIGNED_LLM_KEY_WS_CEREBRAL_DESIGN ;;
-    $HOME/projects/cerebral*)                 key=$UNSIGNED_LLM_KEY_WS_CEREBRAL_HQ ;;
+    $HOME/projects/unsigned/paas*|$HOME/projects/platform/infra/paas*)
+      key=$UNSIGNED_LLM_KEY_WS_PAAS; ws="paas" ;;
+    $HOME/projects/mission-control*)
+      key=$UNSIGNED_LLM_KEY_WS_MISSION_CONTROL; ws="mission-control" ;;
+    $HOME/projects/unsigned/gg*)
+      key=$UNSIGNED_LLM_KEY_WS_GG; ws="gg" ;;
+    $HOME/projects/cerebral/reverie*|$HOME/projects/memory/reverie*)
+      key=$UNSIGNED_LLM_KEY_WS_REVERIE; ws="reverie" ;;
+    $HOME/projects/usewire*)
+      key=$UNSIGNED_LLM_KEY_WS_USEWIRE; ws="usewire" ;;
+    $HOME/projects/cerebral/terrarium*)
+      key=$UNSIGNED_LLM_KEY_WS_TERRARIUM; ws="terrarium" ;;
+    $HOME/projects/cerebral/cerebral-design*)
+      key=$UNSIGNED_LLM_KEY_WS_CEREBRAL_DESIGN; ws="cerebral-design" ;;
+    $HOME/projects/cerebral*|$HOME/projects/platform/*|$HOME/projects/mesh/*|$HOME/projects/science/*)
+      key=$UNSIGNED_LLM_KEY_WS_CEREBRAL_HQ; ws="${PWD:t}" ;;
   esac
+  export CEREBRAL_WORKSPACE="$ws"
   if [[ -n $key ]]; then
     export UNSIGNED_LLM_API_KEY=$key
   elif [[ -n ${UNSIGNED_LLM_SHARED_KEY-} ]]; then
