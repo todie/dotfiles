@@ -264,13 +264,15 @@ fi
 # — so it also works as $EDITOR: `export EDITOR="zedw --wait"`. See `zedw` header.
 
 # ── quick config edits ──────────────────────────────────────────────────────
-alias zshrc='${EDITOR:-vim} ~/projects/dotfiles/zsh/.zshrc'
-alias tmuxrc='${EDITOR:-vim} ~/projects/dotfiles/tmux/.tmux.conf'
-alias starrc='${EDITOR:-vim} ~/projects/dotfiles/starship/base.toml'
+alias zshrc='${EDITOR:-vim} ~/projects/personal/dotfiles/dotfiles/home/dot_zshrc'
+alias tmuxrc='${EDITOR:-vim} ~/projects/personal/dotfiles/dotfiles/home/dot_tmux.conf'
+alias starrc='${EDITOR:-vim} ~/projects/personal/dotfiles/dotfiles/home/starship/base.toml'
 alias reload='exec zsh'
 
 # ── cd shortcuts to common projects (uses cdable_vars) ──────────────────────
-export dotfiles="${HOME}/projects/dotfiles"
-export pact="${HOME}/projects/pact"
-export reach="${HOME}/projects/reach"
-export reverie="${HOME}/projects/reverie"
+export dotfiles="${HOME}/projects/personal/dotfiles/dotfiles"
+export domain_dir="${HOME}/projects/domain"
+export reverie="${HOME}/projects/memory/reverie/reverie"
+export revenant="${HOME}/projects/platform/runtime/revenant"
+export cortex="${HOME}/projects/mesh/cortex/cortex"
+
