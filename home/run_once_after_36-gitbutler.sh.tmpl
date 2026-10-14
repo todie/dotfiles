@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# run_once_after_36-gitbutler.sh.tmpl
+#
+# GitButler (`but`) post-install configuration:
+#   1. Disables telemetry (`but config metrics disable`).
+#   2. Installs/updates the embedded GitButler AI skill across global agent
+#      skill directories (~/.agents, ~/.claude, ~/.codex, ~/.gemini, ~/.pi)
+#      so `but` never halts on skill version mismatch across harnesses.
+#   3. Seeds ~/.claude/mcp/gitbutler.json for `but mcp serve` if not present.
+#
+# Deliberately NOT `set -e` — non-fatal setup warnings must not abort chezmoi apply.
+
+set -uo pipefail
+
+BUT_BIN="${BUT_BIN:-$HOME/.local/bin/but}"
+if [[ ! -x "$BUT_BIN" ]]; then
+  if command -v but >/dev/null 2>&1; then
+    BUT_BIN="$(command -v but)"
+  else
+    echo "gitbutler: $BUT_BIN missing or not executable — skipping" >&2
+    exit 0
+  fi
+fi
+
+"$BUT_BIN" config metrics disable >/dev/null 2>&1 || true
+
+SKILL_DIRS=(
+  "$HOME/.agents/skills/gitbutler"
+  "$HOME/.claude/skills/gitbutler"
+  "$HOME/.codex/skills/gitbutler"
+  "$HOME/.gemini/skills/gitbutler"
+  "$HOME/.gemini/antigravity/skills/gitbutler"
+  "$HOME/.pi/agent/skills/gitbutler"
+)
+
+for dir in "${SKILL_DIRS[@]}"; do
+  "$BUT_BIN" skill install --global --path "$dir" >/dev/null 2>&1 || true
+done
+
+MCP_DIR="$HOME/.claude/mcp"
+MCP_FILE="$MCP_DIR/gitbutler.json"
+if [[ ! -f "$MCP_FILE" ]]; then
+  mkdir -p "$MCP_DIR"
+  cat > "$MCP_FILE" <<EOF
+{
+  "command": "$BUT_BIN",
+  "args": [
+    "mcp",
+    "serve"
+  ]
+}
+EOF
+fi

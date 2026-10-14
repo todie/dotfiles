@@ -1,0 +1,356 @@
+#!/usr/bin/env bash
+# topology-ctl — workspace topology controller for ~/projects and ~/projects/domain.
+#
+# Usage:
+#   topology-ctl status                         # summary of teams, repos, worktrees, holds
+#   topology-ctl validate [--strict]            # verify manifest and disk alignment
+#   topology-ctl audit                          # check for unmapped dirs, symlinks, broken worktrees
+#   topology-ctl migrate [--dry-run]            # relocate legacy <org>/<repo> checkouts to canonical paths
+#   topology-ctl sync                           # reconcile topology.yaml, TSV manifests, and docs
+#   topology-ctl repair-worktrees               # repair git worktree pointers across all repos
+#   topology-ctl gen-docs [--check]             # regenerate README.md and teams/*.md
+#   topology-ctl list [--all]                   # list canonical <team>/<category>/<repo> paths
+#   topology-ctl path <query>                   # resolve <repo> or <team>/<cat>/<repo> to abs path
+#   topology-ctl clone <repo>                   # clone cataloged repo into its canonical <team>/<cat>/<repo>
+#   topology-ctl worktree-path <repo> <branch>  # print canonical .worktrees/<repo>/<branch> path
+#   topology-ctl but <repo> [but-args...]       # run GitButler (`but -C <repo>`) against a cataloged repo
+#   topology-ctl bootstrap                      # seed ~/projects skeleton, ~/projects/domain, and migrate
+#
+# Layout contract:
+#   Repos:     ~/projects/<team>/<category>/<repo>
+#   Worktrees: ~/projects/<team>/<category>/.worktrees/<repo>/<branch>
+#   Control:   ~/projects/domain (cerebral-work/projects) + domain/{core,kernel,schedule,runtime}
+
+set -euo pipefail
+
+PROJECTS_ROOT="${PROJECTS_ROOT:-$HOME/projects}"
+PROJECTS_DOMAIN="${PROJECTS_DOMAIN:-$PROJECTS_ROOT/domain}"
+PROJECTS_DOMAIN_REPO="${PROJECTS_DOMAIN_REPO:-https://github.com/cerebral-work/projects.git}"
+CTL_PY="$PROJECTS_DOMAIN/tools/topology_ctl.py"
+
+CANONICAL_TEAMS=(
+  domain
+  platform
+  mesh
+  memory
+  agents
+  science
+  product
+  personal
+  sandbox
+  _archive
+)
+
+SKELETON_DIRS=(
+  "domain/core"
+  "domain/kernel"
+  "domain/schedule"
+  "domain/runtime"
+  "platform/infra"
+  "platform/runtime"
+  "platform/ui"
+  "platform/ops"
+  "mesh/cortex"
+  "mesh/voice"
+  "mesh/presence"
+  "mesh/clients"
+  "mesh/proto"
+  "mesh/research"
+  "memory/reverie"
+  "memory/xerj"
+  "memory/obsidian"
+  "memory/research"
+  "agents/claude"
+  "agents/skills"
+  "agents/harness"
+  "agents/docs"
+  "agents/research"
+  "science/engines"
+  "science/models"
+  "science/tools"
+  "science/datasets"
+  "science/papers"
+  "science/research"
+  "product/unsigned"
+  "product/cerebral"
+  "product/rina"
+  "product/brand"
+  "product/experiments"
+  "personal/dotfiles"
+  "personal/tools"
+  "personal/writing"
+  "sandbox/spikes"
+  "_archive/legacy"
+  "_archive/orphans"
+)
+
+usage() {
+  sed -n '2,20p' "$0" | sed 's/^# \?//'
+}
+
+ensure_ctl_py() {
+  if [[ ! -f "$CTL_PY" ]]; then
+    echo "topology-ctl: missing $CTL_PY (run 'topology-ctl bootstrap' first)" >&2
+    exit 1
+  fi
+}
+
+cmd_bootstrap() {
+  local d
+  for d in "${SKELETON_DIRS[@]}"; do
+    mkdir -p "$PROJECTS_ROOT/$d"
+  done
+
+  if [[ ! -d "$PROJECTS_DOMAIN/.git" ]]; then
+    if command -v git >/dev/null 2>&1; then
+      # Initialize ~/projects/domain in place so existing domain/{core,kernel,schedule,runtime}
+      # subdirectories are preserved without git clone refusing a non-empty target.
+      mkdir -p "$PROJECTS_DOMAIN"
+      git -C "$PROJECTS_DOMAIN" init -q -b main
+      if ! git -C "$PROJECTS_DOMAIN" remote get-url origin >/dev/null 2>&1; then
+        git -C "$PROJECTS_DOMAIN" remote add origin "$PROJECTS_DOMAIN_REPO"
+      fi
+      if git -C "$PROJECTS_DOMAIN" fetch -q --depth=1 origin main 2>/dev/null; then
+        git -C "$PROJECTS_DOMAIN" checkout -q -B main origin/main
+        git -C "$PROJECTS_DOMAIN" branch --set-upstream-to=origin/main main >/dev/null 2>&1 || true
+        echo "topology-ctl: seeded $PROJECTS_DOMAIN from $PROJECTS_DOMAIN_REPO"
+      else
+        rm -rf "$PROJECTS_DOMAIN/.git"
+        echo "topology-ctl: skeleton ready; skipped $PROJECTS_DOMAIN_REPO fetch (offline or unauthenticated)" >&2
+      fi
+    else
+      echo "topology-ctl: git not found — created directory skeleton only" >&2
+    fi
+  else
+    echo "topology-ctl: $PROJECTS_DOMAIN already initialized"
+  fi
+
+  if [[ -f "$CTL_PY" ]]; then
+    python3 -I "$CTL_PY" migrate
+  fi
+}
+
+cmd_list() {
+  local show_all=0
+  [[ "${1:-}" == "--all" || "${1:-}" == "-a" ]] && show_all=1
+
+  local man="$PROJECTS_DOMAIN/manifests/reorg-2026-10-13.tsv"
+  if [[ ! -f "$man" ]]; then
+    man="$PROJECTS_DOMAIN/manifests/reorg-2026-10-08.tsv"
+  fi
+
+  if (( show_all )) && [[ -f "$man" ]]; then
+    awk -F'\t' '
+      NR > 1 && $2 != "HOLD" && $2 !~ /^\(stay\)/ && $3 == "repo" {
+        print $2
+      }
+    ' "$man" | sort -u
+    return 0
+  fi
+
+  # Default: list locally present canonical 3-level <team>/<category>/<repo> directories
+  local team team_dir cat_dir cat_name repo_dir rel
+  for team in "${CANONICAL_TEAMS[@]}"; do
+    team_dir="$PROJECTS_ROOT/$team"
+    [[ -d "$team_dir" ]] || continue
+    for cat_dir in "$team_dir"/*; do
+      [[ -d "$cat_dir" ]] || continue
+      cat_name="${cat_dir##*/}"
+      [[ "$cat_name" == .* ]] && continue
+      if [[ "$team" == "domain" ]]; then
+        case "$cat_name" in
+          core|kernel|schedule|runtime) ;;
+          *) continue ;;
+        esac
+      fi
+      for repo_dir in "$cat_dir"/*; do
+        [[ -d "$repo_dir" ]] || continue
+        [[ "${repo_dir##*/}" == .* ]] && continue
+        rel="${repo_dir#"$PROJECTS_ROOT"/}"
+        printf '%s\n' "$rel"
+      done
+    done
+  done | sort -u
+}
+
+cmd_path() {
+  local query="${1:-}"
+  if [[ -z "$query" ]]; then
+    echo "usage: topology-ctl path <repo|category/repo|team/category/repo>" >&2
+    exit 1
+  fi
+
+  if [[ "$query" == "domain" ]]; then
+    printf '%s\n' "$PROJECTS_DOMAIN"
+    return 0
+  fi
+
+  # Direct relative path under PROJECTS_ROOT
+  if [[ -d "$PROJECTS_ROOT/$query" ]]; then
+    printf '%s\n' "$PROJECTS_ROOT/$query"
+    return 0
+  fi
+
+  local match
+  # 1. Exact repo basename match (<team>/<category>/<query>) among present repos, then catalog
+  for flag in "" "--all"; do
+    match=$(cmd_list ${flag:+"$flag"} | awk -F'/' -v q="$query" '$NF == q { print; exit }')
+    if [[ -n "$match" && -d "$PROJECTS_ROOT/$match" ]]; then
+      printf '%s\n' "$PROJECTS_ROOT/$match"
+      return 0
+    fi
+
+    # 2. Category/repo match (<category>/<repo>)
+    match=$(cmd_list ${flag:+"$flag"} | awk -F'/' -v q="$query" '($2 "/" $3) == q { print; exit }')
+    if [[ -n "$match" && -d "$PROJECTS_ROOT/$match" ]]; then
+      printf '%s\n' "$PROJECTS_ROOT/$match"
+      return 0
+    fi
+
+    # 3. Substring match on repo basename
+    match=$(cmd_list ${flag:+"$flag"} | awk -F'/' -v q="$query" 'index($NF, q) > 0 { print; exit }')
+    if [[ -n "$match" && -d "$PROJECTS_ROOT/$match" ]]; then
+      printf '%s\n' "$PROJECTS_ROOT/$match"
+      return 0
+    fi
+  done
+
+  echo "topology-ctl: repository not found on disk: $query" >&2
+  return 1
+}
+
+cmd_clone() {
+  local query="${1:-}"
+  if [[ -z "$query" ]]; then
+    echo "usage: topology-ctl clone <repo|team/category/repo>" >&2
+    exit 1
+  fi
+  local survey="$PROJECTS_DOMAIN/index/survey-2026-10-13.tsv"
+  if [[ ! -f "$survey" ]]; then
+    echo "topology-ctl: missing $survey (run 'topology-ctl bootstrap' first)" >&2
+    exit 1
+  fi
+  local line rel remote
+  line=$(awk -F'\t' -v q="$query" '
+    NR > 1 && $3 == "repo" && $2 != "" && $1 ~ /^[^/]+\/[^/]+\/[^/]+$/ {
+      n = split($1, parts, "/")
+      if ($1 == q || (parts[2] "/" parts[3]) == q || parts[3] == q) {
+        print $1 "\t" $2
+        exit
+      }
+    }
+  ' "$survey")
+  if [[ -z "$line" ]]; then
+    echo "topology-ctl: no cataloged remote found for '$query'" >&2
+    return 1
+  fi
+  rel="${line%%$'\t'*}"
+  remote="${line#*$'\t'}"
+  local dst="$PROJECTS_ROOT/$rel"
+  if [[ -d "$dst/.git" ]]; then
+    echo "topology-ctl: already cloned at $dst"
+    printf '%s\n' "$dst"
+    return 0
+  fi
+  mkdir -p "$(dirname "$dst")"
+  git clone "$remote" "$dst"
+  printf '%s\n' "$dst"
+}
+
+cmd_worktree_path() {
+  local repo="${1:-}" branch="${2:-}"
+  if [[ -z "$repo" || -z "$branch" ]]; then
+    echo "usage: topology-ctl worktree-path <repo> <branch>" >&2
+    exit 1
+  fi
+  local repo_path cat_dir repo_name safe_branch
+  repo_path=$(cmd_path "$repo") || exit 1
+  cat_dir=$(dirname "$repo_path")
+  repo_name=$(basename "$repo_path")
+  safe_branch="${branch//\//-}"
+  printf '%s/.worktrees/%s/%s\n' "$cat_dir" "$repo_name" "$safe_branch"
+}
+
+cmd_but() {
+  local repo="${1:-}"
+  if [[ -z "$repo" ]]; then
+    echo "usage: topology-ctl but <repo> [but-args...]" >&2
+    exit 1
+  fi
+  shift
+  if ! command -v but >/dev/null 2>&1; then
+    echo "topology-ctl: GitButler CLI ('but') is not installed on PATH" >&2
+    exit 1
+  fi
+  local repo_path
+  repo_path=$(cmd_path "$repo") || exit 1
+  if (( $# == 0 )); then
+    exec but -C "$repo_path" status
+  else
+    exec but -C "$repo_path" "$@"
+  fi
+}
+
+subcmd="${1:-status}"
+shift || true
+
+case "$subcmd" in
+  status)
+    if [[ -f "$CTL_PY" ]]; then
+      exec python3 -I "$CTL_PY" status "$@"
+    else
+      echo "=== $PROJECTS_ROOT (unindexed; run 'topology-ctl bootstrap') ==="
+      cmd_list | cut -d/ -f1 | sort | uniq -c
+    fi
+    ;;
+  validate|verify)
+    ensure_ctl_py
+    exec python3 -I "$CTL_PY" validate "$@"
+    ;;
+  audit)
+    ensure_ctl_py
+    exec python3 -I "$CTL_PY" audit "$@"
+    ;;
+  migrate)
+    ensure_ctl_py
+    exec python3 -I "$CTL_PY" migrate "$@"
+    ;;
+  sync)
+    ensure_ctl_py
+    exec python3 -I "$CTL_PY" sync "$@"
+    ;;
+  repair-worktrees)
+    ensure_ctl_py
+    exec python3 -I "$CTL_PY" repair-worktrees "$@"
+    ;;
+  gen-docs)
+    ensure_ctl_py
+    exec python3 -I "$CTL_PY" gen-docs "$@"
+    ;;
+  bootstrap|init)
+    cmd_bootstrap "$@"
+    ;;
+  list|ls)
+    cmd_list "$@"
+    ;;
+  path|which)
+    cmd_path "$@"
+    ;;
+  clone)
+    cmd_clone "$@"
+    ;;
+  worktree-path|wt-path)
+    cmd_worktree_path "$@"
+    ;;
+  but)
+    cmd_but "$@"
+    ;;
+  -h|--help|help)
+    usage
+    ;;
+  *)
+    echo "topology-ctl: unknown command '$subcmd'" >&2
+    usage >&2
+    exit 1
+    ;;
+esac

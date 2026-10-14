@@ -116,5 +116,6 @@ cc() {
 # Per-pane profile swap (agentic packages/claude-profiles): claude-swap records a
 # CLAUDE_CONFIG_DIR for a herdr pane; this wrapper applies it on the next `claude`.
 # Without the file (package not checked out) `claude` is the plain binary as before.
-[[ -r "$HOME/projects/unsigned/agentic/packages/claude-profiles/zsh/claude-profiles.zsh" ]] \
-  && source "$HOME/projects/unsigned/agentic/packages/claude-profiles/zsh/claude-profiles.zsh"
+[[ -r "$HOME/projects/agents/harness/agentic/packages/claude-profiles/zsh/claude-profiles.zsh" ]] \
+  && source "$HOME/projects/agents/harness/agentic/packages/claude-profiles/zsh/claude-profiles.zsh"
+

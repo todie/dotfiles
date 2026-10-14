@@ -27,3 +27,21 @@
     executable = true
     checksum.sha256 = "{{ $kubecolorSha }}"
     refreshPeriod = "0"
+
+{{ if eq .chezmoi.os "linux" -}}
+{{ $butRelease := "0.22.3-3234" -}}
+{{ $butArch := "x86_64" -}}
+{{ $butSha := "3f4f543a6ccd931ce6c86c484058dbe5e29439597d001f6a0a9c28d9e533ea18" -}}
+{{ if eq .chezmoi.arch "arm64" -}}
+{{ $butArch = "aarch64" -}}
+{{ $butSha = "315a0be79e21c66cd72785ee4775ead19daaa992a1b22c49022060fe89581eeb" -}}
+{{ end -}}
+
+[".local/bin/but"]
+    type = "file"
+    url = "https://releases.gitbutler.com/releases/release/{{ $butRelease }}/linux/{{ $butArch }}/but"
+    executable = true
+    checksum.sha256 = "{{ $butSha }}"
+    refreshPeriod = "0"
+{{ end -}}
+

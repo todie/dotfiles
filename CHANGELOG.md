@@ -14,6 +14,30 @@ carries no signal. Instead:
 
 ---
 
+## 2026-10-14 — Workspace topology (`~/projects/domain`) & GitButler (`but`) integration
+
+### Added
+- **Declarative workspace topology (`~/projects/<team>/<category>/<repo>`)**:
+  added `~/.local/bin/topology-ctl` (`status`, `validate`, `audit`, `migrate`,
+  `sync`, `repair-worktrees`, `gen-docs`, `list`, `path`, `clone`,
+  `worktree-path`, `but`, `bootstrap`), `~/.config/zsh/lib/org.zsh` (`proj`,
+  `pbut`, `pwt`, `domain`, `topology` + zsh completion), and
+  `run_once_after_35-projects-topology.sh.tmpl`.
+- **GitButler CLI (`but` v0.22.3) integration**: pinned `.local/bin/but`
+  (`0.22.3-3234`) with SHA-256 verification in `.chezmoiexternal.toml.tmpl`,
+  registered `_but` zsh completions, and added `run_once_after_36-gitbutler.sh.tmpl`
+  to disable telemetry, install global agent skills (`~/.agents`, `~/.claude`,
+  `~/.codex`, `~/.gemini`, `~/.gemini/antigravity`, `~/.pi/agent`), and seed
+  `~/.claude/mcp/gitbutler.json` (`but mcp serve`).
+
+### Changed
+- Updated `chezmoi.toml`, `dot_zshrc`, `aliases.zsh`, and `claude.zsh` paths from
+  legacy `<org>/<repo>` directories to the canonical `<team>/<category>/<repo>`
+  hierarchy (`~/projects/personal/dotfiles/dotfiles`, `~/projects/agents/harness/agentic`,
+  `~/projects/memory/reverie/reverie`, `~/projects/science/tools/biomni`).
+
+---
+
 ## 2026-06-01 — Kubernetes tooling, mise machine layer, recovery hardening
 
 ### Added

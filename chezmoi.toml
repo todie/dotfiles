@@ -7,20 +7,20 @@
 #
 # To activate (operator, manually — NOT done by the convert agents):
 #   mkdir -p ~/.config/chezmoi
-#   cp /home/ctodie/projects/todie/dotfiles/chezmoi.toml ~/.config/chezmoi/chezmoi.toml
+#   cp /home/ctodie/projects/personal/dotfiles/dotfiles/chezmoi.toml ~/.config/chezmoi/chezmoi.toml
 #
 # Verification (sandbox only) drives apply against /tmp without touching $HOME:
 #   OP_SERVICE_ACCOUNT_TOKEN=... \
-#     chezmoi apply --config /home/ctodie/projects/todie/dotfiles/chezmoi.toml \
-#       --source /home/ctodie/projects/todie/dotfiles \
+#     chezmoi apply --config /home/ctodie/projects/personal/dotfiles/dotfiles/chezmoi.toml \
+#       --source /home/ctodie/projects/personal/dotfiles/dotfiles \
 #       --destination /tmp/chezmoi-verify
 # (chezmoi appends 'home/' to sourceDir via .chezmoiroot, so the source tree is
-#  /home/ctodie/projects/todie/dotfiles/home and {{ .chezmoi.sourceDir }} resolves
+#  /home/ctodie/projects/personal/dotfiles/dotfiles/home and {{ .chezmoi.sourceDir }} resolves
 #  to that 'home' dir.)
 
 # Keep the repo as the chezmoi source. .chezmoiroot=home makes the effective
-# source tree /home/ctodie/projects/todie/dotfiles/home.
-sourceDir = "/home/ctodie/projects/todie/dotfiles"
+# source tree /home/ctodie/projects/personal/dotfiles/dotfiles/home.
+sourceDir = "/home/ctodie/projects/personal/dotfiles/dotfiles"
 
 # age fallback (2026-07-07): encrypted_ sources decrypt with the identity below.
 # Private key ~/.config/chezmoi/key.txt (0600, NOT in repo — back up to 1P).

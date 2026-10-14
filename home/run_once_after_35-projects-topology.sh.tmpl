@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# run_once_after_35-projects-topology.sh.tmpl
+#
+# Workspace topology bootstrap: materializes the canonical ~/projects
+# <team>/<category>/<repo> directory skeleton and seeds ~/projects/domain
+# (cerebral-work/projects) if not already initialized.
+#
+# _35 ordering: runs after _20 (mise), _25 (k8s-tools), and _30 (zsh-completions)
+# so ~/.local/bin/topology-ctl and git are in place.
+#
+# Deliberately NOT `set -e` — an unauthenticated or offline first apply must not
+# abort `chezmoi apply`. Re-run manually at any time via `topology-ctl bootstrap`.
+
+set -uo pipefail
+
+TOPOLOGY_CTL="${TOPOLOGY_CTL:-$HOME/.local/bin/topology-ctl}"
+
+if [[ ! -x "$TOPOLOGY_CTL" ]]; then
+  echo "projects-topology: $TOPOLOGY_CTL missing or not executable — skipping" >&2
+  exit 0
+fi
+
+"$TOPOLOGY_CTL" bootstrap || echo "projects-topology: non-fatal bootstrap warning (re-run: topology-ctl bootstrap)" >&2
