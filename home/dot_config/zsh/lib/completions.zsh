@@ -39,6 +39,7 @@ typeset -gA _COMPLETION_GEN=(
   _rustup             'rustup completions zsh'
   _cargo              'rustup completions zsh cargo'
   _but                'but completions zsh'
+  _herdr              'herdr completion zsh'
   # reverie CLIs — emit real #compdef scripts under their own names
   _reveried           'reveried completions zsh'
   _reverie-bench      'reverie-bench completions zsh'
