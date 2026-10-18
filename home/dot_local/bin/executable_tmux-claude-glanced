@@ -41,7 +41,7 @@ rescan_every=15   # force a full proc rescan every N ticks (safety net)
 # the instant the daemon exits, and `fuser` shows one clean holder. FLOCK_GLANCE
 # guards the re-exec from looping; if flock is absent, degrade to no lock.
 if [ -z "${FLOCK_GLANCE:-}" ] && command -v flock >/dev/null 2>&1; then
-  exec env FLOCK_GLANCE=1 flock -n --close "$lock" "$0" "$@"
+  exec env FLOCK_GLANCE=1 flock -n -E 0 --close "$lock" "$0" "$@"
 fi
 
 # ── palette + helpers (mirrors tmux-claude-state so glyphs match) ───────────
