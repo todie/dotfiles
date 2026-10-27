@@ -67,3 +67,8 @@ jobs:
       # is intentionally excluded from CI.
       - name: k8s-tools regression
         run: bash test/k8s-tools-test.sh
+
+      # `op signin` wrapper: a personal sign-in must work while the ambient
+      # service-account token is set. Stub `op`, no network.
+      - name: op signin wrapper
+        run: bash test/op-signin-test.sh
