@@ -26,6 +26,14 @@ carries no signal. Instead:
   - Every other subcommand passes straight through.
   - `exec zsh` restores the service account.
   - Regression test: `test/op-signin-test.sh` (stub `op`, run in CI).
+- **Follow-up, same day: the first wrapper failed in real use.** Run against the
+  real CLI after `exec zsh`, it prompted for the password and still reported
+  "not currently signed in". The manual sequence (unset the token in the shell,
+  then `eval "$(op signin --account my.1password.com)"`) worked.
+  - The wrapper now runs exactly that sequence, and first clears any
+    `OP_SESSION_*` left over from an earlier sign-in.
+  - Suspected cause, not reproduced against the real CLI: an expired session
+    variable inherited through `exec zsh`. The test models it.
 
 ---
 
