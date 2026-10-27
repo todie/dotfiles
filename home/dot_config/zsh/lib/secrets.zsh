@@ -44,6 +44,26 @@ op-rw() {
   OP_SERVICE_ACCOUNT_TOKEN="$OP_SA_RW_TOKEN" command op "$@"
 }
 
+## op signin — sign in to your personal account despite the ambient token.
+##
+## While OP_SERVICE_ACCOUNT_TOKEN is set, `op` uses the service account and
+## ignores personal sessions, so a plain `op signin` ends in "You are not
+## currently signed in". This signs in with the token removed, then drops the
+## token from THIS shell so later `op` calls use your session; `exec zsh`
+## brings the service account back. Every other subcommand passes through.
+##
+##   op signin              # this shell is now on your personal account
+##   eval "$(op signin)"    # same; the lines are also handed to the eval
+op() {
+  [[ $1 == signin ]] || { command op "$@"; return; }
+  shift
+  local out
+  out=$(env -u OP_SERVICE_ACCOUNT_TOKEN op signin --account "${OP_PERSONAL_ACCOUNT:-my.1password.com}" "$@") || return
+  unset OP_SERVICE_ACCOUNT_TOKEN
+  eval "$out"
+  if [[ -t 1 ]]; then command op whoami; else print -r -- "unset OP_SERVICE_ACCOUNT_TOKEN; $out"; fi
+}
+
 ## Back-compat shims for the old runtime interface. Secrets are now resolved at
 ## apply time and sourced above on every shell, so loading is eager and these
 ## are effectively no-ops. Kept so existing muscle memory / scripts / the

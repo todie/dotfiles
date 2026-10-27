@@ -14,6 +14,21 @@ carries no signal. Instead:
 
 ---
 
+## 2026-10-27 — `op signin` works alongside the ambient service-account token
+
+### Fixed
+- **Personal `op signin` no longer fails with "You are not currently signed in"**:
+  `~/.config/zsh/lib/secrets.zsh` gains an `op` wrapper. While
+  `OP_SERVICE_ACCOUNT_TOKEN` (from `~/.secrets`) is set, `op` ignores personal
+  sessions, so the wrapper signs in with the token removed, then drops the token
+  from that shell only.
+  - Both `op signin` and `eval "$(op signin)"` work.
+  - Every other subcommand passes straight through.
+  - `exec zsh` restores the service account.
+  - Regression test: `test/op-signin-test.sh` (stub `op`, run in CI).
+
+---
+
 ## 2026-10-14 — Workspace topology (`~/projects/domain`) & GitButler (`but`) integration
 
 ### Added
