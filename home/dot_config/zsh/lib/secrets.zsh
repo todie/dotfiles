@@ -48,18 +48,20 @@ op-rw() {
 ##
 ## While OP_SERVICE_ACCOUNT_TOKEN is set, `op` uses the service account and
 ## ignores personal sessions, so a plain `op signin` ends in "You are not
-## currently signed in". This signs in with the token removed, then drops the
-## token from THIS shell so later `op` calls use your session; `exec zsh`
-## brings the service account back. Every other subcommand passes through.
+## currently signed in". This drops the token, and any stale OP_SESSION_* left
+## by an earlier sign-in, from THIS shell and then signs in, so later `op` calls
+## use your session; `exec zsh` brings the service account back. Every other
+## subcommand passes through.
 ##
 ##   op signin              # this shell is now on your personal account
 ##   eval "$(op signin)"    # same; the lines are also handed to the eval
 op() {
   [[ $1 == signin ]] || { command op "$@"; return; }
   shift
-  local out
-  out=$(env -u OP_SERVICE_ACCOUNT_TOKEN op signin --account "${OP_PERSONAL_ACCOUNT:-my.1password.com}" "$@") || return
   unset OP_SERVICE_ACCOUNT_TOKEN
+  unset -m 'OP_SESSION_*'
+  local out
+  out=$(command op signin --account "${OP_PERSONAL_ACCOUNT:-my.1password.com}" "$@") || return
   eval "$out"
   if [[ -t 1 ]]; then command op whoami; else print -r -- "unset OP_SERVICE_ACCOUNT_TOKEN; $out"; fi
 }
