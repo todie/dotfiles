@@ -6,9 +6,6 @@
     "GH_FORCE_TTY": "0",
     "DISABLE_AUTO_COMPACT": "1",
     "REVERIE_SKIP_CI_GATE": "1",
-    "RUSTC_WRAPPER": "sccache",
-    "SCCACHE_DIR": "/home/ctodie/.cache/sccache",
-    "SCCACHE_CACHE_SIZE": "20G",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
   },
   "permissions": {
