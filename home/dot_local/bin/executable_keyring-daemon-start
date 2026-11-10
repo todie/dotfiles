@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# keyring-daemon-start: ExecStart of gnome-keyring-daemon.service (drop-in
+# unlock.conf). Starts the one keyring daemon, unlocked at boot with the login
+# keyring password from 1Password, read by the ~/.secrets service account:
+#   op://cloud/ceres-gnome-login-keyring/password
+# (a copy of op://workstation-keys/GNOME login keyring - ceres WSL Ubuntu/password).
+#
+# A LOCKED KEYRING IS NOT A LOST PASSWORD. If the read fails, the daemon starts
+# locked; run `keyring-unlock` later. Never move, delete or recreate
+# ~/.local/share/keyrings/login.keyring: three resets (10-02, 10-17, 11-10)
+# each lost every secret stored in it.
+set -uo pipefail
+
+REF='op://cloud/ceres-gnome-login-keyring/password'
+OP="${KEYRING_OP:-$HOME/.local/bin/op}"   # KEYRING_OP: test hook for the locked path
+KR="$HOME/.local/share/keyrings/login.keyring"
+# shellcheck disable=SC2054  # the comma is part of the --components value
+ARGS=(--foreground --components=pkcs11,secrets
+      "--control-directory=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring")
+
+# The unit has no login shell, so load the service-account token here.
+if [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && [ -r "$HOME/.secrets" ]; then
+  # shellcheck disable=SC1091
+  source "$HOME/.secrets" >/dev/null 2>&1 || true
+fi
+
+pw=""
+# `keyring-unlock --windows` hands the password over in a 0600 tmpfs file,
+# read once and deleted, so the systemd unit stays the only daemon.
+HANDOFF="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring-unlock.pw"
+if [ -s "$HANDOFF" ] && [ "$(stat -c '%a %u' "$HANDOFF")" = "600 $(id -u)" ]; then
+  pw=$(<"$HANDOFF")
+  echo "keyring-daemon-start: using the keyring-unlock --windows handoff" >&2
+fi
+rm -f "$HANDOFF"
+
+# At boot the network may not be up yet: retry for about a minute.
+for delay in 0 2 4 8 15 30; do
+  [ -n "$pw" ] && break
+  sleep "$delay"
+  if pw=$("$OP" read -n "$REF" 2>/dev/null) && [ -n "$pw" ]; then
+    break
+  fi
+  pw=""
+  echo "keyring-daemon-start: 1Password read failed, retrying" >&2
+done
+unset OP_SERVICE_ACCOUNT_TOKEN OP_SA_RW_TOKEN
+
+if [ -z "$pw" ]; then
+  echo "keyring-daemon-start: no password from 1Password; starting LOCKED." \
+       "Run keyring-unlock once 1Password is reachable. Do NOT reset the keyring." >&2
+  exec /usr/bin/gnome-keyring-daemon "${ARGS[@]}"
+fi
+
+if [ ! -e "$KR" ]; then
+  echo "keyring-daemon-start: $KR is missing; it will be created with the 1Password password" >&2
+fi
+echo "keyring-daemon-start: starting with --unlock (password from $REF)" >&2
+# Process substitution: a pipe, no temp file, no trailing newline.
+exec /usr/bin/gnome-keyring-daemon "${ARGS[@]}" --unlock < <(printf '%s' "$pw")

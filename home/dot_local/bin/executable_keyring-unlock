@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# keyring-unlock: unlock the GNOME login keyring on ceres (WSL Ubuntu).
+#
+#   keyring-unlock            restart gnome-keyring-daemon.service; its ExecStart
+#                             (keyring-daemon-start) reads the password from
+#                             op://cloud/ceres-gnome-login-keyring with the
+#                             ~/.secrets service account. No Windows approval.
+#   keyring-unlock --windows  fallback when that account can't reach 1Password:
+#                             reads op://workstation-keys/... through the Windows
+#                             op.exe (approve in the 1Password app) and hands it
+#                             to the unit through a 0600 tmpfs file.
+#   keyring-unlock --check    print the lock state; exit 0 only when unlocked.
+#
+# A LOCKED KEYRING IS NOT A LOST PASSWORD. Never move, delete or recreate
+# ~/.local/share/keyrings/login.keyring: each reset (10-02, 10-17, 11-10) lost
+# every secret stored in it. Older keyrings and their passwords:
+#   login.keyring.lost-password-20261002  op://cloud/wsl-gnome-keyring-login
+set -euo pipefail
+
+UNIT=gnome-keyring-daemon.service
+WIN_REF='op://workstation-keys/GNOME login keyring - ceres WSL Ubuntu/password'
+OP_EXE=${OP_EXE:-/mnt/c/Users/chris/AppData/Local/Microsoft/WinGet/Links/op.exe}
+HANDOFF="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/keyring-unlock.pw"
+
+state() {
+  busctl --user get-property org.freedesktop.secrets \
+    /org/freedesktop/secrets/collection/login org.freedesktop.Secret.Collection Locked \
+    2>/dev/null | awk '{print $2}'
+}
+
+restart_and_wait() {
+  systemctl --user restart "$UNIT"
+  for _ in $(seq 1 90); do
+    if [ "$(state)" = false ]; then
+      echo "login keyring unlocked"
+      return 0
+    fi
+    sleep 1
+  done
+  echo "keyring-unlock: still locked. See: journalctl --user -u $UNIT -n 20." \
+       "Do NOT reset the keyring; the password is in 1Password." >&2
+  return 1
+}
+
+case "${1:-}" in
+  --check)
+    s=$(state)
+    case "$s" in
+      false) echo "login keyring: unlocked" ;;
+      true)  echo "login keyring: locked" ;;
+      *)     echo "login keyring: absent (no daemon, or no login collection)" ;;
+    esac
+    [ "$s" = false ]
+    ;;
+  --windows)
+    rm -f "$HANDOFF"
+    ( umask 077
+      "$OP_EXE" read -n "$WIN_REF" | tr -d '\r' > "$HANDOFF" ) || {
+      rm -f "$HANDOFF"
+      echo "keyring-unlock: could not read the password through op.exe (approve in the 1Password app)" >&2
+      exit 1
+    }
+    [ -s "$HANDOFF" ] || { rm -f "$HANDOFF"; echo "keyring-unlock: op.exe returned nothing" >&2; exit 1; }
+    restart_and_wait
+    ;;
+  "")
+    restart_and_wait
+    ;;
+  *)
+    sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'
+    exit 2
+    ;;
+esac

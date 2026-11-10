@@ -1,0 +1,7 @@
+# ceres: route D-Bus activation to the systemd unit, so a client never starts a
+# second, locked gnome-keyring-daemon (seen 2026-11-10). Overrides the file of
+# the same name in /usr/share/dbus-1/services.
+[D-BUS Service]
+Name=org.gnome.keyring
+Exec=/bin/false
+SystemdService=gnome-keyring-daemon.service
