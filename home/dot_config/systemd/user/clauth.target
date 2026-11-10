@@ -1,0 +1,8 @@
+[Unit]
+Description=clauth (account scheduler and its helpers)
+Documentation=https://crates.io/crates/clauth
+Wants=clauth-daemon.service
+After=default.target
+
+[Install]
+WantedBy=default.target
