@@ -205,5 +205,12 @@ fi
 # bun — completions (binary on PATH via brew)
 [[ -s "$HOME/.bun/_bun" ]] && source "$HOME/.bun/_bun"
 
+# 1Password SSH agent — on ceres (WSL2) the Windows 1Password agent pipe is bridged to
+# ~/.1password/agent.sock by the user unit 1password-ssh-agent-bridge.service (socat +
+# npiperelay). Prefer it when the socket exists; otherwise leave SSH_AUTH_SOCK alone.
+if [[ -S "$HOME/.1password/agent.sock" ]]; then
+  export SSH_AUTH_SOCK="$HOME/.1password/agent.sock"
+fi
+
 # starship prompt — keep near end of env setup so it's the final PROMPT owner
 has starship && eval "$(starship init zsh)"
