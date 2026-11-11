@@ -20,7 +20,9 @@ file and open it in `$EDITOR`** rather than dumping it into the terminal.
 handbook `sops/operator-requests-via-comms.md`). A lane sends each open decision,
 gated approval or hand action to comms as a request. Comms files it in the task
 list that reverie holds (`optask`) and asks him. The rules below bind comms. For
-any other lane, "pose it via `AskUserQuestion`" means "send it to comms".
+any other lane, "pose it via `AskUserQuestion`" means "send it to comms". Exception
+(TASK-0003): if he is talking to you in your own pane, ask him there, then send his
+answer to comms.
 
 For **open decisions** — any fork where the operator's choice changes what you do
 next — **use the `AskUserQuestion` tool (interview mode).** Do NOT enumerate the
