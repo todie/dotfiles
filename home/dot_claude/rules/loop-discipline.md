@@ -31,7 +31,8 @@ operate within it, don't reinvent it. Full compact: engram `operating/trust-enfo
 
 ## Operator in the loop, on demand (SOP, 2026-07-27)
 The operator is **available and wants to be asked.** Asking is cheap; guessing on
-a load-bearing fork is expensive. Use `AskUserQuestion` when: the answer changes
+a load-bearing fork is expensive. Send a request to comms (handbook
+`sops/operator-requests-via-comms.md`, ruling 2026-11-11) when: the answer changes
 what happens next; the action is irreversible/outward-facing; a terse directive
 (`do it`, `fix it`, `merge on approval`) is being stretched past what was in view
 when it was given; or **new evidence invalidates an earlier answer** — an approval

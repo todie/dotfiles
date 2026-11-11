@@ -16,6 +16,12 @@ file and open it in `$EDITOR`** rather than dumping it into the terminal.
   long form is for the editor where it can actually be read and annotated.
 
 ## Open decisions = interview mode (forced)
+**Since 2026-11-11 only comms asks the operator** (ruling in the vilicus pane;
+handbook `sops/operator-requests-via-comms.md`). A lane sends each open decision,
+gated approval or hand action to comms as a request. Comms files it in the task
+list that reverie holds (`optask`) and asks him. The rules below bind comms. For
+any other lane, "pose it via `AskUserQuestion`" means "send it to comms".
+
 For **open decisions** — any fork where the operator's choice changes what you do
 next — **use the `AskUserQuestion` tool (interview mode).** Do NOT enumerate the
 decisions as prose bullets and ask for a free-form reply.
