@@ -14,3 +14,6 @@ export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
 export SCCACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/sccache"
 export SCCACHE_CACHE_SIZE="50G"
 export SCCACHE_BASE_DIR="/home/ctodie/projects"
+
+# cortex: owner:<name> send targets resolve through the vilicus topology manifest (SPEC-0040, 2026-11-14)
+[[ -f "$HOME/.config/cortex/topology-manifest.json" ]] && export CORTEX_TOPOLOGY_MANIFEST_PATH="$HOME/.config/cortex/topology-manifest.json"
