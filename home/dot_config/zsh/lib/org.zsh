@@ -6,6 +6,50 @@
 # doesn't resolve, you're not on the tailnet.
 export BAO_ADDR=http://bao.tail769bd2.ts.net
 
+# bao gets its token from ~/.bao's token_helper (~/.local/bin/bao-token-helper):
+# the scoped kv-operator token, read from 1Password per call and never stored
+# (OPS-1694: a stored token is ambient to every process running as this user).
+# These helpers keep it that way: no token is exported into this shell.
+command -v bao >/dev/null 2>&1 && (( $+functions[complete] )) \
+  && complete -o nospace -C "$(command -v bao)" bao
+
+# bao-whoami — identity, policies and expiry of the token bao would use now.
+# Prints selected fields only, never the token id.
+bao-whoami() {
+  command bao token lookup -format=json | jq -c '.data | {display_name, policies, expire_time, ttl}'
+}
+
+# with-bao <cmd> [args...] — run ONE command with the scoped token in its
+# environment, for tools that read BAO_TOKEN and ignore the token helper
+# (e.g. `with-bao cortex join mint ... --wrap`). The caller's shell stays clean.
+with-bao() {
+  if (( $# == 0 )); then
+    print -u2 "usage: with-bao <command> [args...]"
+    return 2
+  fi
+  local tok
+  tok=$("$HOME/.local/bin/bao-token-helper" get) || return
+  [[ -n $tok ]] || { print -u2 "with-bao: token helper returned nothing (is op signed in?)"; return 1; }
+  BAO_TOKEN=$tok "$@"
+}
+
+# bao-admin — admin work (policies, auth, mounts, revocations). OIDC login
+# (Keycloak realm unsigned-paas, role admin -> platform-admin, 8 h) into a
+# child shell; the token lives only in that shell and is revoked when it exits.
+bao-admin() {
+  local tok
+  tok=$(command bao login -method=oidc -no-store -token-only role=admin) || return 1
+  [[ -n $tok ]] || { print -u2 "bao-admin: login returned no token"; return 1; }
+  print -u2 "bao-admin: admin shell (platform-admin). Type 'exit' to revoke the token."
+  BAO_TOKEN=$tok BAO_ADMIN_SHELL=1 "${SHELL:-zsh}" -i
+  if BAO_TOKEN=$tok command bao token revoke -self >/dev/null 2>&1; then
+    print -u2 "bao-admin: token revoked"
+  else
+    print -u2 "bao-admin: revoke failed; the token expires on its own within 8 h"
+  fi
+  return 0
+}
+
 # Cygnus kubeconfig convention: single-context file at ~/.kube/cygnus pointing
 # directly at the API VIP (via the tailnet subnet route). Minted during
 # onboarding; wired up only if present, never overriding an explicit setting.

@@ -1,0 +1,7 @@
+[Unit]
+Description=Renew the workstation OpenBao scoped tokens (bao-r2 + bao-token-helper)
+Documentation=file:%h/.local/bin/bao-token-renew
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/bao-token-renew

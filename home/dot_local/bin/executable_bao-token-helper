@@ -1,0 +1,26 @@
+#!/bin/sh
+# OpenBao token helper — resolves the token from 1Password per call.
+# Protocol: called by bao CLI with get|store|erase; token on stdout for get.
+# It never stores login tokens (OPS-1694, 2026-10-18): a stored token was
+# served to every process running as this user, so an OIDC platform-admin
+# login became ambient for every agent seat. `get` serves only the scoped
+# token below; `store` refuses; `erase` removes a file an older helper wrote.
+#
+# The SCOPED workstation token (policy kv-operator: KV
+# read/list/create/update/patch on secret/, claude/, gami/; no delete), a 768h
+# periodic orphan renewed weekly by bao-token-renew.timer.
+#   - admin work (policies, auth, mounts, revocations): in ONE shell,
+#     export BAO_TOKEN=$(bao login -method=oidc -no-store -token-only role=admin)
+#     (Keycloak realm unsigned-paas, role admin -> policy platform-admin, 8h
+#     token); unset BAO_TOKEN when done.
+#   - break-glass root: op://cloud/openbao-cygnus-recovery-2026-07-29/root-token,
+#     used only as BAO_TOKEN=... on a single command, never wired in here again.
+case "$1" in
+  get)   op item get openbao-workstation-kv-operator-token --vault cloud --fields label=credential --reveal | tr -d '[:space:]' ;;
+  store) cat > /dev/null
+         echo "bao-token-helper: login tokens are not stored (every process running as $(id -un) would use them)." >&2
+         echo "  For admin work, in one shell: export BAO_TOKEN=\$(bao login -method=oidc -no-store -token-only role=admin); unset BAO_TOKEN when done." >&2
+         exit 1 ;;
+  erase) rm -f "$HOME/.bao-session-token" ;;
+  *)     echo "usage: $0 get|store|erase" >&2; exit 1 ;;
+esac

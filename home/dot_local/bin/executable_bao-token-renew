@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# bao-token-renew — keep the workstation's scoped periodic OpenBao tokens alive.
+# Renews each 768h periodic token listed in REFS so nothing lapses silently.
+# Headless-safe: sources the op service-account creds from ~/.secrets when not
+# already present in the environment (systemd --user context has no shell rc).
+set -uo pipefail
+
+export PATH="$HOME/.local/bin:$PATH"   # systemd --user has a minimal PATH
+export BAO_ADDR="${BAO_ADDR:-http://bao.tail769bd2.ts.net}"
+if [ -z "${OP_SERVICE_ACCOUNT_TOKEN:-}" ] && [ -f "$HOME/.secrets" ]; then
+  # shellcheck disable=SC1091
+  source "$HOME/.secrets"
+fi
+
+REFS=(
+  "op://cloud/marc-nas-workspace-bao-token/credential"            # bao-r2 (transit)
+  "op://cloud/openbao-workstation-kv-operator-token/credential"   # bao-token-helper (kv-operator, since 2026-09-17)
+)
+
+rc=0
+for REF in "${REFS[@]}"; do
+  name="${REF#op://cloud/}"; name="${name%/credential}"
+  if ! TOKEN="$(op read "$REF")"; then
+    echo "$(date -Is) FAILED op read for $name" >&2; rc=1; continue
+  fi
+  if BAO_TOKEN="$TOKEN" bao token renew >/dev/null 2>&1; then
+    ttl="$(BAO_TOKEN="$TOKEN" bao token lookup 2>/dev/null | awk '/^ttl/{print $2}')"
+    echo "$(date -Is) renewed $name (ttl=$ttl)"
+  else
+    echo "$(date -Is) FAILED to renew $name" >&2; rc=1
+  fi
+done
+exit $rc

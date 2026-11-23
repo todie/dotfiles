@@ -89,9 +89,6 @@ command -v terraform >/dev/null 2>&1 && complete -o nospace -C "$(command -v ter
 # opencode
 export PATH=$HOME/.opencode/bin:$PATH
 
-# OpenBao (unsigned-paas-dev, via tailnet LB — bao.dev.unsigned.gg ingress is dead)
-export BAO_ADDR=http://bao.tail769bd2.ts.net
-
 # Installer-appended blocks below. These landed via installers run on ceres
 # (Linux); the paths do not exist on macOS hosts, and an unguarded `source` of
 # a missing file errors on every shell start. Guard each — a no-op where the
