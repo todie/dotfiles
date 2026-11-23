@@ -1,0 +1,16 @@
+[Unit]
+Description=clauth headless scheduler (usage refresh, auto-switch, rolling tokens)
+Documentation=https://crates.io/crates/clauth
+After=default.target
+PartOf=clauth.target
+
+[Service]
+Type=simple
+ExecStart=%h/.cargo/bin/clauth daemon --standby
+Restart=on-failure
+RestartSec=10
+Environment=PATH=%h/.cargo/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+NoNewPrivileges=true
+
+[Install]
+WantedBy=clauth.target

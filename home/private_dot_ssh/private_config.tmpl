@@ -29,8 +29,13 @@ Host 45.76.5.89 100.65.9.122 100.99.117.77
 	IdentityAgent "~/Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"
 	IdentitiesOnly no
 {{- else }}
-# (1Password agent routing is darwin-only; add a Linux agent socket block here
-# if/when ceres runs a 1Password SSH agent.)
+# ceres (WSL2): the Windows 1Password agent pipe is bridged to ~/.1password/agent.sock
+# by the user unit 1password-ssh-agent-bridge.service (socat + npiperelay), since
+# 2026-11-10. Same per-host routing as darwin; the socket is absent on any other
+# Linux host, where these blocks then fall through to the on-disk key.
+Host 45.76.5.89 100.65.9.122 100.99.117.77
+	IdentityAgent ~/.1password/agent.sock
+	IdentitiesOnly no
 {{- end }}
 
 # --- estate hosts (local agent, pinned) --------------------------------------
@@ -46,6 +51,16 @@ Host github.com
 	User git
 	IdentityFile ~/.ssh/id_ed25519
 	IdentitiesOnly yes
+{{- if ne .chezmoi.os "darwin" }}
+
+# europa (Chris's MacBook) over Tailscale, from ceres. Added to the live file
+# 2026-07-21 and carried into the source 2026-11-10 so an apply keeps it.
+Host europa
+	HostName europa
+	User ctodie
+	IdentitiesOnly yes
+	IdentityFile ~/.ssh/id_ed25519
+{{- end }}
 
 # --- default -----------------------------------------------------------------
 Host *
