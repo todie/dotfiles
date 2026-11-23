@@ -72,3 +72,8 @@ jobs:
       # service-account token is set. Stub `op`, no network.
       - name: op signin wrapper
         run: bash test/op-signin-test.sh
+
+      # OpenBao helpers (with-bao, bao-whoami, bao-admin): no token reaches the
+      # caller's env or stdout; the bao-admin token is revoked on exit. Stubbed, offline.
+      - name: bao helpers
+        run: bash test/bao-helpers-test.sh
